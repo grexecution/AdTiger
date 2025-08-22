@@ -643,16 +643,18 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
         </div>
         <div className="flex items-center space-x-2">
           {/* Tab switcher */}
-          <TabsList>
-            <TabsTrigger value="campaigns" onClick={() => setActiveTab?.("campaigns")} className="flex items-center gap-2">
-              <LayoutGrid className="h-4 w-4" />
-              Campaigns
-            </TabsTrigger>
-            <TabsTrigger value="changes" onClick={() => setActiveTab?.("changes")} className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              Change History
-            </TabsTrigger>
-          </TabsList>
+          <Tabs defaultValue="campaigns">
+            <TabsList>
+              <TabsTrigger value="campaigns" onClick={() => setActiveTab?.("campaigns")} className="flex items-center gap-2">
+                <LayoutGrid className="h-4 w-4" />
+                Campaigns
+              </TabsTrigger>
+              <TabsTrigger value="changes" onClick={() => setActiveTab?.("changes")} className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Change History
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           
           {/* Sync panel */}
           <div className="flex items-center gap-2">

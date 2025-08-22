@@ -80,16 +80,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify provider connection exists and is active
-    const connection = await prisma.providerConnection.findFirst({
+    // First check the Connection table (for manual connections)
+    let connectionId = null
+    const manualConnection = await prisma.connection.findFirst({
       where: {
         accountId: user.accountId,
-        provider: provider.toUpperCase(),
-        status: 'CONNECTED',
-        isActive: true,
+        provider: provider.toLowerCase(),
+        status: 'active',
       },
     })
 
-    if (!connection) {
+    if (manualConnection) {
+      connectionId = manualConnection.id
+    } else {
+      // Fallback to ProviderConnection table
+      const providerConnection = await prisma.providerConnection.findFirst({
+        where: {
+          accountId: user.accountId,
+          provider: provider.toUpperCase(),
+          status: 'CONNECTED',
+          isActive: true,
+        },
+      })
+      
+      if (providerConnection) {
+        connectionId = providerConnection.id
+      }
+    }
+
+    if (!connectionId) {
       return NextResponse.json(
         { 
           error: 'Provider not connected',
@@ -99,10 +118,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if connection token is expired
-    if (connection.expiresAt && connection.expiresAt < new Date()) {
+    // For provider connections, check if token is expired
+    if (providerConnection && providerConnection.expiresAt && providerConnection.expiresAt < new Date()) {
       await prisma.providerConnection.update({
-        where: { id: connection.id },
+        where: { id: providerConnection.id },
         data: { status: 'EXPIRED' },
       })
 

@@ -29,15 +29,13 @@ export default function CampaignsPage() {
   
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsContent value="campaigns" className="space-y-4 mt-0">
-          <EnhancedCampaignsView activeTab={activeTab} setActiveTab={setActiveTab} />
-        </TabsContent>
-        
-        <TabsContent value="changes" className="space-y-4 mt-0">
-          <ChangeHistory activeTab={activeTab} setActiveTab={setActiveTab} />
-        </TabsContent>
-      </Tabs>
+      {activeTab === "campaigns" && (
+        <EnhancedCampaignsView activeTab={activeTab} setActiveTab={setActiveTab} />
+      )}
+      
+      {activeTab === "changes" && (
+        <ChangeHistory activeTab={activeTab} setActiveTab={setActiveTab} />
+      )}
     </div>
   )
 }

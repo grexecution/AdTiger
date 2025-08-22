@@ -10,6 +10,7 @@ const publicRoutes = [
   "/auth/error",
   "/auth/verify",
   "/api/auth",
+  "/api/meta/test-credentials", // Temporary test route
 ]
 
 const protectedRoutes = [

@@ -153,10 +153,10 @@ export default function AnalyticsPage() {
   ]
 
   const campaignPerformance = [
-    { name: "Summer Sale", spend: 2500, clicks: 1200, conversions: 45, roas: 3.2 },
-    { name: "Product Launch", spend: 3200, clicks: 1800, conversions: 62, roas: 2.8 },
-    { name: "Brand Awareness", spend: 1800, clicks: 950, conversions: 28, roas: 2.1 },
-    { name: "Holiday Special", spend: 2800, clicks: 1500, conversions: 58, roas: 3.5 },
+    { name: "Campaign 1", spend: 2500, clicks: 1200, conversions: 45, roas: 3.2 },
+    { name: "Campaign 2", spend: 3200, clicks: 1800, conversions: 62, roas: 2.8 },
+    { name: "Campaign 3", spend: 1800, clicks: 950, conversions: 28, roas: 2.1 },
+    { name: "Campaign 4", spend: 2800, clicks: 1500, conversions: 58, roas: 3.5 },
   ]
 
   return (
@@ -246,9 +246,9 @@ export default function AnalyticsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Campaigns</SelectItem>
-                <SelectItem value="summer">Summer Sale</SelectItem>
-                <SelectItem value="launch">Product Launch</SelectItem>
-                <SelectItem value="brand">Brand Awareness</SelectItem>
+                <SelectItem value="campaign1">Campaign 1</SelectItem>
+                <SelectItem value="campaign2">Campaign 2</SelectItem>
+                <SelectItem value="campaign3">Campaign 3</SelectItem>
               </SelectContent>
             </Select>
 

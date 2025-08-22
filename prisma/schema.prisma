@@ -11,12 +11,14 @@ datasource db {
 model Account {
   id        String   @id @default(cuid())
   name      String
+  currency  String   @default("USD") // Main currency preference (USD, EUR, GBP, etc.)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   users              User[]
   providerConnections ProviderConnection[]
+  connections        Connection[]
   adAccounts         AdAccount[]
   campaigns          Campaign[]
   adGroups           AdGroup[]
@@ -93,6 +95,25 @@ model ProviderConnection {
   @@index([accountId])
   @@index([provider])
   @@index([status])
+}
+
+// New OAuth-based connection model
+model Connection {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  provider    String   // "meta", "google"
+  status      String   // "pending_selection", "active", "expired", "error"
+  
+  // Credentials including tokens and selected accounts
+  credentials Json?    // Contains accessToken, refreshToken, selectedAccounts, etc.
+  metadata    Json?    // Additional connection metadata
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([accountId])
+  @@index([provider])
 }
 
 // Normalized ad account across providers

@@ -86,7 +86,7 @@ const recommendations = [
     type: "scaling",
     priority: "high",
     title: "Scale winning campaign",
-    description: "Campaign 'Summer Sale' has 4.2x ROAS - increase budget by 50%",
+    description: "Campaign has 4.2x ROAS - increase budget by 50%",
     impact: "+$3,200 revenue/day",
     icon: TrendingUp,
   },

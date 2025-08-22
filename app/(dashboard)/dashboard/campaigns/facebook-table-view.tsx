@@ -206,12 +206,13 @@ const AdPreviewPopup = ({ ad, isOpen, onClose }: {
   const isCarousel = ad.name?.toLowerCase().includes('carousel')
   const platform = ad.metadata?.platform || ad.campaign?.provider || 'meta'
   
-  // Mock engagement metrics (in real app, these would come from the API)
-  const mockMetrics = {
-    likes: Math.floor(Math.random() * 5000) + 500,
-    comments: Math.floor(Math.random() * 500) + 50,
-    shares: Math.floor(Math.random() * 1000) + 100,
-    views: isVideo ? Math.floor(Math.random() * 50000) + 5000 : undefined
+  // Use real engagement metrics from ad data
+  const adMetrics = ad.metadata?.insights || ad.campaign?.metadata?.insights || {}
+  const engagementMetrics = {
+    likes: adMetrics.likes || 0,
+    comments: adMetrics.comments || 0,
+    shares: adMetrics.shares || 0,
+    views: isVideo ? (adMetrics.video_views || 0) : undefined
   }
   
   return (
@@ -294,7 +295,7 @@ const AdPreviewPopup = ({ ad, isOpen, onClose }: {
                       <div className="p-1.5 rounded-full bg-red-50">
                         <Heart className="h-4 w-4 text-red-500" />
                       </div>
-                      <span className="font-medium">{mockMetrics.likes.toLocaleString()}</span>
+                      <span className="font-medium">{engagementMetrics.likes.toLocaleString()}</span>
                     </TooltipTrigger>
                     <TooltipContent>Likes</TooltipContent>
                   </Tooltip>
@@ -306,7 +307,7 @@ const AdPreviewPopup = ({ ad, isOpen, onClose }: {
                       <div className="p-1.5 rounded-full bg-blue-50">
                         <MessageCircle className="h-4 w-4 text-blue-500" />
                       </div>
-                      <span className="font-medium">{mockMetrics.comments.toLocaleString()}</span>
+                      <span className="font-medium">{engagementMetrics.comments.toLocaleString()}</span>
                     </TooltipTrigger>
                     <TooltipContent>Comments</TooltipContent>
                   </Tooltip>
@@ -318,20 +319,20 @@ const AdPreviewPopup = ({ ad, isOpen, onClose }: {
                       <div className="p-1.5 rounded-full bg-green-50">
                         <Share2 className="h-4 w-4 text-green-500" />
                       </div>
-                      <span className="font-medium">{mockMetrics.shares.toLocaleString()}</span>
+                      <span className="font-medium">{engagementMetrics.shares.toLocaleString()}</span>
                     </TooltipTrigger>
                     <TooltipContent>Shares</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 
-                {isVideo && mockMetrics.views && (
+                {isVideo && engagementMetrics.views && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="flex items-center gap-2 hover:text-purple-500 transition-colors">
                         <div className="p-1.5 rounded-full bg-purple-50">
                           <Play className="h-4 w-4 text-purple-500" />
                         </div>
-                        <span className="font-medium">{mockMetrics.views.toLocaleString()}</span>
+                        <span className="font-medium">{engagementMetrics.views.toLocaleString()}</span>
                       </TooltipTrigger>
                       <TooltipContent>Video Views</TooltipContent>
                     </Tooltip>
@@ -370,25 +371,25 @@ const AdPreviewPopup = ({ ad, isOpen, onClose }: {
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
                     <span className="text-sm text-muted-foreground">Impressions</span>
                     <span className="font-bold">
-                      {Math.floor(Math.random() * 100000 + 10000).toLocaleString()}
+                      {(ad.metadata?.insights?.impressions || ad.campaign?.metadata?.insights?.impressions || 0).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
                     <span className="text-sm text-muted-foreground">Reach</span>
                     <span className="font-bold">
-                      {Math.floor(Math.random() * 80000 + 8000).toLocaleString()}
+                      {(ad.metadata?.insights?.reach || ad.campaign?.metadata?.insights?.reach || 0).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
                     <span className="text-sm text-muted-foreground">Frequency</span>
                     <span className="font-bold">
-                      {(Math.random() * 2 + 1).toFixed(2)}
+                      {(ad.metadata?.insights?.frequency || ad.campaign?.metadata?.insights?.frequency || 0).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
                     <span className="text-sm text-muted-foreground">Clicks</span>
                     <span className="font-bold">
-                      {Math.floor(Math.random() * 5000 + 500).toLocaleString()}
+                      {(ad.metadata?.insights?.clicks || ad.campaign?.metadata?.insights?.clicks || 0).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -400,19 +401,19 @@ const AdPreviewPopup = ({ ad, isOpen, onClose }: {
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
                     <span className="text-sm text-muted-foreground">CTR</span>
                     <span className="font-bold">
-                      {((ad.campaign?.metrics?.ctr || Math.random() * 3 + 0.5)).toFixed(2)}%
+                      {(ad.metadata?.insights?.ctr || ad.campaign?.metadata?.insights?.ctr || 0).toFixed(2)}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
                     <span className="text-sm text-muted-foreground">CPC</span>
                     <span className="font-bold">
-                      ${((ad.campaign?.metrics?.cpc || Math.random() * 2 + 0.3)).toFixed(2)}
+                      ${(ad.metadata?.insights?.cpc || ad.campaign?.metadata?.insights?.cpc || 0).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
                     <span className="text-sm text-muted-foreground">ROAS</span>
                     <span className="font-bold">
-                      {((ad.campaign?.metrics?.roas || Math.random() * 5 + 1)).toFixed(1)}x
+                      {(ad.metadata?.insights?.roas || ad.campaign?.metadata?.insights?.roas || 0).toFixed(1)}x
                     </span>
                   </div>
                 </div>
@@ -935,19 +936,19 @@ export default function FacebookTableView({
                         <StatusBadge status={adSet.status} />
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(adSet.metrics?.spend || Math.random() * 1000, 'currency')}
+                        {formatMetric(adSet.metadata?.insights?.spend || adSet.metrics?.spend || 0, 'currency')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(adSet.metrics?.impressions || Math.floor(Math.random() * 50000), 'integer')}
+                        {formatMetric(adSet.metadata?.insights?.impressions || adSet.metrics?.impressions || 0, 'integer')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(adSet.metrics?.clicks || Math.floor(Math.random() * 2500), 'integer')}
+                        {formatMetric(adSet.metadata?.insights?.clicks || adSet.metrics?.clicks || 0, 'integer')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(adSet.metrics?.ctr || Math.random() * 3, 'percentage')}
+                        {formatMetric(adSet.metadata?.insights?.ctr || adSet.metrics?.ctr || 0, 'percentage')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(adSet.metrics?.cpc || Math.random() * 2, 'currency')}
+                        {formatMetric(adSet.metadata?.insights?.cpc || adSet.metrics?.cpc || 0, 'currency')}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1046,16 +1047,16 @@ export default function FacebookTableView({
                           <StatusBadge status={ad.status} />
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatMetric(ad.metrics?.spend || Math.random() * 500, 'currency')}
+                          {formatMetric(ad.metadata?.insights?.spend || ad.metrics?.spend || 0, 'currency')}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatMetric(ad.metrics?.impressions || Math.floor(Math.random() * 25000), 'integer')}
+                          {formatMetric(ad.metadata?.insights?.impressions || ad.metrics?.impressions || 0, 'integer')}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatMetric(ad.metrics?.clicks || Math.floor(Math.random() * 1250), 'integer')}
+                          {formatMetric(ad.metadata?.insights?.clicks || ad.metrics?.clicks || 0, 'integer')}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatMetric(ad.metrics?.ctr || Math.random() * 4, 'percentage')}
+                          {formatMetric(ad.metadata?.insights?.ctr || ad.metrics?.ctr || 0, 'percentage')}
                         </TableCell>
                       </TableRow>
                     )

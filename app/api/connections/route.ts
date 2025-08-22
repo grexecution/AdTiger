@@ -26,34 +26,64 @@ export async function GET() {
       )
     }
 
-    const connections = await prisma.providerConnection.findMany({
-      where: {
-        accountId: user.accountId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
+    // Try to find connections in Connection table first (new OAuth flow)
+    let connections = []
+    try {
+      connections = await prisma.connection.findMany({
+        where: {
+          accountId: user.accountId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
+    } catch (e) {
+      console.log("Connection table might not exist yet, using legacy only")
+    }
+    
+    // If no connections found, check legacy ProviderConnection table
+    let legacyConnections = []
+    if (connections.length === 0) {
+      const providerConnections = await prisma.providerConnection.findMany({
+        where: {
+          accountId: user.accountId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
+      
+      // Map legacy connections to new format
+      legacyConnections = providerConnections.map((conn) => ({
+        id: conn.id,
+        provider: conn.provider,
+        status: conn.isActive ? "active" : "inactive",
+        credentials: {
+          accessToken: conn.credentials?.accessToken,
+          refreshToken: conn.credentials?.refreshToken,
+          expiresAt: conn.credentials?.expiresAt,
+        },
+        metadata: conn.metadata,
+        createdAt: conn.createdAt,
+        updatedAt: conn.updatedAt,
+      }))
+    }
+    
+    const allConnections = [...connections, ...legacyConnections]
     
     // Remove sensitive data before sending to client
-    const sanitizedConnections = connections.map((conn) => ({
+    const sanitizedConnections = allConnections.map((conn) => ({
       id: conn.id,
       provider: conn.provider,
-      externalAccountId: conn.externalAccountId,
-      isActive: conn.isActive,
       status: conn.status,
-      lastSyncAt: conn.lastSyncAt,
-      nextSyncAt: conn.nextSyncAt,
-      metadata: {
-        accountName: (conn.metadata as any)?.accountName,
-        customerId: (conn.metadata as any)?.customerId,
-        managerCustomerId: (conn.metadata as any)?.managerCustomerId,
-        isManagerAccount: (conn.metadata as any)?.isManagerAccount || conn.provider.toLowerCase() === 'google', // For demo, treat all Google as manager
-        currency: (conn.metadata as any)?.currency,
-        timezone: (conn.metadata as any)?.timezone,
-        enabledAccounts: (conn.metadata as any)?.enabledAccounts,
-        // Don't send encrypted credentials to client
+      credentials: {
+        userName: conn.credentials?.userName,
+        userEmail: conn.credentials?.userEmail,
+        tokenExpiresAt: conn.credentials?.tokenExpiresAt,
+        selectedAccounts: conn.credentials?.selectedAccounts,
+        availableAccounts: conn.status === "pending_selection" ? conn.credentials?.availableAccounts : undefined,
       },
+      metadata: conn.metadata,
       createdAt: conn.createdAt,
       updatedAt: conn.updatedAt,
     }))

@@ -16,6 +16,22 @@ const nextConfig = {
         protocol: "https",
         hostname: "example.com",
       },
+      {
+        protocol: "https",
+        hostname: "scontent-vie1-1.xx.fbcdn.net",
+      },
+      {
+        protocol: "https",
+        hostname: "scontent.xx.fbcdn.net",
+      },
+      {
+        protocol: "https",
+        hostname: "graph.facebook.com",
+      },
+      {
+        protocol: "https",
+        hostname: "lookaside.fbsbx.com",
+      },
     ],
   },
   redirects() {

@@ -24,6 +24,7 @@ import {
 import { MetaConnectionDialog } from "@/components/settings/meta-connection-dialog"
 import { GoogleConnectionDialog } from "@/components/settings/google-connection-dialog"
 import { GoogleManagedAccountsInline } from "@/components/settings/google-managed-accounts-inline"
+import { MetaManualConnection } from "@/components/settings/meta-manual-connection"
 
 interface Connection {
   id: string
@@ -41,6 +42,7 @@ export default function ConnectionsPage() {
   const [isSyncing, setIsSyncing] = useState<string | null>(null)
   const [showMetaDialog, setShowMetaDialog] = useState(false)
   const [showGoogleDialog, setShowGoogleDialog] = useState(false)
+  const [showManualConnection, setShowManualConnection] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -95,6 +97,40 @@ export default function ConnectionsPage() {
     }
   }
 
+  const handleSyncData = async (connectionId: string, provider: string) => {
+    try {
+      setIsSyncing(connectionId)
+      toast({
+        title: "Sync started",
+        description: "Fetching latest data from " + provider,
+      })
+      
+      const response = await fetch(`/api/connections/${connectionId}/sync`, {
+        method: 'POST'
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        toast({
+          title: "Sync completed",
+          description: `Synced ${data.stats?.campaigns || 0} campaigns, ${data.stats?.ads || 0} ads`,
+        })
+        fetchConnections()
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Sync failed')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Sync failed",
+        description: error.message || "Failed to sync data",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSyncing(null)
+    }
+  }
+
   const handleDisconnect = async (connectionId: string, provider: string) => {
     if (!confirm(`Are you sure you want to disconnect ${provider}?`)) {
       return
@@ -138,14 +174,18 @@ export default function ConnectionsPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       CONNECTED: "default",
+      active: "default",
       ERROR: "destructive",
       EXPIRED: "destructive",
+      expired: "destructive",
       DISCONNECTED: "secondary"
     }
     
+    const displayStatus = status === 'active' ? 'CONNECTED' : status.toUpperCase()
+    
     return (
-      <Badge variant={variants[status] || "outline"}>
-        {status}
+      <Badge variant={variants[status] || variants[status.toUpperCase()] || "outline"}>
+        {displayStatus}
       </Badge>
     )
   }
@@ -242,6 +282,18 @@ export default function ConnectionsPage() {
               {/* Connection details */}
               {platform.connection ? (
                 <div className="space-y-3">
+                  {/* Show warning if token expired */}
+                  {(platform.connection.status === 'expired' || platform.connection.status === 'EXPIRED') && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        <p className="text-sm text-red-800">
+                          Access token has expired. Please reconnect with a new token.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Account</p>
@@ -261,8 +313,8 @@ export default function ConnectionsPage() {
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => handleTestConnection(platform.connection!.id, platform.name)}
+                      variant="default"
+                      onClick={() => handleSyncData(platform.connection!.id, platform.name)}
                       disabled={isSyncing === platform.connection.id}
                     >
                       {isSyncing === platform.connection.id ? (
@@ -270,7 +322,15 @@ export default function ConnectionsPage() {
                       ) : (
                         <RefreshCw className="h-4 w-4 mr-2" />
                       )}
-                      Test Connection
+                      Sync Data
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTestConnection(platform.connection!.id, platform.name)}
+                      disabled={isSyncing === platform.connection.id}
+                    >
+                      Test
                     </Button>
                     <Button
                       size="sm"
@@ -278,7 +338,7 @@ export default function ConnectionsPage() {
                       onClick={() => platform.onConnect()}
                     >
                       <Settings className="h-4 w-4 mr-2" />
-                      Update Settings
+                      Settings
                     </Button>
                     <Button
                       size="sm"
@@ -318,6 +378,16 @@ export default function ConnectionsPage() {
         ))}
       </div>
 
+      {/* Manual Connection for Development */}
+      {showManualConnection && (
+        <MetaManualConnection 
+          onSuccess={() => {
+            fetchConnections()
+            setShowManualConnection(false)
+          }}
+        />
+      )}
+
       {/* Help Section */}
       <Card>
         <CardHeader>
@@ -335,6 +405,15 @@ export default function ConnectionsPage() {
           <Button variant="link" className="justify-start p-0 h-auto">
             <ExternalLink className="h-4 w-4 mr-2" />
             Google Ads API Access Guide
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+          <Button 
+            variant="link" 
+            className="justify-start p-0 h-auto"
+            onClick={() => setShowManualConnection(!showManualConnection)}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            {showManualConnection ? "Hide" : "Show"} Manual Token Connection (Development)
             <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </CardContent>

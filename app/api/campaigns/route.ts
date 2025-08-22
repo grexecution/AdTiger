@@ -99,37 +99,44 @@ export async function GET(request: NextRequest) {
       campaigns.map(async (campaign) => {
         // Get aggregated metrics for the campaign
         const latestInsight = campaign.insights[0]
+        const campaignMetadata = campaign.metadata as any
         
-        // Mock metrics if no insights available
-        const metrics = latestInsight?.metrics || {
-          spend: Math.random() * 5000,
-          impressions: Math.floor(Math.random() * 100000),
-          clicks: Math.floor(Math.random() * 2000),
-          conversions: Math.floor(Math.random() * 100),
-          ctr: Math.random() * 2 + 0.5,
-          cpc: Math.random() * 2 + 0.5,
-          roas: Math.random() * 4 + 1
+        // Use real metrics from metadata.insights or latestInsight, or defaults
+        const metrics = campaignMetadata?.insights || latestInsight?.metrics || {
+          spend: 0,
+          impressions: 0,
+          clicks: 0,
+          conversions: 0,
+          ctr: 0,
+          cpc: 0,
+          cpm: 0,
+          roas: 0
         }
 
         // Add metrics to ad groups and include ads
-        const adGroupsWithMetrics = campaign.adGroups.map(adGroup => ({
-          id: adGroup.id,
-          name: adGroup.name,
-          status: adGroup.status,
-          budgetAmount: adGroup.budgetAmount || 0,
-          metrics: {
-            spend: Math.random() * 1000,
-            clicks: Math.floor(Math.random() * 500),
-            conversions: Math.floor(Math.random() * 50)
-          },
-          ads: adGroup.ads.map(ad => ({
-            id: ad.id,
-            name: ad.name,
-            status: ad.status,
-            type: ad.creative?.type || 'display',
-            metadata: ad.metadata
-          }))
-        }))
+        const adGroupsWithMetrics = campaign.adGroups.map(adGroup => {
+          const adGroupMetadata = adGroup.metadata as any
+          return {
+            id: adGroup.id,
+            name: adGroup.name,
+            status: adGroup.status,
+            budgetAmount: adGroup.budgetAmount || 0,
+            metadata: adGroup.metadata,
+            metrics: adGroupMetadata?.insights || {
+              spend: 0,
+              clicks: 0,
+              conversions: 0
+            },
+            ads: adGroup.ads.map(ad => ({
+              id: ad.id,
+              name: ad.name,
+              status: ad.status,
+              type: ad.creative?.type || 'display',
+              creative: ad.creative,
+              metadata: ad.metadata
+            }))
+          }
+        })
 
         return {
           id: campaign.id,
@@ -140,6 +147,7 @@ export async function GET(request: NextRequest) {
           budgetAmount: campaign.budgetAmount || 0,
           budgetCurrency: campaign.budgetCurrency || "USD",
           metrics: metrics as any,
+          metadata: campaign.metadata,
           adGroups: adGroupsWithMetrics
         }
       })
