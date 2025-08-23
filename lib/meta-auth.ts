@@ -59,6 +59,49 @@ export async function getMetaUserInfo(accessToken: string) {
   return response.json()
 }
 
+// Exchange a short-lived token for a long-lived token (60 days)
+export async function exchangeForLongLivedToken(accessToken: string) {
+  const params = new URLSearchParams({
+    grant_type: "fb_exchange_token",
+    client_id: META_APP_ID,
+    client_secret: META_APP_SECRET,
+    fb_exchange_token: accessToken,
+  })
+  
+  const response = await fetch(
+    `https://graph.facebook.com/${META_API_VERSION}/oauth/access_token?${params.toString()}`
+  )
+  
+  if (!response.ok) {
+    const error = await response.json()
+    console.error("Failed to exchange for long-lived token:", error)
+    throw new Error("Failed to get long-lived token")
+  }
+  
+  return response.json()
+}
+
+// Refresh an existing long-lived token before it expires
+export async function refreshLongLivedToken(accessToken: string) {
+  // Meta allows refreshing tokens that are at least 24 hours old
+  // and will expire within 60 days
+  try {
+    const refreshedToken = await exchangeForLongLivedToken(accessToken)
+    return refreshedToken
+  } catch (error) {
+    console.error("Failed to refresh token:", error)
+    throw error
+  }
+}
+
+// Check if token needs refresh (within 7 days of expiry)
+export function shouldRefreshToken(expiresAt: Date | string): boolean {
+  const expiry = typeof expiresAt === 'string' ? new Date(expiresAt) : expiresAt
+  const now = new Date()
+  const daysUntilExpiry = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  return daysUntilExpiry <= 7 // Refresh if expiring within 7 days
+}
+
 export async function getMetaAdAccounts(accessToken: string) {
   try {
     // First get all ad accounts the user has access to
@@ -86,42 +129,83 @@ export async function saveMetaConnection(
   accessToken: string,
   expiresIn: number
 ) {
+  // Exchange for long-lived token if this is a short-lived token
+  let finalToken = accessToken
+  let finalExpiresIn = expiresIn
+  
+  // If token expires in less than 2 days, it's likely a short-lived token
+  if (expiresIn < 172800) { // 2 days in seconds
+    try {
+      console.log("Exchanging short-lived token for long-lived token...")
+      const longLivedTokenData = await exchangeForLongLivedToken(accessToken)
+      finalToken = longLivedTokenData.access_token
+      finalExpiresIn = longLivedTokenData.expires_in || 5184000 // Default to 60 days
+      console.log(`Got long-lived token expiring in ${finalExpiresIn / 86400} days`)
+    } catch (error) {
+      console.error("Failed to exchange for long-lived token, using original:", error)
+      // Continue with original token
+    }
+  }
+  
   // Get user info
-  const userInfo = await getMetaUserInfo(accessToken)
+  const userInfo = await getMetaUserInfo(finalToken)
   
   // Calculate expiry
-  const expiresAt = new Date(Date.now() + expiresIn * 1000)
+  const expiresAt = new Date(Date.now() + finalExpiresIn * 1000)
   
-  // Save or update the connection
-  const connection = await prisma.providerConnection.upsert({
+  // Check if connection exists
+  const existingConnection = await prisma.connection.findFirst({
     where: {
-      accountId_provider_externalAccountId: {
-        accountId: accountId,
-        provider: "meta",
-        externalAccountId: userInfo.id,
-      },
-    },
-    update: {
-      accessToken: accessToken,
-      expiresAt: expiresAt,
-      isActive: true,
-      metadata: {
-        name: userInfo.name,
-        email: userInfo.email,
-      },
-    },
-    create: {
       accountId: accountId,
       provider: "meta",
-      externalAccountId: userInfo.id,
-      accessToken: accessToken,
-      expiresAt: expiresAt,
-      metadata: {
-        name: userInfo.name,
-        email: userInfo.email,
-      },
     },
   })
+  
+  // Save or update the connection
+  const connection = existingConnection
+    ? await prisma.connection.update({
+        where: { id: existingConnection.id },
+        data: {
+          status: "active",
+          credentials: {
+            accessToken: finalToken,
+            expiresAt: expiresAt.toISOString(),
+          },
+          metadata: {
+            ...(existingConnection.metadata as any || {}),
+            accessToken: finalToken, // Also store in metadata for compatibility
+            expiresAt: expiresAt.toISOString(),
+            userInfo: {
+              id: userInfo.id,
+              name: userInfo.name,
+              email: userInfo.email,
+            },
+            lastRefreshed: new Date().toISOString(),
+          },
+        },
+      })
+    : await prisma.connection.create({
+        data: {
+          accountId: accountId,
+          provider: "meta",
+          name: `Meta - ${userInfo.name}`,
+          status: "active",
+          credentials: {
+            accessToken: finalToken,
+            expiresAt: expiresAt.toISOString(),
+          },
+          metadata: {
+            accessToken: finalToken, // Also store in metadata for compatibility
+            expiresAt: expiresAt.toISOString(),
+            userInfo: {
+              id: userInfo.id,
+              name: userInfo.name,
+              email: userInfo.email,
+            },
+            lastRefreshed: new Date().toISOString(),
+          },
+        },
+      })
   
   return connection
 }

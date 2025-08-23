@@ -67,6 +67,8 @@ import {
   Share2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls } from "@/lib/utils/creative-utils"
+import { AdDetailDialog } from "@/components/campaigns/ad-detail-dialog"
 
 // Platform icons component
 const PlatformIcon = ({ platform }: { platform: string }) => {
@@ -193,238 +195,10 @@ interface FacebookTableViewProps {
   platformFilter: string
 }
 
-// Ad preview component for popup
-const AdPreviewPopup = ({ ad, isOpen, onClose }: { 
-  ad: any | null
-  isOpen: boolean
-  onClose: () => void 
-}) => {
-  if (!ad) return null
-  
-  // Generate mock preview data based on ad name/type
-  const isVideo = ad.name?.toLowerCase().includes('video')
-  const isCarousel = ad.name?.toLowerCase().includes('carousel')
-  const platform = ad.metadata?.platform || ad.campaign?.provider || 'meta'
-  
-  // Use real engagement metrics from ad data
-  const adMetrics = ad.metadata?.insights || ad.campaign?.metadata?.insights || {}
-  const engagementMetrics = {
-    likes: adMetrics.likes || 0,
-    comments: adMetrics.comments || 0,
-    shares: adMetrics.shares || 0,
-    views: isVideo ? (adMetrics.video_views || 0) : undefined
-  }
-  
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{ad.name}</DialogTitle>
-          <DialogDescription>
-            {ad.campaignName} → {ad.adSetName}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Ad Preview */}
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden relative">
-                {isVideo ? (
-                  <div className="relative w-full h-full">
-                    <img 
-                      src={`https://picsum.photos/800/450?random=${ad.id}`} 
-                      alt={ad.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                      <div className="rounded-full bg-white/90 p-3 shadow-lg">
-                        <Play className="h-6 w-6 text-gray-900" fill="currentColor" />
-                      </div>
-                    </div>
-                    <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                      0:30
-                    </div>
-                  </div>
-                ) : isCarousel ? (
-                  <div className="relative w-full h-full p-4">
-                    <div className="flex gap-2 h-full">
-                      {[1, 2, 3].map((idx) => (
-                        <div key={idx} className="flex-1 rounded overflow-hidden">
-                          <img 
-                            src={`https://picsum.photos/200/200?random=${ad.id}_${idx}`} 
-                            alt={`${ad.name} ${idx}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                      {[1, 2, 3].map((idx) => (
-                        <div key={idx} className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <img 
-                    src={`https://picsum.photos/800/450?random=${ad.id}`} 
-                    alt={ad.name}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-                
-                {/* Platform badge */}
-                <div className="absolute top-3 left-3">
-                  <div className="bg-white/90 backdrop-blur rounded px-2 py-1 flex items-center gap-1">
-                    <PlatformIcon platform={platform} />
-                    <span className="text-xs font-medium capitalize">{platform}</span>
-                  </div>
-                </div>
-                
-                {/* Status badge */}
-                <div className="absolute top-3 right-3">
-                  <StatusBadge status={ad.status} />
-                </div>
-              </div>
-              
-              {/* Engagement metrics */}
-              <div className="flex items-center gap-4 text-sm bg-muted/50 rounded-lg p-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger className="flex items-center gap-2 hover:text-red-500 transition-colors">
-                      <div className="p-1.5 rounded-full bg-red-50">
-                        <Heart className="h-4 w-4 text-red-500" />
-                      </div>
-                      <span className="font-medium">{engagementMetrics.likes.toLocaleString()}</span>
-                    </TooltipTrigger>
-                    <TooltipContent>Likes</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger className="flex items-center gap-2 hover:text-blue-500 transition-colors">
-                      <div className="p-1.5 rounded-full bg-blue-50">
-                        <MessageCircle className="h-4 w-4 text-blue-500" />
-                      </div>
-                      <span className="font-medium">{engagementMetrics.comments.toLocaleString()}</span>
-                    </TooltipTrigger>
-                    <TooltipContent>Comments</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger className="flex items-center gap-2 hover:text-green-500 transition-colors">
-                      <div className="p-1.5 rounded-full bg-green-50">
-                        <Share2 className="h-4 w-4 text-green-500" />
-                      </div>
-                      <span className="font-medium">{engagementMetrics.shares.toLocaleString()}</span>
-                    </TooltipTrigger>
-                    <TooltipContent>Shares</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                
-                {isVideo && engagementMetrics.views && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="flex items-center gap-2 hover:text-purple-500 transition-colors">
-                        <div className="p-1.5 rounded-full bg-purple-50">
-                          <Play className="h-4 w-4 text-purple-500" />
-                        </div>
-                        <span className="font-medium">{engagementMetrics.views.toLocaleString()}</span>
-                      </TooltipTrigger>
-                      <TooltipContent>Video Views</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Detailed Metrics */}
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold mb-3">Performance Overview</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1 p-3 bg-muted/50 rounded">
-                    <p className="text-sm text-muted-foreground">Format</p>
-                    <div className="flex items-center gap-2">
-                      {isVideo ? <Play className="h-4 w-4" /> : 
-                       isCarousel ? <Layers className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-                      <span className="font-medium">
-                        {isVideo ? 'Video' : isCarousel ? 'Carousel' : 'Image'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-1 p-3 bg-muted/50 rounded">
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <StatusBadge status={ad.status} />
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold mb-3">Delivery Metrics</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
-                    <span className="text-sm text-muted-foreground">Impressions</span>
-                    <span className="font-bold">
-                      {(ad.metadata?.insights?.impressions || ad.campaign?.metadata?.insights?.impressions || 0).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
-                    <span className="text-sm text-muted-foreground">Reach</span>
-                    <span className="font-bold">
-                      {(ad.metadata?.insights?.reach || ad.campaign?.metadata?.insights?.reach || 0).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
-                    <span className="text-sm text-muted-foreground">Frequency</span>
-                    <span className="font-bold">
-                      {(ad.metadata?.insights?.frequency || ad.campaign?.metadata?.insights?.frequency || 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
-                    <span className="text-sm text-muted-foreground">Clicks</span>
-                    <span className="font-bold">
-                      {(ad.metadata?.insights?.clicks || ad.campaign?.metadata?.insights?.clicks || 0).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold mb-3">Cost Metrics</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
-                    <span className="text-sm text-muted-foreground">CTR</span>
-                    <span className="font-bold">
-                      {(ad.metadata?.insights?.ctr || ad.campaign?.metadata?.insights?.ctr || 0).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
-                    <span className="text-sm text-muted-foreground">CPC</span>
-                    <span className="font-bold">
-                      ${(ad.metadata?.insights?.cpc || ad.campaign?.metadata?.insights?.cpc || 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded">
-                    <span className="text-sm text-muted-foreground">ROAS</span>
-                    <span className="font-bold">
-                      {(ad.metadata?.insights?.roas || ad.campaign?.metadata?.insights?.roas || 0).toFixed(1)}x
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
+// Ad preview component removed - using shared AdDetailDialog instead
+
+// Main FacebookTableView component starts here
+
 
 export default function FacebookTableView({ 
   campaigns, 
@@ -705,9 +479,10 @@ export default function FacebookTableView({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-          <TabsList className="grid w-full grid-cols-3">
+          <div className="p-6 pb-0">
+            <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="campaigns" className="flex items-center gap-2">
               <Megaphone className="h-4 w-4" />
               Campaigns ({filteredCampaigns.length})
@@ -720,12 +495,13 @@ export default function FacebookTableView({
               <FileImage className="h-4 w-4" />
               Ads ({availableAds.length})
             </TabsTrigger>
-          </TabsList>
+            </TabsList>
+          </div>
 
           {/* Campaigns Tab */}
-          <TabsContent value="campaigns" className="mt-4">
-            <div className="rounded-md border">
-              <Table>
+          <TabsContent value="campaigns" className="p-6">
+            <div className="relative overflow-auto rounded-md border">
+              <Table className="w-full" style={{ minWidth: '1200px' }}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
@@ -813,7 +589,11 @@ export default function FacebookTableView({
                           onClick={(e) => e.stopPropagation()}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{campaign.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="truncate max-w-[250px]" title={campaign.name}>
+                          {campaign.name}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <PlatformIcon platform={campaign.provider || 'meta'} />
                       </TableCell>
@@ -846,9 +626,9 @@ export default function FacebookTableView({
           </TabsContent>
 
           {/* Ad Sets Tab */}
-          <TabsContent value="adsets" className="mt-4">
-            <div className="rounded-md border">
-              <Table>
+          <TabsContent value="adsets" className="p-6">
+            <div className="relative overflow-auto rounded-md border">
+              <Table className="w-full" style={{ minWidth: '1200px' }}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
@@ -928,9 +708,15 @@ export default function FacebookTableView({
                           onClick={(e) => e.stopPropagation()}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{adSet.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="truncate max-w-[200px]" title={adSet.name}>
+                          {adSet.name}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {adSet.campaignName}
+                        <div className="truncate max-w-[200px]" title={adSet.campaignName}>
+                          {adSet.campaignName}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={adSet.status} />
@@ -958,25 +744,26 @@ export default function FacebookTableView({
           </TabsContent>
 
           {/* Ads Tab */}
-          <TabsContent value="ads" className="mt-4">
-            <div className="rounded-md border">
-              <Table>
+          <TabsContent value="ads" className="p-6">
+            <div className="relative overflow-auto rounded-md border">
+              <Table className="w-full" style={{ minWidth: '1400px' }}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">
-                      Preview
+                    <TableHead className="w-16">
+                      Creative
                     </TableHead>
                     <SortableHeader 
                       sortKey="name" 
                       currentSort={sortConfig} 
                       onSort={handleSort}
+                      className="min-w-[200px]"
                     >
                       Ad
                     </SortableHeader>
-                    <TableHead>Ad Set</TableHead>
-                    <TableHead>Campaign</TableHead>
-                    <TableHead>Format</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="min-w-[150px]">Ad Set</TableHead>
+                    <TableHead className="min-w-[150px]">Campaign</TableHead>
+                    <TableHead className="w-24">Format</TableHead>
+                    <TableHead className="w-24">Status</TableHead>
                     <SortableHeader 
                       sortKey="spend" 
                       currentSort={sortConfig} 
@@ -1013,8 +800,7 @@ export default function FacebookTableView({
                 </TableHeader>
                 <TableBody>
                   {availableAds.map((ad) => {
-                    const format = ad.name?.toLowerCase().includes('video') ? 'video' :
-                                 ad.name?.toLowerCase().includes('carousel') ? 'carousel' : 'image'
+                    const format = getCreativeFormat(ad.creative)
                     
                     const FormatIcon = format === 'video' ? Play : 
                                      format === 'carousel' ? Layers : ImageIcon
@@ -1025,17 +811,54 @@ export default function FacebookTableView({
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => setSelectedAdForPreview(ad)}
                       >
-                        <TableCell className="w-12">
-                          <div className="flex items-center justify-center">
-                            <Eye className="h-4 w-4 text-muted-foreground" />
+                        <TableCell className="w-16">
+                          <div className="relative w-12 h-12 rounded overflow-hidden bg-muted">
+                            {getCreativeImageUrl(ad.creative) ? (
+                              <img 
+                                src={getCreativeImageUrl(ad.creative) || ''} 
+                                alt={ad.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback to format icon if image fails to load
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  const parent = (e.target as HTMLImageElement).parentNode as HTMLElement;
+                                  if (parent) {
+                                    parent.innerHTML = `<div class="w-full h-full flex items-center justify-center"><${FormatIcon.name} class="h-6 w-6 text-muted-foreground" /></div>`;
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <FormatIcon className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            {/* Format indicator overlay */}
+                            {format === 'carousel' && (
+                              <div className="absolute bottom-0 right-0 bg-black/70 text-white rounded-tl text-xs px-1">
+                                <Layers className="h-2.5 w-2.5" />
+                              </div>
+                            )}
+                            {format === 'video' && (
+                              <div className="absolute bottom-0 right-0 bg-black/70 text-white rounded-tl text-xs px-1">
+                                <Play className="h-2.5 w-2.5" />
+                              </div>
+                            )}
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium">{ad.name}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {ad.adSetName}
+                        <TableCell className="font-medium">
+                          <div className="truncate max-w-[200px]" title={ad.name}>
+                            {ad.name}
+                          </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {ad.campaignName}
+                          <div className="truncate max-w-[150px]" title={ad.adSetName}>
+                            {ad.adSetName}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <div className="truncate max-w-[150px]" title={ad.campaignName}>
+                            {ad.campaignName}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -1067,10 +890,10 @@ export default function FacebookTableView({
           </TabsContent>
         </Tabs>
         
-        {/* Ad Preview Popup */}
-        <AdPreviewPopup 
+        {/* Ad Preview Popup - using shared AdDetailDialog */}
+        <AdDetailDialog 
           ad={selectedAdForPreview}
-          isOpen={!!selectedAdForPreview}
+          open={!!selectedAdForPreview}
           onClose={() => setSelectedAdForPreview(null)}
         />
       </CardContent>

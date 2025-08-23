@@ -11,11 +11,11 @@ export class MetaRealSyncService {
 
   async syncAccount(accountId: string, accessToken?: string) {
     // Get provider connection with access token
-    const connection = await this.prisma.providerConnection.findFirst({
+    const connection = await this.prisma.connection.findFirst({
       where: {
         accountId,
         provider: "meta",
-        isActive: true
+        status: "active"
       }
     })
 
@@ -24,7 +24,7 @@ export class MetaRealSyncService {
     }
 
     // Use provided token or connection token
-    const token = accessToken || (connection.accessToken as string)
+    const token = accessToken || (connection.metadata as any)?.accessToken
     if (!token) {
       throw new Error("No access token available")
     }
@@ -318,14 +318,19 @@ export class MetaRealSyncService {
       }
 
       // Record successful sync
-      await this.prisma.syncJob.create({
+      await this.prisma.syncHistory.create({
         data: {
           accountId,
-          provider: "meta",
-          type: "full",
-          status: "completed",
-          metadata: syncResults,
-          completedAt: new Date()
+          provider: "META",
+          syncType: "FULL",
+          status: "SUCCESS",
+          startedAt: new Date(),
+          completedAt: new Date(),
+          duration: 0,
+          campaignsSync: syncResults.campaigns,
+          adGroupsSync: syncResults.adSets,
+          adsSync: syncResults.ads,
+          metadata: syncResults
         }
       })
 
@@ -334,13 +339,17 @@ export class MetaRealSyncService {
 
     } catch (error) {
       // Record failed sync
-      await this.prisma.syncJob.create({
+      await this.prisma.syncHistory.create({
         data: {
           accountId,
-          provider: "meta",
-          type: "full",
-          status: "failed",
-          errors: error instanceof Error ? { message: error.message } : { message: "Unknown error" },
+          provider: "META",
+          syncType: "FULL",
+          status: "FAILED",
+          startedAt: new Date(),
+          completedAt: new Date(),
+          duration: 0,
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+          errorCategory: "SYNC_ERROR",
           metadata: syncResults
         }
       })

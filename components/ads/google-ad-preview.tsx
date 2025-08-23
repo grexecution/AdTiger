@@ -33,6 +33,7 @@ import {
   Globe,
   Phone
 } from "lucide-react"
+import { getGoogleCreativeImageUrl, getAllGoogleCreativeImageUrls, getGoogleCreativeFormat } from "@/lib/utils/creative-utils"
 
 // Google platform icons
 const GooglePlatformIcon = ({ platform }: { platform: string }) => {
@@ -211,16 +212,31 @@ const YouTubeVideoAdPreview = ({ ad, onExpand }: { ad: any; onExpand: () => void
     uploadedAgo: "2 days ago"
   }
 
+  // Get real creative image URL
+  const creativeImageUrl = getGoogleCreativeImageUrl(ad.creative)
+
   return (
     <div className="bg-black rounded-lg overflow-hidden shadow-lg">
       {/* Video Preview */}
       <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900">
         {/* Video Thumbnail */}
-        <img 
-          src={`https://picsum.photos/400/225?random=${ad.id}`} 
-          alt={ad.name}
-          className="w-full h-full object-cover"
-        />
+        {creativeImageUrl ? (
+          <img 
+            src={creativeImageUrl} 
+            alt={ad.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to placeholder if image fails to load
+              (e.target as HTMLImageElement).src = `https://picsum.photos/400/225?random=${ad.id}`
+            }}
+          />
+        ) : (
+          <img 
+            src={`https://picsum.photos/400/225?random=${ad.id}`} 
+            alt={ad.name}
+            className="w-full h-full object-cover"
+          />
+        )}
         
         {/* Play Button Overlay */}
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
@@ -304,6 +320,9 @@ const YouTubeVideoAdPreview = ({ ad, onExpand }: { ad: any; onExpand: () => void
 
 // Google Display Ad Component
 const GoogleDisplayAdPreview = ({ ad, onExpand }: { ad: any; onExpand: () => void }) => {
+  // Get real creative image URL
+  const creativeImageUrl = getGoogleCreativeImageUrl(ad.creative)
+
   return (
     <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-2 hover:border-blue-300 transition-colors">
       {/* Display Ad Banner */}
@@ -318,11 +337,23 @@ const GoogleDisplayAdPreview = ({ ad, onExpand }: { ad: any; onExpand: () => voi
 
         {/* Banner Content */}
         <div className="relative aspect-[16/6] bg-gradient-to-r from-blue-50 to-purple-50 rounded border overflow-hidden">
-          <img 
-            src={`https://picsum.photos/320/120?random=${ad.id}`} 
-            alt={ad.name}
-            className="w-full h-full object-cover"
-          />
+          {creativeImageUrl ? (
+            <img 
+              src={creativeImageUrl} 
+              alt={ad.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback to placeholder if image fails to load
+                (e.target as HTMLImageElement).src = `https://picsum.photos/320/120?random=${ad.id}`
+              }}
+            />
+          ) : (
+            <img 
+              src={`https://picsum.photos/320/120?random=${ad.id}`} 
+              alt={ad.name}
+              className="w-full h-full object-cover"
+            />
+          )}
           
           {/* Overlay Content */}
           <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-4">
@@ -371,15 +402,30 @@ const GoogleShoppingAdPreview = ({ ad, onExpand }: { ad: any; onExpand: () => vo
     shipping: "Free shipping"
   }
 
+  // Get real creative image URL
+  const creativeImageUrl = getGoogleCreativeImageUrl(ad.creative)
+
   return (
     <div className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
       {/* Product Image */}
       <div className="relative aspect-square bg-gray-50">
-        <img 
-          src={`https://picsum.photos/300/300?random=${ad.id}`} 
-          alt={ad.name}
-          className="w-full h-full object-cover"
-        />
+        {creativeImageUrl ? (
+          <img 
+            src={creativeImageUrl} 
+            alt={ad.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to placeholder if image fails to load
+              (e.target as HTMLImageElement).src = `https://picsum.photos/300/300?random=${ad.id}`
+            }}
+          />
+        ) : (
+          <img 
+            src={`https://picsum.photos/300/300?random=${ad.id}`} 
+            alt={ad.name}
+            className="w-full h-full object-cover"
+          />
+        )}
         
         {/* Shopping Platform Badge */}
         <div className="absolute top-2 left-2">

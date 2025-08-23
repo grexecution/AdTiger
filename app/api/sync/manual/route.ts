@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { addManualSyncJob, isAccountSyncing, getAccountSyncStatus } from '@/lib/queue'
 import { z } from 'zod'
+import { ensureValidMetaToken } from '@/lib/utils/token-refresh'
 
 // Validation schema
 const manualSyncSchema = z.object({
@@ -80,9 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify provider connection exists and is active
-    // First check the Connection table (for manual connections)
-    let connectionId = null
-    const manualConnection = await prisma.connection.findFirst({
+    const connection = await prisma.connection.findFirst({
       where: {
         accountId: user.accountId,
         provider: provider.toLowerCase(),
@@ -90,25 +89,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (manualConnection) {
-      connectionId = manualConnection.id
-    } else {
-      // Fallback to ProviderConnection table
-      const providerConnection = await prisma.providerConnection.findFirst({
-        where: {
-          accountId: user.accountId,
-          provider: provider.toUpperCase(),
-          status: 'CONNECTED',
-          isActive: true,
-        },
-      })
-      
-      if (providerConnection) {
-        connectionId = providerConnection.id
-      }
-    }
-
-    if (!connectionId) {
+    if (!connection) {
       return NextResponse.json(
         { 
           error: 'Provider not connected',
@@ -118,20 +99,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For provider connections, check if token is expired
-    if (providerConnection && providerConnection.expiresAt && providerConnection.expiresAt < new Date()) {
-      await prisma.providerConnection.update({
-        where: { id: providerConnection.id },
-        data: { status: 'EXPIRED' },
-      })
-
-      return NextResponse.json(
-        { 
-          error: 'Connection expired',
-          message: `Your ${provider} connection has expired. Please reconnect your account.`
-        },
-        { status: 400 }
-      )
+    const connectionId = connection.id
+    
+    // Ensure token is valid and refresh if needed for Meta
+    if (provider === 'meta') {
+      try {
+        await ensureValidMetaToken(connectionId)
+      } catch (error) {
+        console.error('Token validation/refresh failed:', error)
+        // Don't fail here, let the sync worker handle it
+      }
     }
 
     // Add manual sync job to queue
@@ -234,24 +211,29 @@ export async function GET(request: NextRequest) {
     })
 
     // Get provider connection status
-    const connection = await prisma.providerConnection.findFirst({
+    const connection = await prisma.connection.findFirst({
       where: {
         accountId: user.accountId,
-        provider: provider.toUpperCase(),
+        provider: provider.toLowerCase(),
       },
       select: {
         status: true,
-        lastSyncAt: true,
-        nextSyncAt: true,
-        syncErrors: true,
+        metadata: true,
       },
     })
+
+    const connectionStatus = connection ? {
+      status: connection.status?.toUpperCase(),
+      lastSyncAt: (connection.metadata as any)?.lastSyncAt,
+      nextSyncAt: null,
+      syncErrors: null,
+    } : null
 
     return NextResponse.json({
       syncStatus,
       recentSyncs,
-      connection,
-      canSync: connection?.status === 'CONNECTED' && !syncStatus.isActive,
+      connection: connectionStatus,
+      canSync: connection?.status === 'active' && !syncStatus.isActive,
     })
 
   } catch (error) {

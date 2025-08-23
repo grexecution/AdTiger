@@ -32,22 +32,25 @@ async function syncMeta() {
   const mainCurrency = connection.account.currency || 'EUR'
   console.log(`Main currency: ${mainCurrency}`)
   
-  // Get ad account currency
+  // Get ad account details including currency
   let adAccountCurrency = 'USD'
+  let adAccountName = ''
   try {
     const accountResponse = await fetch(
       `https://graph.facebook.com/v21.0/${adAccountExternalId}?` + new URLSearchParams({
         access_token: accessToken,
-        fields: 'currency,account_status,name'
+        fields: 'currency,account_status,name,id'
       })
     )
     const accountData = await accountResponse.json()
     if (accountData.currency) {
       adAccountCurrency = accountData.currency
-      console.log(`Ad account currency: ${adAccountCurrency}`)
+      adAccountName = accountData.name || 'Unknown'
+      console.log(`Ad account: ${adAccountName} (${adAccountExternalId})`)
+      console.log(`Currency: ${adAccountCurrency}`)
     }
   } catch (error) {
-    console.error('Error fetching ad account currency:', error)
+    console.error('Error fetching ad account details:', error)
   }
   
   // Fetch Ads with creative details
@@ -97,11 +100,32 @@ async function syncMeta() {
             fields: 'hash,url,url_128,permalink_url,width,height,name'
           })
           
-          console.log(`  Fetching from: ${imageUrl}`)
           const imageResponse = await fetch(imageUrl)
           const imageData = await imageResponse.json()
           
-          console.log(`  Image API response:`, JSON.stringify(imageData, null, 2))
+          if (imageData.error) {
+            console.log(`  ⚠️ Meta API Error: ${imageData.error.message}`)
+            console.log(`  Using fallback method...`)
+            
+            // Try fetching images one by one as fallback
+            for (const hash of imageHashes) {
+              try {
+                const singleImageUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/adimages?` + new URLSearchParams({
+                  access_token: accessToken,
+                  hashes: JSON.stringify([hash]),
+                  fields: 'hash,url,url_128,permalink_url'
+                })
+                const singleResponse = await fetch(singleImageUrl)
+                const singleData = await singleResponse.json()
+                if (singleData.data?.[0]) {
+                  if (!imageData.data) imageData.data = []
+                  imageData.data.push(singleData.data[0])
+                }
+              } catch (e) {
+                console.log(`    Failed to fetch hash ${hash}`)
+              }
+            }
+          }
           
           if (imageData.data && Array.isArray(imageData.data)) {
             console.log(`  Got ${imageData.data.length} images from API`)

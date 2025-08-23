@@ -7,89 +7,72 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Multi-tenant account
 model Account {
-  id        String   @id @default(cuid())
-  name      String
-  currency  String   @default("USD") // Main currency preference (USD, EUR, GBP, etc.)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  users              User[]
-  providerConnections ProviderConnection[]
-  connections        Connection[]
-  adAccounts         AdAccount[]
-  campaigns          Campaign[]
-  adGroups           AdGroup[]
-  ads                Ad[]
-  insights           Insight[]
-  recommendations    Recommendation[]
-  feedbacks          Feedback[]
-  syncHistory        SyncHistory[]
-  changeHistory      ChangeHistory[]
-  performanceTrends  PerformanceTrend[]
+  id                   String                @id @default(cuid())
+  name                 String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  currency             String                @default("USD")
+  ads                  Ad[]
+  adAccounts           AdAccount[]
+  adGroups             AdGroup[]
+  campaigns            Campaign[]
+  changeHistory        ChangeHistory[]
+  connections          Connection[]
+  feedbacks            Feedback[]
+  insights             Insight[]
   performanceSnapshots PerformanceSnapshot[]
+  performanceTrends    PerformanceTrend[]
+  providerConnections  ProviderConnection[]
+  recommendations      Recommendation[]
+  syncHistory          SyncHistory[]
+  users                User[]
 }
 
-// Users belong to accounts
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  password      String // hashed
-  name          String?
-  image         String?  // Profile image URL
-  metadata      Json?    // Additional user data (company, phone, timezone, language, etc.)
-  accountId     String
-  account       Account  @relation(fields: [accountId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String?
+  accountId String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  image     String?
+  metadata  Json?
+  sessions  Session[]
+  account   Account   @relation(fields: [accountId], references: [id])
 
-  // Auth
-  sessions      Session[]
-  
   @@index([accountId])
   @@index([email])
 }
 
-// Auth.js session
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId])
 }
 
-// Provider connections (Meta, Google, etc.)
 model ProviderConnection {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   accountId         String
-  account           Account  @relation(fields: [accountId], references: [id])
-  provider          String   // "meta", "google"
-  externalAccountId String   // Provider's account ID
-  
-  // OAuth tokens
-  accessToken       String?  @db.Text
-  refreshToken      String?  @db.Text
+  provider          String
+  externalAccountId String
+  accessToken       String?
+  refreshToken      String?
   expiresAt         DateTime?
-  
-  // Encrypted API credentials (stored in metadata for now)
-  // In production, use a proper encryption service
-  metadata          Json?    // Provider-specific data and encrypted credentials
-  
-  isActive          Boolean  @default(true)
-  
-  // Sync status tracking
-  status            String   @default("CONNECTED") // "CONNECTED", "ERROR", "EXPIRED", "DISCONNECTED"
+  metadata          Json?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   lastSyncAt        DateTime?
   nextSyncAt        DateTime?
-  syncErrors        Json?    // Recent sync errors
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  status            String    @default("CONNECTED")
+  syncErrors        Json?
+  account           Account   @relation(fields: [accountId], references: [id])
 
   @@unique([accountId, provider, externalAccountId])
   @@index([accountId])
@@ -97,41 +80,34 @@ model ProviderConnection {
   @@index([status])
 }
 
-// New OAuth-based connection model
 model Connection {
   id          String   @id @default(cuid())
   accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  provider    String   // "meta", "google"
-  status      String   // "pending_selection", "active", "expired", "error"
-  
-  // Credentials including tokens and selected accounts
-  credentials Json?    // Contains accessToken, refreshToken, selectedAccounts, etc.
-  metadata    Json?    // Additional connection metadata
-  
+  provider    String
+  status      String
+  credentials Json?
+  metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+  account     Account  @relation(fields: [accountId], references: [id])
+
   @@index([accountId])
   @@index([provider])
 }
 
-// Normalized ad account across providers
 model AdAccount {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   accountId  String
-  account    Account  @relation(fields: [accountId], references: [id])
-  provider   String   // "meta", "google"
-  externalId String   // Provider's ad account ID
+  provider   String
+  externalId String
   name       String
   currency   String?
   timezone   String?
-  status     String?  // active, paused, disabled
-  metadata   Json?    // Provider-specific fields
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  // Relations
+  status     String?
+  metadata   Json?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  account    Account    @relation(fields: [accountId], references: [id])
   campaigns  Campaign[]
   insights   Insight[]
 
@@ -140,115 +116,106 @@ model AdAccount {
   @@index([provider])
 }
 
-// Normalized campaign
 model Campaign {
-  id          String    @id @default(cuid())
-  accountId   String
-  account     Account   @relation(fields: [accountId], references: [id])
-  adAccountId String
-  adAccount   AdAccount @relation(fields: [adAccountId], references: [id])
-  provider    String    // "meta", "google"
-  externalId  String    // Provider's campaign ID
+  id             String          @id @default(cuid())
+  accountId      String
+  adAccountId    String
+  provider       String
+  channel        String?         // e.g., "facebook", "instagram", "google_search", "youtube"
+  externalId     String
   name           String
-  status         String?   // active, paused, deleted
-  objective      String?   // conversions, traffic, awareness
+  status         String?
+  objective      String?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   budgetAmount   Float?
   budgetCurrency String?
-  metadata       Json?     // Provider-specific fields
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  adGroups      AdGroup[]
-  insights      Insight[]
-  changeHistory ChangeHistory[]
+  adGroups       AdGroup[]
+  account        Account         @relation(fields: [accountId], references: [id])
+  adAccount      AdAccount       @relation(fields: [adAccountId], references: [id])
+  changeHistory  ChangeHistory[]
+  insights       Insight[]
 
   @@unique([accountId, provider, externalId])
   @@index([accountId])
   @@index([adAccountId])
   @@index([provider])
+  @@index([channel])
 }
 
-// Normalized ad group/ad set
 model AdGroup {
-  id         String   @id @default(cuid())
-  accountId  String
-  account    Account  @relation(fields: [accountId], references: [id])
-  campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id])
-  provider   String   // "meta", "google"
-  externalId String   // Provider's ad set/group ID
+  id             String          @id @default(cuid())
+  accountId      String
+  campaignId     String
+  provider       String
+  channel        String?         // inherited from campaign
+  externalId     String
   name           String
-  status         String?  // active, paused, deleted
+  status         String?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   budgetAmount   Float?
   budgetCurrency String?
-  metadata       Json?    // Provider-specific fields
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  // Relations
-  ads           Ad[]
-  insights      Insight[]
-  changeHistory ChangeHistory[]
+  ads            Ad[]
+  account        Account         @relation(fields: [accountId], references: [id])
+  campaign       Campaign        @relation(fields: [campaignId], references: [id])
+  changeHistory  ChangeHistory[]
+  insights       Insight[]
 
   @@unique([accountId, provider, externalId])
   @@index([accountId])
   @@index([campaignId])
   @@index([provider])
+  @@index([channel])
 }
 
-// Normalized ad
 model Ad {
-  id        String   @id @default(cuid())
-  accountId String
-  account   Account  @relation(fields: [accountId], references: [id])
-  adGroupId String
-  adGroup   AdGroup  @relation(fields: [adGroupId], references: [id])
-  provider  String   // "meta", "google"
-  externalId String  // Provider's ad ID
-  name      String
-  status    String?  // active, paused, deleted
-  creative  Json?    // Creative details
-  metadata  Json?    // Provider-specific fields
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  insights      Insight[]
+  id            String          @id @default(cuid())
+  accountId     String
+  adGroupId     String
+  provider      String
+  channel       String?         // inherited from campaign
+  externalId    String
+  name          String
+  status        String?
+  creative      Json?
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  account       Account         @relation(fields: [accountId], references: [id])
+  adGroup       AdGroup         @relation(fields: [adGroupId], references: [id])
   changeHistory ChangeHistory[]
+  insights      Insight[]
 
   @@unique([accountId, provider, externalId])
   @@index([accountId])
   @@index([adGroupId])
   @@index([provider])
+  @@index([channel])
 }
 
-// Time-series insights/metrics
 model Insight {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   accountId   String
-  account     Account   @relation(fields: [accountId], references: [id])
-  provider    String    // "meta", "google"
-  entityType  String    // "ad_account", "campaign", "ad_group", "ad"
-  entityId    String    // Reference to the entity
-  date        DateTime  @db.Date
-  window      String    // "day", "week", "month", "lifetime"
-  
-  // All metrics stored as JSON for flexibility
-  metrics     Json      // Contains all performance metrics     
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
+  provider    String
+  entityType  String
+  entityId    String
+  date        DateTime   @db.Date
+  window      String
+  metrics     Json
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   adAccountId String?
-  adAccount   AdAccount? @relation(fields: [adAccountId], references: [id])
   campaignId  String?
-  campaign    Campaign?  @relation(fields: [campaignId], references: [id])
   adGroupId   String?
-  adGroup     AdGroup?   @relation(fields: [adGroupId], references: [id])
   adId        String?
+  account     Account    @relation(fields: [accountId], references: [id])
+  adAccount   AdAccount? @relation(fields: [adAccountId], references: [id])
+  adGroup     AdGroup?   @relation(fields: [adGroupId], references: [id])
   ad          Ad?        @relation(fields: [adId], references: [id])
+  campaign    Campaign?  @relation(fields: [campaignId], references: [id])
 
   @@unique([accountId, provider, entityType, entityId, date, window])
   @@index([accountId])
@@ -261,116 +228,86 @@ model Insight {
   @@index([adId, date])
 }
 
-// Aggregated metrics for fast trend analysis
 model PerformanceTrend {
-  id          String    @id @default(cuid())
-  accountId   String
-  account     Account   @relation(fields: [accountId], references: [id])
-  entityType  String    // "campaign", "ad_group", "ad"
-  entityId    String    
-  provider    String
-  
-  // Pre-calculated trend data
-  period      String    // "7d", "30d", "90d", "365d"
-  trendData   Json      // Array of {date, metrics}
-  
-  // Summary statistics
-  avgMetrics  Json      // Average metrics for the period
-  minMetrics  Json      // Minimum values
-  maxMetrics  Json      // Maximum values
-  
-  // Trend indicators
-  trendScore  Float     // -1 to 1 (declining to growing)
-  volatility  Float     // 0 to 1 (stable to volatile)
-  
+  id             String   @id @default(cuid())
+  accountId      String
+  entityType     String
+  entityId       String
+  provider       String
+  period         String
+  trendData      Json
+  avgMetrics     Json
+  minMetrics     Json
+  maxMetrics     Json
+  trendScore     Float
+  volatility     Float
   lastCalculated DateTime
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  account        Account  @relation(fields: [accountId], references: [id])
+
   @@unique([accountId, entityType, entityId, provider, period])
   @@index([entityType, entityId])
   @@index([lastCalculated])
 }
 
-// Performance snapshots for comparison
 model PerformanceSnapshot {
-  id          String    @id @default(cuid())
-  accountId   String
-  account     Account   @relation(fields: [accountId], references: [id])
-  entityType  String
-  entityId    String
-  provider    String
-  
-  snapshotType String   // "weekly", "monthly", "quarterly"
-  periodStart DateTime
-  periodEnd   DateTime
-  
-  metrics     Json      // Aggregated metrics for the period
-  comparison  Json      // Comparison with previous period
-  
-  createdAt   DateTime  @default(now())
-  
+  id           String   @id @default(cuid())
+  accountId    String
+  entityType   String
+  entityId     String
+  provider     String
+  snapshotType String
+  periodStart  DateTime
+  periodEnd    DateTime
+  metrics      Json
+  comparison   Json
+  createdAt    DateTime @default(now())
+  account      Account  @relation(fields: [accountId], references: [id])
+
   @@unique([accountId, entityType, entityId, snapshotType, periodStart])
   @@index([entityType, entityId])
   @@index([periodStart])
 }
 
-// AI-generated recommendations
 model Recommendation {
-  id          String   @id @default(cuid())
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  provider    String   // "meta", "google"
-  
-  // Entity scope
-  scopeType   String   // "campaign", "ad_group", "ad", "account"
-  scopeId     String   // Reference to the entity
-  entityType  String   // Deprecated, use scopeType
-  entityId    String   // Deprecated, use scopeId
-  
-  // Rule/Playbook info
-  ruleKey     String   // Rule identifier
-  playbookKey String   // Playbook key
-  playbookId  String   // Deprecated
-  ruleId      String   // Deprecated
-  
-  // Recommendation details
-  type        String   // Action type: "budget_change", "pause", "creative_refresh", etc.
-  title       String
-  description String   @db.Text
-  priority    String   // "critical", "high", "medium", "low"
-  category    String   // "performance", "budget", "creative", "targeting"
-  
-  // Payload and metrics
-  payload     Json     // Full action payload with params, guardrails, etc.
-  metricsSnapshot Json? // Metrics at time of recommendation
-  estimatedImpact Json? // Expected impact metrics
-  score       Float    @default(0) // Recommendation score (0-100)
-  confidence  Float    @default(0.5) // Confidence level (0-1)
-  
-  // Status tracking
-  status      String   @default("proposed") // "proposed", "accepted", "rejected", "applied", "reverted"
-  statusReason String? // Reason for status change
-  snoozedUntil DateTime?
-  acceptedAt  DateTime?
-  rejectedAt  DateTime?
-  appliedAt   DateTime?
-  revertedAt  DateTime?
-  
-  // Application tracking
-  applicationResult Json? // Result of applying the recommendation
-  revertReason     String? // Why it was reverted
-  
-  // AI explanation
-  aiExplanation String? @db.Text
-  aiModel      String?  // Model used for explanation
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  expiresAt   DateTime? // When this recommendation becomes stale
-  
-  // Relations
-  feedbacks   Feedback[]
+  id                String     @id @default(cuid())
+  accountId         String
+  provider          String
+  entityType        String
+  entityId          String
+  playbookId        String
+  ruleId            String
+  title             String
+  description       String
+  priority          String
+  category          String
+  status            String     @default("proposed")
+  snoozedUntil      DateTime?
+  appliedAt         DateTime?
+  aiExplanation     String?
+  aiModel           String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  acceptedAt        DateTime?
+  applicationResult Json?
+  confidence        Float      @default(0.5)
+  estimatedImpact   Json?
+  expiresAt         DateTime?
+  metricsSnapshot   Json?
+  payload           Json
+  playbookKey       String
+  rejectedAt        DateTime?
+  revertReason      String?
+  revertedAt        DateTime?
+  ruleKey           String
+  scopeId           String
+  scopeType         String
+  score             Float      @default(0)
+  statusReason      String?
+  type              String
+  feedbacks         Feedback[]
+  account           Account    @relation(fields: [accountId], references: [id])
 
   @@index([accountId])
   @@index([provider])
@@ -382,36 +319,27 @@ model Recommendation {
   @@index([playbookKey])
 }
 
-// Change tracking for entities
 model ChangeHistory {
-  id          String   @id @default(cuid())
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  
-  // Entity that changed
-  entityType  String   // "campaign", "ad_group", "ad"
-  entityId    String   // ID of the entity
-  externalId  String   // External ID from provider
-  provider    String   // "meta", "google"
-  
-  // Change details
-  changeType  String   // "created", "updated", "deleted", "status_change"
-  fieldName   String   // e.g., "name", "budget", "status", "creative"
-  oldValue    Json?    // Previous value
-  newValue    Json?    // New value
-  
-  // Metadata
-  syncJobId   String?  // Which sync job detected this change
-  detectedAt  DateTime @default(now())
-  
-  // Optional relations for easier queries
-  campaignId  String?
-  campaign    Campaign? @relation(fields: [campaignId], references: [id])
-  adGroupId   String?
-  adGroup     AdGroup?  @relation(fields: [adGroupId], references: [id])
-  adId        String?
-  ad          Ad?       @relation(fields: [adId], references: [id])
-  
+  id         String    @id @default(cuid())
+  accountId  String
+  entityType String
+  entityId   String
+  externalId String
+  provider   String
+  changeType String
+  fieldName  String
+  oldValue   Json?
+  newValue   Json?
+  syncJobId  String?
+  detectedAt DateTime  @default(now())
+  campaignId String?
+  adGroupId  String?
+  adId       String?
+  account    Account   @relation(fields: [accountId], references: [id])
+  adGroup    AdGroup?  @relation(fields: [adGroupId], references: [id])
+  ad         Ad?       @relation(fields: [adId], references: [id])
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+
   @@index([accountId])
   @@index([entityType])
   @@index([entityId])
@@ -423,18 +351,17 @@ model ChangeHistory {
   @@index([adId])
 }
 
-// User feedback on recommendations
 model Feedback {
   id               String         @id @default(cuid())
   accountId        String
-  account          Account        @relation(fields: [accountId], references: [id])
   recommendationId String
-  recommendation   Recommendation @relation(fields: [recommendationId], references: [id])
   userId           String
-  label            FeedbackLabel  @default(IGNORED)
-  note             String?        @db.Text
   createdAt        DateTime       @default(now())
+  label            FeedbackLabel  @default(IGNORED)
+  note             String?
   updatedAt        DateTime       @updatedAt
+  account          Account        @relation(fields: [accountId], references: [id])
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id])
 
   @@unique([recommendationId, userId])
   @@index([accountId])
@@ -443,212 +370,156 @@ model Feedback {
   @@index([label])
 }
 
-enum FeedbackLabel {
-  THUMBS_UP
-  THUMBS_DOWN
-  IGNORED
-}
-
-// Playbook analytics
 model PlaybookAnalytics {
-  id          String   @id @default(cuid())
-  accountId   String
-  playbookKey String
-  date        DateTime @db.Date
-  
-  // Metrics
-  proposalsCount   Int      @default(0)
-  acceptedCount    Int      @default(0)
-  rejectedCount    Int      @default(0)
-  ignoredCount     Int      @default(0)
-  acceptRate       Float    @default(0)
-  rejectRate       Float    @default(0)
-  
-  // Impact metrics
-  estimatedImpact  Json?    // Expected impact
-  actualImpact     Json?    // Measured impact
-  
-  // Common reject reasons
-  rejectReasons    Json?    // Array of {reason: string, count: number}
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id              String   @id @default(cuid())
+  accountId       String
+  playbookKey     String
+  date            DateTime @db.Date
+  proposalsCount  Int      @default(0)
+  acceptedCount   Int      @default(0)
+  rejectedCount   Int      @default(0)
+  ignoredCount    Int      @default(0)
+  acceptRate      Float    @default(0)
+  rejectRate      Float    @default(0)
+  estimatedImpact Json?
+  actualImpact    Json?
+  rejectReasons   Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
   @@unique([accountId, playbookKey, date])
   @@index([accountId])
   @@index([playbookKey])
   @@index([date])
 }
 
-// Adaptive tuning suggestions
 model AdaptiveTuningSuggestion {
-  id          String   @id @default(cuid())
-  accountId   String
-  playbookKey String
-  suggestionType String // "threshold_adjustment", "rule_disable", etc.
-  
-  // Current vs suggested values
-  currentConfig Json
+  id              String    @id @default(cuid())
+  accountId       String
+  playbookKey     String
+  suggestionType  String
+  currentConfig   Json
   suggestedConfig Json
-  
-  // Reasoning
-  reason      String   @db.Text
-  metrics     Json     // Metrics that triggered the suggestion
-  confidence  Float    @default(0.7)
-  
-  // Status
-  status      String   @default("pending") // "pending", "applied", "dismissed"
-  appliedAt   DateTime?
-  dismissedAt DateTime?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  reason          String
+  metrics         Json
+  confidence      Float     @default(0.7)
+  status          String    @default("pending")
+  appliedAt       DateTime?
+  dismissedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
   @@index([accountId])
   @@index([playbookKey])
   @@index([status])
 }
 
-// Notification settings
 model NotificationSettings {
-  id        String   @id @default(cuid())
-  accountId String   @unique
-  userId    String?  // If null, applies to all users in account
-  
-  // Channels
-  emailEnabled    Boolean @default(true)
-  slackEnabled    Boolean @default(false)
-  webhookEnabled  Boolean @default(false)
-  
-  // Channel configs
-  emailAddresses  String[] // Array of email addresses
-  slackWebhookUrl String?
-  customWebhookUrl String?
-  
-  // Schedule
-  frequency       String   @default("daily") // "immediate", "hourly", "daily", "weekly"
-  dailyTime       String?  // "09:00" format for daily digests
-  weeklyDay       String?  // "monday" for weekly digests
-  timezone        String   @default("UTC")
-  
-  // Quiet hours
-  quietHoursEnabled Boolean @default(false)
-  quietHoursStart   String? // "22:00" format
-  quietHoursEnd     String? // "08:00" format
-  
-  // Filters
-  minPriority     String   @default("medium") // Only notify for this priority and above
-  categories      String[] // Empty means all categories
-  providers       String[] // Empty means all providers
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  id                String   @id @default(cuid())
+  accountId         String   @unique
+  userId            String?
+  emailEnabled      Boolean  @default(true)
+  slackEnabled      Boolean  @default(false)
+  webhookEnabled    Boolean  @default(false)
+  emailAddresses    String[]
+  slackWebhookUrl   String?
+  customWebhookUrl  String?
+  frequency         String   @default("daily")
+  dailyTime         String?
+  weeklyDay         String?
+  timezone          String   @default("UTC")
+  quietHoursEnabled Boolean  @default(false)
+  quietHoursStart   String?
+  quietHoursEnd     String?
+  minPriority       String   @default("medium")
+  categories        String[]
+  providers         String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
   @@index([accountId])
   @@index([userId])
 }
 
-// Notification queue
 model NotificationQueue {
-  id        String   @id @default(cuid())
-  accountId String
-  userId    String?
-  
-  // Notification details
-  type      String   // "recommendations", "alert", "report"
-  channel   String   // "email", "slack", "webhook"
-  subject   String
-  content   Json     // Full notification content
-  metadata  Json?    // Additional data
-  
-  // Status
-  status    String   @default("pending") // "pending", "sent", "failed"
-  attempts  Int      @default(0)
-  sentAt    DateTime?
-  failedAt  DateTime?
-  error     String?
-  
-  // Scheduling
-  scheduledFor DateTime @default(now())
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  id           String    @id @default(cuid())
+  accountId    String
+  userId       String?
+  type         String
+  channel      String
+  subject      String
+  content      Json
+  metadata     Json?
+  status       String    @default("pending")
+  attempts     Int       @default(0)
+  sentAt       DateTime?
+  failedAt     DateTime?
+  error        String?
+  scheduledFor DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
   @@index([accountId])
   @@index([status])
   @@index([scheduledFor])
   @@index([channel])
 }
 
-// Data sync jobs (legacy)
 model SyncJob {
-  id        String   @id @default(cuid())
-  accountId String
-  provider  String   // "meta", "google"
-  
-  // Job details
-  type      String   // "full", "incremental", "campaigns", "insights"
-  scope     Json?    // Specific entities to sync
-  
-  // Status
-  status    String   @default("pending") // "pending", "running", "completed", "failed"
-  startedAt DateTime?
-  completedAt DateTime?
-  
-  // Results
-  recordsSynced Int      @default(0)
-  errors       Json?    // Array of error messages
-  metadata     Json?    // Additional job metadata
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  id            String    @id @default(cuid())
+  accountId     String
+  provider      String
+  type          String
+  scope         Json?
+  status        String    @default("pending")
+  startedAt     DateTime?
+  completedAt   DateTime?
+  recordsSynced Int       @default(0)
+  errors        Json?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   @@index([accountId])
   @@index([provider])
   @@index([status])
   @@index([type])
 }
 
-// Queue-based sync history tracking
 model SyncHistory {
-  id          String   @id @default(cuid())
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  
-  // Provider and sync details
-  provider    SyncProvider // "META", "GOOGLE"
-  syncType    SyncType     // "FULL", "INCREMENTAL", "MANUAL"
-  status      SyncStatus   // "SUCCESS", "FAILED", "CANCELLED"
-  
-  // Timing
-  startedAt   DateTime
-  completedAt DateTime?
-  duration    Int?         // Duration in milliseconds
-  
-  // Results
-  campaignsSync Int @default(0)
-  adGroupsSync  Int @default(0)
-  adsSync       Int @default(0)
-  insightsSync  Int @default(0)
-  
-  // Error handling
-  errorMessage  String? @db.Text
-  errorCategory String? // "RATE_LIMIT", "API_ERROR", "VALIDATION_ERROR", "NETWORK_ERROR"
-  retryCount    Int @default(0)
-  
-  // Queue metadata
+  id            String       @id @default(cuid())
+  accountId     String
+  provider      SyncProvider
+  syncType      SyncType
+  status        SyncStatus
+  startedAt     DateTime
+  completedAt   DateTime?
+  duration      Int?
+  campaignsSync Int          @default(0)
+  adGroupsSync  Int          @default(0)
+  adsSync       Int          @default(0)
+  insightsSync  Int          @default(0)
+  errorMessage  String?
+  errorCategory String?
+  retryCount    Int          @default(0)
   queueJobId    String?
   priority      Int?
-  metadata      Json?    // Additional sync metadata
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  metadata      Json?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  account       Account      @relation(fields: [accountId], references: [id])
+
   @@index([accountId])
   @@index([provider])
   @@index([syncType])
   @@index([status])
   @@index([startedAt])
+}
+
+enum FeedbackLabel {
+  THUMBS_UP
+  THUMBS_DOWN
+  IGNORED
 }
 
 enum SyncProvider {

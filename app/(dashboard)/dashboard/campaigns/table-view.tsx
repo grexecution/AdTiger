@@ -239,8 +239,9 @@ export default function TableView({
               <TableHead className="text-right">Clicks</TableHead>
               <TableHead className="text-right">CTR</TableHead>
               <TableHead className="text-right">CPC</TableHead>
-              <TableHead className="text-right">Conversions</TableHead>
-              <TableHead className="text-right">CPA</TableHead>
+              <TableHead className="text-right">Likes</TableHead>
+              <TableHead className="text-right">Comments</TableHead>
+              <TableHead className="text-right">Shares</TableHead>
               <TableHead className="text-right">ROAS</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
@@ -312,13 +313,13 @@ export default function TableView({
                         {formatMetric(campaign.metrics?.cpc, 'currency')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(campaign.metrics?.conversions)}
+                        {formatMetric(campaign.metadata?.insights?.likes || 0)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {campaign.metrics?.conversions > 0 
-                          ? formatMetric(campaign.metrics?.spend / campaign.metrics?.conversions, 'currency')
-                          : '-'
-                        }
+                        {formatMetric(campaign.metadata?.insights?.comments || 0)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatMetric(campaign.metadata?.insights?.shares || 0)}
                       </TableCell>
                       <TableCell className="text-right">
                         <PerformanceIndicator 
@@ -411,15 +412,9 @@ export default function TableView({
                                 <TableCell className="text-right">
                                   {formatMetric(adGroup.metrics?.cpc, 'currency')}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                  {formatMetric(adGroup.metrics?.conversions)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {adGroup.metrics?.conversions > 0 
-                                    ? formatMetric(adGroup.metrics?.spend / adGroup.metrics?.conversions, 'currency')
-                                    : '-'
-                                  }
-                                </TableCell>
+                                <TableCell className="text-right">-</TableCell>
+                                <TableCell className="text-right">-</TableCell>
+                                <TableCell className="text-right">-</TableCell>
                                 <TableCell className="text-right">
                                   {formatMetric(adGroup.metrics?.roas)}x
                                 </TableCell>
@@ -464,28 +459,31 @@ export default function TableView({
                                       </TableCell>
                                       <TableCell className="text-right">-</TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.random() * 500 + 50, 'currency')}
+                                        {formatMetric(ad.metadata?.insights?.spend || 0, 'currency')}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.floor(Math.random() * 50000 + 5000))}
+                                        {formatMetric(ad.metadata?.insights?.impressions || 0)}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.floor(Math.random() * 1000 + 100))}
+                                        {formatMetric(ad.metadata?.insights?.clicks || 0)}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.random() * 3 + 0.5, 'percent')}
+                                        {formatMetric(ad.metadata?.insights?.ctr || 0, 'percent')}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.random() * 2 + 0.3, 'currency')}
+                                        {formatMetric(ad.metadata?.insights?.cpc || 0, 'currency')}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.floor(Math.random() * 50 + 5))}
+                                        {formatMetric(ad.metadata?.insights?.likes || 0)}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.random() * 50 + 10, 'currency')}
+                                        {formatMetric(ad.metadata?.insights?.comments || 0)}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(Math.random() * 5 + 1)}x
+                                        {formatMetric(ad.metadata?.insights?.shares || 0)}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        {formatMetric(ad.metadata?.insights?.purchaseRoas || 0)}x
                                       </TableCell>
                                       <TableCell>
                                         <TooltipProvider>

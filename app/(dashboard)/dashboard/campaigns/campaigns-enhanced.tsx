@@ -103,12 +103,15 @@ import {
   Megaphone,
   CircleCheckBig,
   RefreshCw,
-  Info
+  Info,
+  SlidersHorizontal
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { GoogleAdPreview } from "@/components/ads/google-ad-preview"
 import { SyncStatusPanel } from "@/components/dashboard/sync-status-panel"
+import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl } from "@/lib/utils/creative-utils"
+import { AdDetailDialog } from "@/components/campaigns/ad-detail-dialog"
 
 // Platform icons
 const PlatformIcon = ({ platform }: { platform: string }) => {
@@ -236,63 +239,92 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
     )
   }
   
-  // Meta/Facebook ad preview (original logic)
-  const isVideo = ad.name?.toLowerCase().includes('video')
-  const isCarousel = ad.name?.toLowerCase().includes('carousel')
+  // Get real creative data
+  const creative = ad.creative
+  const creativeFormat = getCreativeFormat(creative)
+  const isVideo = isVideoCreative(creative)
+  const isCarousel = isCarouselCreative(creative)
+  // For grid view, prefer 1:1 ratio images
+  const mainImageUrl = getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative)
+  const allImageUrls = getAllCreativeImageUrls(creative)
   
-  // Mock engagement metrics (in real app, these would come from the API)
-  const mockMetrics = {
-    likes: Math.floor(Math.random() * 5000) + 500,
-    comments: Math.floor(Math.random() * 500) + 50,
-    shares: Math.floor(Math.random() * 1000) + 100,
-    views: isVideo ? Math.floor(Math.random() * 50000) + 5000 : undefined
+  // Use real engagement metrics from ad data
+  const adMetrics = ad.metadata?.insights || ad.campaign?.metadata?.insights || {}
+  const engagementMetrics = {
+    likes: adMetrics.likes || 0,
+    comments: adMetrics.comments || 0,
+    shares: adMetrics.shares || 0,
+    views: isVideo ? (adMetrics.videoViews || 0) : undefined
   }
   
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-all duration-200 group">
-      {/* Media Preview */}
-      <div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200">
+    <Card 
+      className="overflow-hidden hover:shadow-lg transition-all duration-200 group cursor-pointer"
+      onClick={onExpand}
+    >
+      {/* Media Preview - Use square aspect for grid view */}
+      <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200">
         {isVideo ? (
           <div className="relative w-full h-full">
-            <img 
-              src={`https://picsum.photos/400/300?random=${ad.id}`} 
-              alt={ad.name}
-              className="w-full h-full object-cover"
-            />
+            {mainImageUrl ? (
+              <img 
+                src={mainImageUrl} 
+                alt={ad.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://picsum.photos/400/400?random=${ad.id}`
+                }}
+              />
+            ) : (
+              <img 
+                src={`https://picsum.photos/400/400?random=${ad.id}`} 
+                alt={ad.name}
+                className="w-full h-full object-cover"
+              />
+            )}
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
               <div className="rounded-full bg-white/90 p-3 shadow-lg">
                 <Play className="h-6 w-6 text-gray-900" fill="currentColor" />
               </div>
             </div>
             <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-              0:30
+              {engagementMetrics.views ? `${engagementMetrics.views.toLocaleString()} views` : '0:30'}
             </div>
           </div>
         ) : isCarousel ? (
-          <div className="relative w-full h-full p-4">
-            <div className="flex gap-2 h-full">
-              {[1, 2, 3].map((idx) => (
-                <div key={idx} className="flex-1 rounded overflow-hidden">
-                  <img 
-                    src={`https://picsum.photos/200/200?random=${ad.id}_${idx}`} 
-                    alt={`${ad.name} ${idx}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-              {[1, 2, 3].map((idx) => (
-                <div key={idx} className="w-1.5 h-1.5 rounded-full bg-white/70" />
-              ))}
+          <div className="relative w-full h-full">
+            {/* For carousel, show first image with indicator */}
+            <img 
+              src={mainImageUrl || `https://picsum.photos/400/400?random=${ad.id}`} 
+              alt={ad.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://picsum.photos/400/400?random=${ad.id}`
+              }}
+            />
+            {/* Carousel indicator */}
+            <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+              <Layers className="h-3 w-3" />
+              {allImageUrls.length} images
             </div>
           </div>
         ) : (
-          <img 
-            src={`https://picsum.photos/400/300?random=${ad.id}`} 
-            alt={ad.name}
-            className="w-full h-full object-cover"
-          />
+          mainImageUrl ? (
+            <img 
+              src={mainImageUrl} 
+              alt={ad.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://picsum.photos/400/300?random=${ad.id}`
+              }}
+            />
+          ) : (
+            <img 
+              src={`https://picsum.photos/400/300?random=${ad.id}`} 
+              alt={ad.name}
+              className="w-full h-full object-cover"
+            />
+          )
         )}
         
         {/* Platform badge */}
@@ -303,20 +335,12 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
           </Badge>
         </div>
         
-        {/* Status badge */}
+        {/* Status and Format badges */}
         <div className="absolute top-2 right-2 flex gap-2">
+          <Badge className="bg-white/90 backdrop-blur text-xs">
+            {creativeFormat === 'unknown' ? 'Image' : creativeFormat.charAt(0).toUpperCase() + creativeFormat.slice(1)}
+          </Badge>
           <StatusBadge status={ad.status} />
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 bg-white/90 hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation()
-              onExpand()
-            }}
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </Button>
         </div>
       </div>
       
@@ -326,7 +350,7 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
           <div className="space-y-1">
             <div className="flex items-start justify-between">
               <h4 className="font-semibold text-sm line-clamp-1">{ad.name}</h4>
-              <FormatIcon format={ad.name} />
+              <FormatIcon format={creativeFormat} />
             </div>
             <div className="space-y-0.5">
               <p className="text-xs font-medium text-primary">
@@ -344,7 +368,7 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
               <Tooltip>
                 <TooltipTrigger className="flex items-center gap-1 hover:text-red-500 transition-colors">
                   <Heart className="h-3 w-3" />
-                  <span className="text-xs">{mockMetrics.likes.toLocaleString()}</span>
+                  <span className="text-xs">{engagementMetrics.likes.toLocaleString()}</span>
                 </TooltipTrigger>
                 <TooltipContent>Likes</TooltipContent>
               </Tooltip>
@@ -354,7 +378,7 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
               <Tooltip>
                 <TooltipTrigger className="flex items-center gap-1 hover:text-blue-500 transition-colors">
                   <MessageCircle className="h-3 w-3" />
-                  <span className="text-xs">{mockMetrics.comments.toLocaleString()}</span>
+                  <span className="text-xs">{engagementMetrics.comments.toLocaleString()}</span>
                 </TooltipTrigger>
                 <TooltipContent>Comments</TooltipContent>
               </Tooltip>
@@ -364,18 +388,18 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
               <Tooltip>
                 <TooltipTrigger className="flex items-center gap-1 hover:text-green-500 transition-colors">
                   <Share2 className="h-3 w-3" />
-                  <span className="text-xs">{mockMetrics.shares.toLocaleString()}</span>
+                  <span className="text-xs">{engagementMetrics.shares.toLocaleString()}</span>
                 </TooltipTrigger>
                 <TooltipContent>Shares</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             
-            {isVideo && mockMetrics.views && (
+            {isVideo && engagementMetrics.views && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="flex items-center gap-1 hover:text-purple-500 transition-colors">
                     <Play className="h-3 w-3" />
-                    <span className="text-xs">{mockMetrics.views.toLocaleString()}</span>
+                    <span className="text-xs">{engagementMetrics.views.toLocaleString()}</span>
                   </TooltipTrigger>
                   <TooltipContent>Video Views</TooltipContent>
                 </Tooltip>
@@ -427,6 +451,8 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [formatFilter, setFormatFilter] = useState<string>('all')
   const [platformFilter, setPlatformFilter] = useState<string>('all')
+  const [channelFilter, setChannelFilter] = useState<string>('all')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false)
   const { toast } = useToast()
   
   useEffect(() => {
@@ -533,8 +559,14 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
     // Filter by platform
     if (platformFilter !== 'all') {
       filtered = filtered.filter(ad => {
-        const adPlatform = ad.metadata?.platform || 'facebook' // Default to facebook if not specified
-        return adPlatform.toLowerCase() === platformFilter.toLowerCase()
+        return ad.provider === platformFilter
+      })
+    }
+    
+    // Filter by channel  
+    if (channelFilter !== 'all') {
+      filtered = filtered.filter(ad => {
+        return ad.channel === channelFilter
       })
     }
     
@@ -581,7 +613,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
     }
     
     return filtered
-  }, [allAds, selectedCampaigns, selectedAdSets, searchQuery, statusFilter, formatFilter, platformFilter])
+  }, [allAds, selectedCampaigns, selectedAdSets, searchQuery, statusFilter, formatFilter, platformFilter, channelFilter])
   
   // Calculate metrics for filtered ads
   const filteredMetrics = useMemo(() => {
@@ -614,6 +646,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
     setStatusFilter('all')
     setFormatFilter('all')
     setPlatformFilter('all')
+    setChannelFilter('all')
   }
   
   const hasActiveFilters = selectedCampaigns.length > 0 || 
@@ -621,7 +654,8 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
                           searchQuery || 
                           statusFilter !== 'all' || 
                           formatFilter !== 'all' ||
-                          platformFilter !== 'all'
+                          platformFilter !== 'all' ||
+                          channelFilter !== 'all'
   
   if (isLoading) {
     return (
@@ -822,39 +856,38 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
               </PopoverContent>
             </Popover>
             
-            {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="PAUSED">Paused</SelectItem>
-                <SelectItem value="DELETED">Deleted</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            {/* Format Filter */}
-            <Select value={formatFilter} onValueChange={setFormatFilter}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Format" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Formats</SelectItem>
-                <SelectItem value="image">Image</SelectItem>
-                <SelectItem value="video">Video</SelectItem>
-                <SelectItem value="carousel">Carousel</SelectItem>
-              </SelectContent>
-            </Select>
-            
             {/* Platform Filter */}
             <Select value={platformFilter} onValueChange={setPlatformFilter}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Platform" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Platforms</SelectItem>
+                <SelectItem value="meta">
+                  <span className="flex items-center gap-2">
+                    Meta
+                  </span>
+                </SelectItem>
+                <SelectItem value="google">
+                  <span className="flex items-center gap-2">
+                    Google
+                  </span>
+                </SelectItem>
+                <SelectItem value="tiktok">
+                  <span className="flex items-center gap-2">
+                    TikTok
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Channel Filter */}
+            <Select value={channelFilter} onValueChange={setChannelFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Channel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Channels</SelectItem>
                 <SelectItem value="facebook">
                   <span className="flex items-center gap-2">
                     <PlatformIcon platform="facebook" />
@@ -900,6 +933,48 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
                 </SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Advanced Filters Toggle */}
+            <Button
+              variant={showAdvancedFilters ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="flex items-center gap-2"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Advanced
+            </Button>
+            
+            {/* Advanced Filters (Status and Format) */}
+            {showAdvancedFilters && (
+              <>
+                {/* Status Filter */}
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="PAUSED">Paused</SelectItem>
+                    <SelectItem value="DELETED">Deleted</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {/* Format Filter */}
+                <Select value={formatFilter} onValueChange={setFormatFilter}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Formats</SelectItem>
+                    <SelectItem value="image">Image</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                    <SelectItem value="carousel">Carousel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            )}
             
             {/* View Mode Toggle */}
             <div className="flex items-center gap-1 border rounded-md p-1">
@@ -1022,10 +1097,20 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
               )}
               {platformFilter !== 'all' && (
                 <Badge variant="secondary" className="gap-1">
-                  <PlatformIcon platform={platformFilter} />
-                  {platformFilter.charAt(0).toUpperCase() + platformFilter.slice(1)}
+                  Platform: {platformFilter.charAt(0).toUpperCase() + platformFilter.slice(1)}
                   <button
                     onClick={() => setPlatformFilter('all')}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {channelFilter !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Channel: {channelFilter.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                  <button
+                    onClick={() => setChannelFilter('all')}
                     className="ml-1 hover:text-destructive"
                   >
                     <X className="h-3 w-3" />
@@ -1138,144 +1223,11 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
       )}
       
       {/* Ad Detail Dialog */}
-      <Dialog open={!!selectedAd} onOpenChange={() => setSelectedAd(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          {selectedAd && (
-            <div className="space-y-6">
-              <DialogHeader>
-                <DialogTitle>{selectedAd.name}</DialogTitle>
-                <DialogDescription>
-                  {selectedAd.campaignName} → {selectedAd.adSetName}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid gap-6 lg:grid-cols-2">
-                {/* Ad Preview */}
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Ad Preview</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                          <img 
-                            src={`https://picsum.photos/800/450?random=${selectedAd.id}`} 
-                            alt={selectedAd.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <h4 className="font-semibold">{selectedAd.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            This is a preview of how your ad appears to users. 
-                            Actual appearance may vary based on placement and device.
-                          </p>
-                          <Button className="w-full">
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            View Live Ad
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Detailed Metrics */}
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Performance Metrics</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Status</p>
-                          <StatusBadge status={selectedAd.status} />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Format</p>
-                          <div className="flex items-center gap-2">
-                            <FormatIcon format={selectedAd.name} />
-                            <span className="text-sm font-medium">
-                              {selectedAd.name?.includes('Video') ? 'Video' : 
-                               selectedAd.name?.includes('Carousel') ? 'Carousel' : 'Image'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <Separator />
-                      
-                      <div className="space-y-3">
-                        <h5 className="font-medium text-sm">Delivery Metrics</h5>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Impressions</p>
-                            <p className="text-lg font-bold">
-                              {Math.floor(Math.random() * 100000 + 10000).toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Reach</p>
-                            <p className="text-lg font-bold">
-                              {Math.floor(Math.random() * 80000 + 8000).toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Frequency</p>
-                            <p className="text-lg font-bold">
-                              {(Math.random() * 2 + 1).toFixed(2)}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Clicks</p>
-                            <p className="text-lg font-bold">
-                              {Math.floor(Math.random() * 5000 + 500).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <Separator />
-                      
-                      <div className="space-y-3">
-                        <h5 className="font-medium text-sm">Engagement</h5>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm flex items-center gap-2">
-                              <Heart className="h-4 w-4" /> Reactions
-                            </span>
-                            <span className="font-medium">
-                              {Math.floor(Math.random() * 5000 + 500).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm flex items-center gap-2">
-                              <MessageCircle className="h-4 w-4" /> Comments
-                            </span>
-                            <span className="font-medium">
-                              {Math.floor(Math.random() * 500 + 50).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm flex items-center gap-2">
-                              <Share2 className="h-4 w-4" /> Shares
-                            </span>
-                            <span className="font-medium">
-                              {Math.floor(Math.random() * 1000 + 100).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <AdDetailDialog 
+        ad={selectedAd} 
+        open={!!selectedAd} 
+        onClose={() => setSelectedAd(null)} 
+      />
     </div>
   )
 }

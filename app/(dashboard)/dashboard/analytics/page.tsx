@@ -123,7 +123,26 @@ export default function AnalyticsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all")
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all")
   const [selectedMetric, setSelectedMetric] = useState<string>("spend")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [analyticsData, setAnalyticsData] = useState<any>({
+    performanceData: [],
+    platformData: [],
+    campaignPerformance: [],
+    campaigns: [],
+    totals: {
+      impressions: 0,
+      clicks: 0,
+      spend: 0,
+      conversions: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      ctr: 0,
+      cpc: 0,
+      cpm: 0,
+      roas: 0
+    }
+  })
 
   // Quick date range presets
   const dateRangePresets = [
@@ -135,29 +154,67 @@ export default function AnalyticsPage() {
     { label: "This week", value: "week", range: { from: startOfWeek(new Date()), to: endOfWeek(new Date()) } },
   ]
 
-  // Mock data for charts
-  const performanceData = [
-    { date: "Jan 1", spend: 450, impressions: 12000, clicks: 340, conversions: 12 },
-    { date: "Jan 2", spend: 520, impressions: 15000, clicks: 420, conversions: 18 },
-    { date: "Jan 3", spend: 480, impressions: 13500, clicks: 380, conversions: 15 },
-    { date: "Jan 4", spend: 610, impressions: 18000, clicks: 510, conversions: 22 },
-    { date: "Jan 5", spend: 550, impressions: 16000, clicks: 460, conversions: 19 },
-    { date: "Jan 6", spend: 590, impressions: 17000, clicks: 490, conversions: 21 },
-    { date: "Jan 7", spend: 640, impressions: 19000, clicks: 540, conversions: 24 },
-  ]
+  // Fetch real analytics data
+  const fetchAnalyticsData = async () => {
+    setIsLoading(true)
+    try {
+      const days = dateRange?.from && dateRange?.to
+        ? Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))
+        : 30
 
-  const platformData = [
-    { name: "Facebook", value: 45, spend: 4500, color: "#1877F2" },
-    { name: "Instagram", value: 35, spend: 3500, color: "#E4405F" },
-    { name: "Google Ads", value: 20, spend: 2000, color: "#4285F4" },
-  ]
+      const params = new URLSearchParams({
+        days: days.toString(),
+        platform: selectedPlatform,
+        campaignId: selectedCampaign,
+        metric: selectedMetric
+      })
 
-  const campaignPerformance = [
-    { name: "Campaign 1", spend: 2500, clicks: 1200, conversions: 45, roas: 3.2 },
-    { name: "Campaign 2", spend: 3200, clicks: 1800, conversions: 62, roas: 2.8 },
-    { name: "Campaign 3", spend: 1800, clicks: 950, conversions: 28, roas: 2.1 },
-    { name: "Campaign 4", spend: 2800, clicks: 1500, conversions: 58, roas: 3.5 },
-  ]
+      const response = await fetch(`/api/analytics/insights?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAnalyticsData(data)
+      } else {
+        console.error('Failed to fetch analytics data')
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch data on mount and when filters change
+  useEffect(() => {
+    fetchAnalyticsData()
+  }, [dateRange, selectedPlatform, selectedCampaign])
+
+  // Extract data from state
+  const { performanceData, platformData, campaignPerformance, campaigns, totals } = analyticsData
+
+  // Show loading state
+  if (isLoading && performanceData.length === 0) {
+    return (
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Analytics</h2>
+            <p className="text-muted-foreground">
+              Loading performance data...
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-5">
+          {[1, 2, 3, 4, 5].map(i => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="h-20 animate-pulse bg-muted rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
@@ -166,11 +223,14 @@ export default function AnalyticsPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Analytics</h2>
           <p className="text-muted-foreground">
-            Comprehensive performance metrics and insights
+            {performanceData.length > 0 
+              ? `Showing data from ${performanceData[0]?.date || ''} to ${performanceData[performanceData.length - 1]?.date || ''}`
+              : 'No data available for selected period'
+            }
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled={performanceData.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
@@ -246,9 +306,11 @@ export default function AnalyticsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Campaigns</SelectItem>
-                <SelectItem value="campaign1">Campaign 1</SelectItem>
-                <SelectItem value="campaign2">Campaign 2</SelectItem>
-                <SelectItem value="campaign3">Campaign 3</SelectItem>
+                {campaigns?.map((campaign: any) => (
+                  <SelectItem key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -280,39 +342,65 @@ export default function AnalyticsPage() {
       <div className="grid gap-4 md:grid-cols-5">
         <MetricCard
           title="Total Spend"
-          value={10282.80}
+          value={totals.spend.toFixed(2)}
           change={12}
           icon={DollarSign}
           prefix="$"
         />
         <MetricCard
           title="Impressions"
-          value={370894}
+          value={totals.impressions}
           change={8}
           icon={Eye}
         />
         <MetricCard
           title="Clicks"
-          value={9907}
+          value={totals.clicks}
           change={15}
           icon={MousePointerClick}
         />
         <MetricCard
           title="Conversions"
-          value={481}
+          value={totals.conversions}
           change={23}
           icon={Target}
         />
         <MetricCard
           title="Avg ROAS"
-          value="2.86"
+          value={totals.roas.toFixed(2)}
           change={5}
           icon={TrendingUp}
           suffix="x"
         />
       </div>
 
+      {/* Show empty state if no data */}
+      {performanceData.length === 0 && !isLoading && (
+        <Card className="p-12">
+          <div className="text-center space-y-3">
+            <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+            <h3 className="text-lg font-semibold">No Analytics Data Available</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              There's no data for the selected period. This could be because:
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• No campaigns have been synced yet</li>
+              <li>• The selected date range has no activity</li>
+              <li>• Historical data hasn't been fetched</li>
+            </ul>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.location.href = '/dashboard/campaigns'}
+            >
+              Go to Campaigns
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Main Charts Section */}
+      {performanceData.length > 0 && (
       <Tabs defaultValue="performance" className="space-y-4">
         <TabsList>
           <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -350,10 +438,10 @@ export default function AnalyticsPage() {
               <CardContent>
                 <BarChartComponent
                   data={[
-                    { stage: "Impressions", value: 370894 },
-                    { stage: "Clicks", value: 9907 },
-                    { stage: "Engagements", value: 2850 },
-                    { stage: "Conversions", value: 481 },
+                    { stage: "Impressions", value: totals.impressions },
+                    { stage: "Clicks", value: totals.clicks },
+                    { stage: "Engagements", value: totals.likes + totals.comments + totals.shares },
+                    { stage: "Conversions", value: totals.conversions },
                   ]}
                   dataKey="value"
                 />
@@ -596,6 +684,7 @@ export default function AnalyticsPage() {
           </div>
         </TabsContent>
       </Tabs>
+      )}
 
       {/* Additional Insights */}
       <Card>

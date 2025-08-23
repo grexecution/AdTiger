@@ -2,6 +2,8 @@ import { Job } from 'bullmq'
 import { prisma } from '@/lib/prisma'
 import { MetaSyncJobData } from '@/lib/queue/queues'
 import { META_API_VERSION } from '@/lib/meta-auth'
+import { getMetaChannel } from '@/lib/utils/channel-utils'
+import { processMetaInsights } from '@/lib/utils/insights-utils'
 
 export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
   const { accountId, providerConnectionId, syncType, entityTypes } = job.data
@@ -91,6 +93,12 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
         )
         
         for (const campaign of campaigns) {
+          // Detect the channel for this campaign
+          const channel = getMetaChannel(campaign)
+          
+          // Process insights data
+          const insights = processMetaInsights(campaign.insights)
+          
           await prisma.campaign.upsert({
             where: {
               accountId_provider_externalId: {
@@ -103,10 +111,12 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
               name: campaign.name,
               status: campaign.status,
               objective: campaign.objective,
+              channel,
               budgetAmount: campaign.daily_budget || campaign.lifetime_budget,
               budgetCurrency: adAccount.currency || 'USD',
               metadata: {
                 ...campaign,
+                insights,
                 lastSyncedAt: new Date().toISOString(),
               },
             },
@@ -114,6 +124,7 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
               accountId,
               adAccountId: adAccount.id,
               provider: 'meta',
+              channel,
               externalId: campaign.id,
               name: campaign.name,
               status: campaign.status,
@@ -122,6 +133,7 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
               budgetCurrency: adAccount.currency || 'USD',
               metadata: {
                 ...campaign,
+                insights,
                 lastSyncedAt: new Date().toISOString(),
               },
             },
@@ -152,6 +164,9 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
         )
         
         for (const adSet of adSets) {
+          // Process insights data
+          const insights = processMetaInsights(adSet.insights)
+          
           await prisma.adGroup.upsert({
             where: {
               accountId_provider_externalId: {
@@ -163,10 +178,12 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
             update: {
               name: adSet.name,
               status: adSet.status,
+              channel: campaign.channel,
               budgetAmount: adSet.daily_budget || adSet.lifetime_budget,
               budgetCurrency: campaign.budgetCurrency || 'USD',
               metadata: {
                 ...adSet,
+                insights,
                 lastSyncedAt: new Date().toISOString(),
               },
             },
@@ -174,6 +191,7 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
               accountId,
               campaignId: campaign.id,
               provider: 'meta',
+              channel: campaign.channel,
               externalId: adSet.id,
               name: adSet.name,
               status: adSet.status,
@@ -181,6 +199,7 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
               budgetCurrency: campaign.budgetCurrency || 'USD',
               metadata: {
                 ...adSet,
+                insights,
                 lastSyncedAt: new Date().toISOString(),
               },
             },
@@ -211,6 +230,9 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
         )
         
         for (const ad of ads) {
+          // Process insights data
+          const insights = processMetaInsights(ad.insights)
+          
           await prisma.ad.upsert({
             where: {
               accountId_provider_externalId: {
@@ -222,9 +244,11 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
             update: {
               name: ad.name,
               status: ad.status,
+              channel: adGroup.channel,
               creative: ad.creative || {},
               metadata: {
                 ...ad,
+                insights,
                 lastSyncedAt: new Date().toISOString(),
               },
             },
@@ -232,12 +256,14 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
               accountId,
               adGroupId: adGroup.id,
               provider: 'meta',
+              channel: adGroup.channel,
               externalId: ad.id,
               name: ad.name,
               status: ad.status,
               creative: ad.creative || {},
               metadata: {
                 ...ad,
+                insights,
                 lastSyncedAt: new Date().toISOString(),
               },
             },
@@ -282,7 +308,7 @@ async function fetchMetaAdAccounts(accessToken: string) {
 
 async function fetchMetaCampaigns(accessToken: string, adAccountId: string) {
   const response = await fetch(
-    `https://graph.facebook.com/${META_API_VERSION}/act_${adAccountId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget,created_time,updated_time&limit=500&access_token=${accessToken}`
+    `https://graph.facebook.com/${META_API_VERSION}/act_${adAccountId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget,created_time,updated_time,insights{impressions,clicks,ctr,cpc,cpm,spend,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas}&limit=500&access_token=${accessToken}`
   )
   
   if (!response.ok) {
@@ -296,7 +322,7 @@ async function fetchMetaCampaigns(accessToken: string, adAccountId: string) {
 
 async function fetchMetaAdSets(accessToken: string, campaignId: string) {
   const response = await fetch(
-    `https://graph.facebook.com/${META_API_VERSION}/${campaignId}/adsets?fields=id,name,status,daily_budget,lifetime_budget,targeting,optimization_goal,billing_event&limit=500&access_token=${accessToken}`
+    `https://graph.facebook.com/${META_API_VERSION}/${campaignId}/adsets?fields=id,name,status,daily_budget,lifetime_budget,targeting,optimization_goal,billing_event,insights{impressions,clicks,ctr,cpc,cpm,spend,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas}&limit=500&access_token=${accessToken}`
   )
   
   if (!response.ok) {
@@ -310,7 +336,7 @@ async function fetchMetaAdSets(accessToken: string, campaignId: string) {
 
 async function fetchMetaAds(accessToken: string, adSetId: string) {
   const response = await fetch(
-    `https://graph.facebook.com/${META_API_VERSION}/${adSetId}/ads?fields=id,name,status,creative{id,name,title,body,image_url,video_id}&limit=500&access_token=${accessToken}`
+    `https://graph.facebook.com/${META_API_VERSION}/${adSetId}/ads?fields=id,name,status,creative{id,name,title,body,image_url,image_hash,thumbnail_url,object_story_spec,asset_feed_spec{images{url,hash,permalink_url,width,height,url_128},videos{url,video_id},bodies{text},titles{text},descriptions{text}},video_id},insights{impressions,clicks,ctr,cpc,cpm,spend,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas,cost_per_conversion}&limit=500&access_token=${accessToken}`
   )
   
   if (!response.ok) {
@@ -319,6 +345,27 @@ async function fetchMetaAds(accessToken: string, adSetId: string) {
   }
   
   const data = await response.json()
+  
+  // For each ad, if we have image_hash, try to get the permalink URL
+  for (const ad of data.data || []) {
+    if (ad.creative?.image_hash) {
+      try {
+        const imageResponse = await fetch(
+          `https://graph.facebook.com/${META_API_VERSION}/me/adimages?fields=id,permalink_url,name&hashes=${ad.creative.image_hash}&access_token=${accessToken}`
+        )
+        if (imageResponse.ok) {
+          const imageData = await imageResponse.json()
+          if (imageData.data && imageData.data.length > 0) {
+            ad.creative.permalink_url = imageData.data[0].permalink_url
+          }
+        }
+      } catch (error) {
+        // If image fetch fails, continue with what we have
+        console.warn(`Failed to fetch image URL for hash ${ad.creative.image_hash}:`, error)
+      }
+    }
+  }
+  
   return data.data || []
 }
 

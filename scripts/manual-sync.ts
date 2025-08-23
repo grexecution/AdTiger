@@ -22,7 +22,7 @@ async function manualSync() {
     console.log(`Found connection: ${connection.id}`)
     
     // Trigger sync via API
-    const response = await fetch(`http://localhost:3333/api/connections/${connection.id}/sync`, {
+    const response = await fetch(`http://localhost:3334/api/connections/${connection.id}/sync`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

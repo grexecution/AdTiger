@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { convertCurrency } from "@/lib/currency"
+import { ensureValidMetaToken } from "@/lib/utils/token-refresh"
 
 interface CampaignInsight {
   campaign_id: string
@@ -64,12 +65,19 @@ export async function POST(
       return NextResponse.json({ error: "Connection not found" }, { status: 404 })
     }
 
-    const credentials = connection.credentials as any
-    const accessToken = credentials?.accessToken
-
-    if (!accessToken) {
-      return NextResponse.json({ error: "No access token found" }, { status: 400 })
+    // Ensure token is valid and refresh if needed
+    let accessToken: string
+    try {
+      accessToken = await ensureValidMetaToken(connection.id)
+    } catch (error) {
+      console.error("Token validation/refresh failed:", error)
+      return NextResponse.json({ 
+        error: "Failed to validate or refresh access token",
+        details: error instanceof Error ? error.message : "Unknown error"
+      }, { status: 401 })
     }
+    
+    const credentials = connection.credentials as any
 
     const selectedAccounts = credentials?.selectedAccountIds || credentials?.selectedAccounts || credentials?.accountIds || []
     
@@ -149,7 +157,7 @@ export async function POST(
         // First, fetch campaigns directly (not through insights)
         let campaignsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/campaigns?` + new URLSearchParams({
           access_token: accessToken,
-          fields: 'id,name,status,objective,daily_budget,lifetime_budget',
+          fields: 'id,name,status,objective,daily_budget,lifetime_budget,special_ad_categories,configured_status',
           limit: '500'
         })
         
@@ -208,6 +216,9 @@ export async function POST(
             // Convert budget to main currency
             const convertedBudget = await convertCurrency(budgetValue, adAccountCurrency, mainCurrency)
             
+            // Detect channel (will be refined when we get adset targeting data)
+            let channel = 'facebook' // Default
+            
             await prisma.campaign.upsert({
               where: {
                 accountId_provider_externalId: {
@@ -220,6 +231,7 @@ export async function POST(
                 name: campaign.name,
                 status: campaign.status?.toLowerCase() || "unknown",
                 objective: campaign.objective?.toLowerCase(),
+                channel,
                 budgetAmount: convertedBudget,
                 budgetCurrency: mainCurrency,
                 metadata: {
@@ -236,6 +248,7 @@ export async function POST(
                 name: campaign.name,
                 status: campaign.status?.toLowerCase() || "unknown",
                 objective: campaign.objective?.toLowerCase(),
+                channel,
                 budgetAmount: convertedBudget,
                 budgetCurrency: mainCurrency,
                 adAccountId: adAccount.id,
@@ -254,12 +267,139 @@ export async function POST(
           }
         }
         
-        // Fetch campaign insights separately for metrics
-        let allCampaignInsights: CampaignInsight[] = []
+        // Fetch campaign insights separately for metrics including engagement
+        // First fetch with daily breakdown for historical data
+        const today = new Date()
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        
+        // Fetch daily insights for the last 7 days
+        let dailyInsightsUrl: string | null = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
+          access_token: accessToken,
+          level: 'campaign',
+          fields: 'campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas',
+          time_range: `{'since':'${sevenDaysAgo.toISOString().split('T')[0]}','until':'${today.toISOString().split('T')[0]}'}`,
+          time_increment: '1', // Daily breakdown
+          limit: '500'
+        })
+        
+        while (dailyInsightsUrl) {
+          const dailyResponse = await fetch(dailyInsightsUrl)
+          const dailyData = await dailyResponse.json()
+          
+          if (dailyData.data) {
+            // Store each day's insights in the Insight table
+            for (const insight of dailyData.data) {
+              const campaign = await prisma.campaign.findFirst({
+                where: {
+                  accountId: user.accountId,
+                  provider: 'meta',
+                  externalId: insight.campaign_id
+                }
+              })
+              
+              if (campaign) {
+                const insightDate = new Date(insight.date_start)
+                
+                // Extract engagement metrics
+                let likes = 0, comments = 0, shares = 0, saves = 0, videoViews = 0
+                if (insight.actions && Array.isArray(insight.actions)) {
+                  for (const action of insight.actions) {
+                    switch (action.action_type) {
+                      case 'like':
+                      case 'post_reaction':
+                        likes += parseInt(action.value) || 0
+                        break
+                      case 'comment':
+                        comments += parseInt(action.value) || 0
+                        break
+                      case 'post':
+                      case 'share':
+                        shares += parseInt(action.value) || 0
+                        break
+                      case 'save':
+                      case 'onsite_conversion.post_save':
+                        saves += parseInt(action.value) || 0
+                        break
+                      case 'video_view':
+                        videoViews += parseInt(action.value) || 0
+                        break
+                    }
+                  }
+                }
+                
+                // Store in Insight table
+                await prisma.insight.upsert({
+                  where: {
+                    accountId_provider_entityType_entityId_date_window: {
+                      accountId: user.accountId,
+                      provider: 'meta',
+                      entityType: 'campaign',
+                      entityId: campaign.id,
+                      date: insightDate,
+                      window: '1d'
+                    }
+                  },
+                  update: {
+                    metrics: {
+                      impressions: parseInt(insight.impressions || '0'),
+                      clicks: parseInt(insight.clicks || '0'),
+                      spend: parseFloat(insight.spend || '0') / 100,
+                      ctr: parseFloat(insight.ctr || '0'),
+                      cpc: parseFloat(insight.cpc || '0') / 100,
+                      cpm: parseFloat(insight.cpm || '0') / 100,
+                      likes,
+                      comments,
+                      shares,
+                      saves,
+                      videoViews,
+                      inlineLinkClicks: parseInt(insight.inline_link_clicks || '0'),
+                      inlinePostEngagement: parseInt(insight.inline_post_engagement || '0'),
+                      dateStart: insight.date_start,
+                      dateStop: insight.date_stop
+                    },
+                    updatedAt: new Date()
+                  },
+                  create: {
+                    accountId: user.accountId,
+                    provider: 'meta',
+                    entityType: 'campaign',
+                    entityId: campaign.id,
+                    campaignId: campaign.id,
+                    date: insightDate,
+                    window: '1d',
+                    metrics: {
+                      impressions: parseInt(insight.impressions || '0'),
+                      clicks: parseInt(insight.clicks || '0'),
+                      spend: parseFloat(insight.spend || '0') / 100,
+                      ctr: parseFloat(insight.ctr || '0'),
+                      cpc: parseFloat(insight.cpc || '0') / 100,
+                      cpm: parseFloat(insight.cpm || '0') / 100,
+                      likes,
+                      comments,
+                      shares,
+                      saves,
+                      videoViews,
+                      inlineLinkClicks: parseInt(insight.inline_link_clicks || '0'),
+                      inlinePostEngagement: parseInt(insight.inline_post_engagement || '0'),
+                      dateStart: insight.date_start,
+                      dateStop: insight.date_stop
+                    }
+                  }
+                })
+              }
+            }
+          }
+          
+          dailyInsightsUrl = dailyData.paging?.next || null
+        }
+        
+        // Now fetch aggregated insights for last 30 days to update campaign metadata
+        let allCampaignInsights: any[] = []
         let campaignsInsightsUrl: string | null = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
           access_token: accessToken,
           level: 'campaign',
-          fields: 'campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr',
+          fields: 'campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas',
           date_preset: 'last_30d',
           limit: '500'
         })
@@ -305,6 +445,34 @@ export async function POST(
           
           if (existingCampaign) {
             const existingMetadata = existingCampaign.metadata as any || {}
+            
+            // Extract engagement metrics from actions
+            let likes = 0, comments = 0, shares = 0, saves = 0, videoViews = 0
+            if (insight.actions && Array.isArray(insight.actions)) {
+              for (const action of insight.actions) {
+                switch (action.action_type) {
+                  case 'like':
+                  case 'post_reaction':
+                    likes += parseInt(action.value) || 0
+                    break
+                  case 'comment':
+                    comments += parseInt(action.value) || 0
+                    break
+                  case 'post':
+                  case 'share':
+                    shares += parseInt(action.value) || 0
+                    break
+                  case 'save':
+                  case 'onsite_conversion.post_save':
+                    saves += parseInt(action.value) || 0
+                    break
+                  case 'video_view':
+                    videoViews += parseInt(action.value) || 0
+                    break
+                }
+              }
+            }
+            
             await prisma.campaign.update({
               where: { id: existingCampaign.id },
               data: {
@@ -319,7 +487,21 @@ export async function POST(
                     ctr: parseFloat(insight.ctr || '0'),
                     currency: mainCurrency,
                     originalSpend: spend,
-                    originalCurrency: adAccountCurrency
+                    originalCurrency: adAccountCurrency,
+                    // Engagement metrics
+                    likes,
+                    comments,
+                    shares,
+                    saves,
+                    videoViews,
+                    inlineLinkClicks: parseInt(insight.inline_link_clicks || '0'),
+                    inlinePostEngagement: parseInt(insight.inline_post_engagement || '0'),
+                    // Conversion metrics
+                    conversions: parseInt(insight.conversions || '0'),
+                    purchaseRoas: insight.purchase_roas ? parseFloat(insight.purchase_roas[0]?.value || '0') : 0,
+                    websitePurchaseRoas: insight.website_purchase_roas ? parseFloat(insight.website_purchase_roas[0]?.value || '0') : 0,
+                    // Raw data
+                    rawActions: insight.actions
                   }
                 }
               }
@@ -327,11 +509,11 @@ export async function POST(
           }
         }
         
-        // Fetch AdSets
-        console.log(`  Fetching adsets...`)
+        // Fetch AdSets with targeting to detect channel
+        console.log(`  Fetching adsets with targeting...`)
         let adsetsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/adsets?` + new URLSearchParams({
           access_token: accessToken,
-          fields: 'id,name,status,campaign_id,daily_budget,lifetime_budget',
+          fields: 'id,name,status,campaign_id,daily_budget,lifetime_budget,targeting',
           limit: '500'
         })
         
@@ -365,6 +547,29 @@ export async function POST(
                   // Convert budget to main currency
                   const convertedBudget = await convertCurrency(budgetValue, adAccountCurrency, mainCurrency)
                   
+                  // Detect channel from targeting
+                  let channel = 'facebook' // Default
+                  if (adset.targeting?.publisher_platforms) {
+                    const platforms = adset.targeting.publisher_platforms
+                    if (platforms.length === 1 && platforms[0] === 'instagram') {
+                      channel = 'instagram'
+                    } else if (platforms.includes('instagram') && platforms.includes('facebook')) {
+                      channel = 'facebook' // Mixed placement defaults to Facebook
+                    } else if (platforms.includes('messenger')) {
+                      channel = 'messenger'
+                    } else if (platforms.includes('whatsapp')) {
+                      channel = 'whatsapp'
+                    }
+                  }
+                  
+                  // Update campaign channel if more specific
+                  if (channel !== 'facebook') {
+                    await prisma.campaign.update({
+                      where: { id: campaign.id },
+                      data: { channel }
+                    })
+                  }
+                  
                   await prisma.adGroup.upsert({
                     where: {
                       accountId_provider_externalId: {
@@ -376,6 +581,7 @@ export async function POST(
                     update: {
                       name: adset.name,
                       status: adset.status?.toLowerCase() || "unknown",
+                      channel,
                       budgetAmount: convertedBudget,
                       budgetCurrency: mainCurrency,
                       metadata: {
@@ -392,6 +598,7 @@ export async function POST(
                       externalId: adset.id,
                       name: adset.name,
                       status: adset.status?.toLowerCase() || "unknown",
+                      channel,
                       budgetAmount: convertedBudget,
                       budgetCurrency: mainCurrency,
                       metadata: {
@@ -559,6 +766,7 @@ export async function POST(
                     update: {
                       name: ad.name,
                       status: ad.status?.toLowerCase() || "unknown",
+                      channel: adGroup.channel,
                       creative: processedCreative,
                       metadata: {
                         lastSyncedAt: new Date().toISOString(),
@@ -575,6 +783,7 @@ export async function POST(
                       externalId: ad.id,
                       name: ad.name,
                       status: ad.status?.toLowerCase() || "unknown",
+                      channel: adGroup.channel,
                       creative: processedCreative,
                       metadata: {
                         lastSyncedAt: new Date().toISOString(),
@@ -601,13 +810,13 @@ export async function POST(
         
         console.log(`  Found ${totalAds} ads`)
         
-        // Fetch ad insights to get performance metrics
+        // Fetch ad insights to get performance metrics including engagement
         if (totalAds > 0) {
-          console.log(`  Fetching ad insights...`)
+          console.log(`  Fetching ad insights with engagement metrics...`)
           let adInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
             access_token: accessToken,
             level: 'ad',
-            fields: 'ad_id,ad_name,impressions,clicks,spend,cpc,cpm,ctr',
+            fields: 'ad_id,ad_name,impressions,clicks,spend,cpc,cpm,ctr,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas,cost_per_conversion',
             date_preset: 'last_30d',
             limit: '500'
           })
@@ -647,6 +856,38 @@ export async function POST(
                 
                 if (existingAd) {
                   const existingMetadata = existingAd.metadata as any || {}
+                  
+                  // Extract engagement metrics from actions
+                  let likes = 0, comments = 0, shares = 0, saves = 0, videoViews = 0
+                  if (insight.actions && Array.isArray(insight.actions)) {
+                    for (const action of insight.actions) {
+                      switch (action.action_type) {
+                        case 'like':
+                        case 'post_reaction':
+                          likes += parseInt(action.value) || 0
+                          break
+                        case 'comment':
+                          comments += parseInt(action.value) || 0
+                          break
+                        case 'post':
+                        case 'share':
+                          shares += parseInt(action.value) || 0
+                          break
+                        case 'save':
+                        case 'onsite_conversion.post_save':
+                          saves += parseInt(action.value) || 0
+                          break
+                        case 'video_view':
+                          videoViews += parseInt(action.value) || 0
+                          break
+                      }
+                    }
+                  }
+                  
+                  // Calculate ROAS if available
+                  const purchaseRoas = insight.purchase_roas ? parseFloat(insight.purchase_roas[0]?.value || '0') : 0
+                  const websitePurchaseRoas = insight.website_purchase_roas ? parseFloat(insight.website_purchase_roas[0]?.value || '0') : 0
+                  
                   await prisma.ad.update({
                     where: { id: existingAd.id },
                     data: {
@@ -661,7 +902,22 @@ export async function POST(
                           ctr: parseFloat(insight.ctr || '0'),
                           currency: mainCurrency,
                           originalSpend: spend,
-                          originalCurrency: adAccountCurrency
+                          originalCurrency: adAccountCurrency,
+                          // Engagement metrics
+                          likes,
+                          comments,
+                          shares,
+                          saves,
+                          videoViews,
+                          inlineLinkClicks: parseInt(insight.inline_link_clicks || '0'),
+                          inlinePostEngagement: parseInt(insight.inline_post_engagement || '0'),
+                          // Conversion metrics
+                          conversions: parseInt(insight.conversions || '0'),
+                          purchaseRoas,
+                          websitePurchaseRoas,
+                          costPerConversion: parseFloat(insight.cost_per_conversion || '0'),
+                          // Raw data for reference
+                          rawActions: insight.actions
                         }
                       }
                     }

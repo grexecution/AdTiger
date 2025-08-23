@@ -128,11 +128,11 @@ async function processCampaignSync(job: Job<CampaignSyncJobData>) {
     await job.updateProgress(30)
     
     // Get user's connection details
-    const connection = await prisma.providerConnection.findFirst({
+    const connection = await prisma.connection.findFirst({
       where: {
         accountId,
-        provider: provider.toUpperCase() as any,
-        status: 'CONNECTED',
+        provider: provider.toLowerCase(),
+        status: 'active',
       },
     })
     
@@ -151,22 +151,30 @@ async function processCampaignSync(job: Job<CampaignSyncJobData>) {
     
     if (provider === 'meta') {
       const metaSync = new MetaRealSyncService(prisma)
-      syncResult = await metaSync.syncAccount(accountId, connection.accessToken!)
+      const accessToken = (connection.metadata as any)?.accessToken
+      if (!accessToken) {
+        throw new SyncError(
+          `No access token found for ${provider} connection`,
+          'API_ERROR',
+          false
+        )
+      }
+      syncResult = await metaSync.syncAccount(accountId, accessToken)
       
       await job.updateProgress(80)
       
       // Update connection last sync time
-      await prisma.providerConnection.update({
+      await prisma.connection.update({
         where: { id: connection.id },
         data: { 
-          lastSyncAt: new Date(),
           metadata: {
-            ...connection.metadata,
+            ...(connection.metadata as any || {}),
+            lastSyncAt: new Date().toISOString(),
             lastSyncResult: {
               success: true,
               timestamp: new Date().toISOString(),
-              campaignsCount: syncResult.campaigns?.length || 0,
-              adsCount: syncResult.ads?.length || 0,
+              campaignsCount: syncResult.campaigns || 0,
+              adsCount: syncResult.ads || 0,
             },
           },
         },
@@ -250,13 +258,13 @@ async function processCampaignSync(job: Job<CampaignSyncJobData>) {
     })
     
     // Update connection with error info if it's an API error
-    if (syncError.category === 'API_ERROR') {
-      await prisma.providerConnection.update({
-        where: { id: connection?.id },
+    if (syncError.category === 'API_ERROR' && connection) {
+      await prisma.connection.update({
+        where: { id: connection.id },
         data: { 
-          status: 'ERROR',
+          status: 'error',
           metadata: {
-            ...connection?.metadata,
+            ...(connection.metadata as any || {}),
             lastError: {
               message: syncError.message,
               timestamp: new Date().toISOString(),
