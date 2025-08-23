@@ -10,18 +10,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get user's account
+    // Get user's account and role
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { accountId: true }
+      select: { accountId: true, role: true }
     })
 
-    if (!user?.accountId) {
+    const isAdmin = user?.role === "ADMIN"
+    
+    if (!isAdmin && !user?.accountId) {
       return NextResponse.json({ error: "No account found" }, { status: 404 })
     }
 
     const recommendationService = new AIRecommendationService(prisma)
-    const recommendations = await recommendationService.getActiveRecommendations(user.accountId)
+    
+    // Admin can see all recommendations, regular users only their account's
+    const recommendations = isAdmin 
+      ? await recommendationService.getAllRecommendations()
+      : await recommendationService.getActiveRecommendations(user.accountId!)
 
     // Group recommendations by category
     const grouped = recommendations.reduce((acc, rec) => {

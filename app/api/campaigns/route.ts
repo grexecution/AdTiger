@@ -9,26 +9,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get user's account
+    // Get user's account and role
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { accountId: true }
+      select: { accountId: true, role: true }
     })
 
-    if (!user?.accountId) {
+    // Admin users can see all campaigns, regular users need an account
+    const isAdmin = user?.role === "ADMIN"
+    
+    if (!isAdmin && !user?.accountId) {
       return NextResponse.json({ error: "No account found" }, { status: 404 })
     }
 
     const { searchParams } = new URL(request.url)
     const provider = searchParams.get("provider")
     const status = searchParams.get("status")
+    const accountIdParam = searchParams.get("accountId") // Allow admins to filter by account
 
     // Get Google connection to check enabled accounts
     let enabledGoogleAccounts: string[] = []
-    if (!provider || provider === "all" || provider === "google") {
+    const targetAccountId = isAdmin && accountIdParam ? accountIdParam : user?.accountId
+    
+    if (targetAccountId && (!provider || provider === "all" || provider === "google")) {
       const googleConnection = await prisma.providerConnection.findFirst({
         where: {
-          accountId: user.accountId,
+          accountId: targetAccountId,
           provider: { in: ['google', 'GOOGLE'] }
         }
       })
@@ -40,8 +46,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Build where clause
-    const where: any = {
-      accountId: user.accountId
+    const where: any = isAdmin ? {} : { accountId: user.accountId }
+    
+    // If admin and accountId is specified, filter by that account
+    if (isAdmin && accountIdParam) {
+      where.accountId = accountIdParam
     }
 
     if (provider && provider !== "all") {

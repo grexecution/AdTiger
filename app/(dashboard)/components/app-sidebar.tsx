@@ -4,38 +4,24 @@ import * as React from "react"
 import { useSession, signOut } from "next-auth/react"
 import {
   LayoutDashboard,
-  Megaphone,
-  BrainCircuit,
-  Lightbulb,
   FileText,
-  TrendingUp,
   Cable,
   Settings,
   Users,
   User,
-  Target,
-  DollarSign,
-  Activity,
-  Zap,
-  Calendar,
-  FolderOpen,
   AlertCircle,
   Command,
   Plus,
   Mail,
-  ChartBar,
-  Banknote,
-  Gauge,
-  ShoppingBag,
-  GraduationCap,
-  Forklift,
-  MessageSquare,
-  Kanban,
-  ReceiptText,
-  Lock,
-  Fingerprint,
   SquareArrowUpRight,
   LogOut,
+  Shield,
+  Database,
+  Activity,
+  Megaphone,
+  TrendingUp,
+  BrainCircuit,
+  ChartBar,
 } from "lucide-react"
 
 import {
@@ -64,8 +50,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreVertical } from "lucide-react"
 
-// Main navigation - existing features
-const dashboardItems = [
+// Customer navigation items - available to all logged in users
+const customerItems = [
   {
     title: "Dashboard",
     url: "/dashboard",
@@ -81,14 +67,70 @@ const dashboardItems = [
   {
     title: "Analytics",
     url: "/dashboard/analytics",
-    icon: TrendingUp,
+    icon: ChartBar,
     badge: undefined as string | undefined,
   },
   {
-    title: "AI Insights",
+    title: "Insights",
     url: "/dashboard/recommendations",
     icon: BrainCircuit,
-    badge: "New" as string | undefined,
+    badge: undefined as string | undefined,
+  },
+]
+
+// Settings items - available to customers
+const settingsItems = [
+  {
+    title: "Connections",
+    url: "/dashboard/settings/connections",
+    icon: Cable,
+    badge: undefined as string | undefined,
+  },
+  {
+    title: "Account",
+    url: "/dashboard/settings/account",
+    icon: Settings,
+    badge: undefined as string | undefined,
+  },
+  {
+    title: "Profile",
+    url: "/dashboard/settings/profile",
+    icon: User,
+    badge: undefined as string | undefined,
+  },
+]
+
+// Admin navigation items
+const adminItems = [
+  {
+    title: "Admin Dashboard",
+    url: "/dashboard/admin",
+    icon: Shield,
+    badge: undefined as string | undefined,
+  },
+  {
+    title: "User Management",
+    url: "/dashboard/admin/users",
+    icon: Users,
+    badge: undefined as string | undefined,
+  },
+  {
+    title: "Database Studio",
+    url: "/dashboard/admin/database",
+    icon: Database,
+    badge: "Prisma" as string | undefined,
+  },
+  {
+    title: "Database Tools",
+    url: "/dashboard/admin/database-adminer",
+    icon: Database,
+    badge: undefined as string | undefined,
+  },
+  {
+    title: "System Health",
+    url: "/dashboard/admin/health",
+    icon: Activity,
+    badge: undefined as string | undefined,
   },
 ]
 
@@ -129,6 +171,8 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
   // Get user info from session
   const userEmail = session?.user?.email || ""
   const userName = session?.user?.name || (session?.user?.email ? session.user.email.split('@')[0] : "")
+  const userRole = session?.user?.role || ""
+  const isAdmin = userRole === "ADMIN"
   const userInitials = userName
     ? userName
         .split(' ')
@@ -184,10 +228,10 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          <SidebarGroupLabel>{isAdmin ? "Navigation" : "Main"}</SidebarGroupLabel>
           <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
             <SidebarMenu>
-              {dashboardItems.map((item) => (
+              {customerItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -209,6 +253,67 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        
+        {/* Settings Section - Only visible to customers */}
+        {!isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Settings</SidebarGroupLabel>
+            <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
+              <SidebarMenu>
+                {settingsItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      size="sm"
+                      className="h-8 text-sm"
+                    >
+                      <a href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                        {item.badge && (
+                          <SidebarMenuBadge className="ml-auto">
+                            {item.badge}
+                          </SidebarMenuBadge>
+                        )}
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        
+        {/* Admin Section - Only visible to admin users */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-red-600">Admin</SidebarGroupLabel>
+            <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      size="sm"
+                      className="h-8 text-sm"
+                    >
+                      <a href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                        {item.badge && (
+                          <SidebarMenuBadge className="ml-auto">
+                            {item.badge}
+                          </SidebarMenuBadge>
+                        )}
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        
         <SidebarGroup>
           <SidebarGroupLabel>Coming Soon</SidebarGroupLabel>
           <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
@@ -282,7 +387,12 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
                       <AvatarFallback className="rounded-lg">{userInitials}</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium">{userName || "Loading..."}</span>
+                      <span className="truncate font-medium flex items-center gap-1">
+                        {userName || "Loading..."}
+                        {isAdmin && (
+                          <Shield className="h-3 w-3 text-red-600" />
+                        )}
+                      </span>
                       <span className="truncate text-xs text-muted-foreground">{userEmail || "Loading..."}</span>
                     </div>
                     <MoreVertical className="ml-auto h-4 w-4" />

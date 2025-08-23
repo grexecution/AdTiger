@@ -622,4 +622,43 @@ Format as numbered steps. Be direct and actionable. Include specific ${campaign.
 
     return recommendations
   }
+
+  async getAllRecommendations(): Promise<any[]> {
+    const recommendations = await this.prisma.recommendation.findMany({
+      where: {
+        status: 'proposed',
+        OR: [
+          { snoozedUntil: null },
+          { snoozedUntil: { lt: new Date() } }
+        ]
+      },
+      include: {
+        account: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        { score: 'desc' },
+        { createdAt: 'desc' }
+      ]
+    })
+
+    // Fetch campaign details separately if needed
+    for (const rec of recommendations) {
+      if (rec.scopeType === 'campaign' && rec.scopeId) {
+        const campaign = await this.prisma.campaign.findUnique({
+          where: { id: rec.scopeId },
+          select: { name: true }
+        })
+        if (campaign) {
+          ;(rec as any).campaignName = campaign.name
+        }
+      }
+    }
+
+    return recommendations
+  }
 }

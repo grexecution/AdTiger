@@ -10,6 +10,10 @@ datasource db {
 model Account {
   id                   String                @id @default(cuid())
   name                 String
+  subscriptionTier     SubscriptionTier      @default(FREE)
+  subscriptionStatus   SubscriptionStatus    @default(ACTIVE)
+  subscriptionExpiresAt DateTime?
+  billingEmail         String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   currency             String                @default("USD")
@@ -27,6 +31,9 @@ model Account {
   recommendations      Recommendation[]
   syncHistory          SyncHistory[]
   users                User[]
+
+  @@index([subscriptionTier])
+  @@index([subscriptionStatus])
 }
 
 model User {
@@ -34,16 +41,18 @@ model User {
   email     String    @unique
   password  String
   name      String?
-  accountId String
+  accountId String?
+  role      UserRole  @default(CUSTOMER)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   image     String?
   metadata  Json?
   sessions  Session[]
-  account   Account   @relation(fields: [accountId], references: [id])
+  account   Account?  @relation(fields: [accountId], references: [id])
 
   @@index([accountId])
   @@index([email])
+  @@index([role])
 }
 
 model Session {
@@ -537,4 +546,24 @@ enum SyncStatus {
   SUCCESS
   FAILED
   CANCELLED
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum SubscriptionTier {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIAL
+  PAST_DUE
+  CANCELLED
+  EXPIRED
 }

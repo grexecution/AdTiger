@@ -3,15 +3,16 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Icons } from "@/components/icons"
+import { useUserRole } from "@/hooks/use-user-role"
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/registry/new-york/ui/navigation-menu"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 import { 
   BarChart3, 
   Target, 
@@ -27,7 +28,8 @@ import {
   Shield,
   Calendar,
   TestTube,
-  Activity
+  Activity,
+  ChevronDown
 } from "lucide-react"
 
 const analyticsItems = [
@@ -111,126 +113,111 @@ const settingsItems = [
   },
 ]
 
+const adminItems = [
+  {
+    title: "Admin Dashboard",
+    href: "/dashboard/admin",
+    description: "System administration overview",
+    icon: Shield,
+  },
+  {
+    title: "User Management",
+    href: "/dashboard/admin/users",
+    description: "Manage all users and accounts",
+    icon: Users,
+  },
+  {
+    title: "Database Explorer",
+    href: "/dashboard/admin/database",
+    description: "Visual database interface",
+    icon: Database,
+  },
+]
+
 export function MainNav() {
   const pathname = usePathname()
+  const { isAdmin } = useUserRole()
 
   return (
-    <div className="mr-4 hidden md:flex">
-      <Link href="/" className="mr-4 flex items-center gap-2 lg:mr-6">
+    <div className="mr-4 hidden md:flex items-center space-x-6">
+      <Link href="/" className="flex items-center gap-2">
         <Zap className="h-6 w-6 text-primary" />
-        <span className="hidden font-bold lg:inline-block">
-          AdTiger
-        </span>
+        <span className="font-bold">AdTiger</span>
       </Link>
       
-      <NavigationMenu>
-        <NavigationMenuList>
-          {/* Analytics Dropdown */}
-          <NavigationMenuItem>
-            <NavigationMenuTrigger>Analytics</NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                {analyticsItems.map((item) => (
-                  <ListItem
-                    key={item.href}
-                    title={item.title}
-                    href={item.href}
-                    icon={item.icon}
-                  >
-                    {item.description}
-                  </ListItem>
-                ))}
-              </ul>
-            </NavigationMenuContent>
-          </NavigationMenuItem>
+      <nav className="flex items-center space-x-4">
+        {/* Dashboard Link */}
+        <Link href="/dashboard" className={cn(
+          "text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/dashboard" ? "text-foreground" : "text-foreground/60"
+        )}>
+          Dashboard
+        </Link>
 
-          {/* Optimization Dropdown */}
-          <NavigationMenuItem>
-            <NavigationMenuTrigger>Optimization</NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                {optimizationItems.map((item) => (
-                  <ListItem
-                    key={item.href}
-                    title={item.title}
-                    href={item.href}
-                    icon={item.icon}
-                  >
-                    {item.description}
-                  </ListItem>
-                ))}
-              </ul>
-            </NavigationMenuContent>
-          </NavigationMenuItem>
+        {/* Campaigns Link */}
+        <Link href="/dashboard/campaigns" className={cn(
+          "text-sm font-medium transition-colors hover:text-primary",
+          pathname.startsWith("/dashboard/campaigns") ? "text-foreground" : "text-foreground/60"
+        )}>
+          Campaigns
+        </Link>
 
-          {/* Direct Links */}
-          <NavigationMenuItem>
-            <Link href="/recommendations" legacyBehavior passHref>
-              <NavigationMenuLink className={cn(
-                "group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50",
-                pathname === "/recommendations" && "bg-accent/50"
-              )}>
-                Recommendations
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
+        {/* Recommendations Link */}
+        <Link href="/dashboard/recommendations" className={cn(
+          "text-sm font-medium transition-colors hover:text-primary",
+          pathname.startsWith("/dashboard/recommendations") ? "text-foreground" : "text-foreground/60"
+        )}>
+          Recommendations
+        </Link>
 
-          {/* Settings Dropdown */}
-          <NavigationMenuItem>
-            <NavigationMenuTrigger>Settings</NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                {settingsItems.map((item) => (
-                  <ListItem
-                    key={item.href}
-                    title={item.title}
-                    href={item.href}
-                    icon={item.icon}
-                  >
-                    {item.description}
-                  </ListItem>
-                ))}
-              </ul>
-            </NavigationMenuContent>
-          </NavigationMenuItem>
-        </NavigationMenuList>
-      </NavigationMenu>
+        {/* Settings Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-1">
+              Settings
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Settings</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {settingsItems.map((item) => (
+              <DropdownMenuItem key={item.href} asChild>
+                <Link href={item.href} className="flex items-center">
+                  <item.icon className="mr-2 h-4 w-4" />
+                  {item.title}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Admin Dropdown - Only visible to admins */}
+        {isAdmin && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1 text-red-600">
+                <Shield className="h-4 w-4" />
+                Admin
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Admin Panel</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {adminItems.map((item) => (
+                <DropdownMenuItem key={item.href} asChild>
+                  <Link href={item.href} className="flex items-center">
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </nav>
     </div>
   )
 }
 
-const ListItem = ({ 
-  className, 
-  title, 
-  children, 
-  icon: Icon, 
-  ...props 
-}: {
-  className?: string
-  title: string
-  children: React.ReactNode
-  icon?: any
-  href: string
-}) => {
-  return (
-    <li>
-      <NavigationMenuLink asChild>
-        <Link
-          className={cn(
-            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-            className
-          )}
-          {...props}
-        >
-          <div className="flex items-center gap-2">
-            {Icon && <Icon className="h-4 w-4" />}
-            <div className="text-sm font-medium leading-none">{title}</div>
-          </div>
-          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-            {children}
-          </p>
-        </Link>
-      </NavigationMenuLink>
-    </li>
-  )
-}

@@ -4,61 +4,54 @@ import { auth } from "@/lib/auth"
 
 const publicRoutes = [
   "/auth/login",
-  "/auth/login-v2",
   "/auth/register",
-  "/auth/register-v2",
   "/auth/error",
   "/auth/verify",
   "/api/auth",
-  "/api/meta/test-credentials", // Temporary test route
-]
-
-const protectedRoutes = [
-  "/dashboard",
-  "/settings",
-  "/campaigns",
-  "/recommendations",
-  "/insights",
-  "/api",
 ]
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
+  // Check if it's a public route or static asset
   const isPublicRoute = publicRoutes.some(route => 
     pathname.startsWith(route)
-  )
+  ) || pathname === "/"
   
-  const isProtectedRoute = protectedRoutes.some(route => 
-    pathname.startsWith(route)
-  )
-  
-  if (isPublicRoute) {
-    return NextResponse.next()
-  }
-  
+  // Get session
   const session = await auth()
   
-  if (isProtectedRoute && !session) {
-    const loginUrl = new URL("/auth/login-v2", request.url)
+  // If not authenticated and not on a public route, redirect to login
+  if (!session && !isPublicRoute) {
+    const loginUrl = new URL("/auth/login", request.url)
     loginUrl.searchParams.set("callbackUrl", pathname)
     return NextResponse.redirect(loginUrl)
   }
   
-  if (pathname.startsWith("/api") && session?.user?.accountId) {
+  // If authenticated and trying to access auth pages, redirect to dashboard
+  if (session && pathname.startsWith("/auth/")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+  
+  // If authenticated and on root, redirect to dashboard
+  if (session && pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+  
+  // Add account headers for API routes
+  if (pathname.startsWith("/api") && session?.user) {
     const requestHeaders = new Headers(request.headers)
-    requestHeaders.set("x-account-id", session.user.accountId)
+    if (session.user.accountId) {
+      requestHeaders.set("x-account-id", session.user.accountId)
+    }
     requestHeaders.set("x-user-id", session.user.id)
+    requestHeaders.set("x-user-role", session.user.role)
     
     return NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     })
-  }
-  
-  if (session && pathname.startsWith("/auth/")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
   
   return NextResponse.next()

@@ -8,11 +8,14 @@ import { useForm } from "react-hook-form"
 import * as z from "zod"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/registry/new-york/ui/button"
-import { Input } from "@/registry/new-york/ui/input"
-import { Label } from "@/registry/new-york/ui/label"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Icons } from "@/components/icons"
-import { useToast } from "@/registry/new-york/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Shield, User, Crown } from "lucide-react"
 
 const userAuthSchema = z.object({
   email: z.string().email(),
@@ -32,12 +35,13 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(userAuthSchema),
     defaultValues: {
-      email: "admin@example.com",
-      password: "password123",
+      email: "",
+      password: "",
     },
   })
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
@@ -68,6 +72,13 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
     router.refresh()
   }
 
+  // Quick login function for demo accounts
+  async function quickLogin(email: string, password: string) {
+    setValue("email", email)
+    setValue("password", password)
+    await onSubmit({ email, password })
+  }
+
   return (
     <div className={cn("grid gap-6", className)} {...props}>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -78,7 +89,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
             </Label>
             <Input
               id="email"
-              placeholder="name@example.com"
+              placeholder="Enter your email"
               type="email"
               autoCapitalize="none"
               autoComplete="email"
@@ -130,35 +141,53 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
         </div>
       </div>
       <div className="grid gap-2">
+        <div className="text-xs text-center text-muted-foreground mb-2">
+          Quick Demo Login
+        </div>
         <Button
           variant="outline"
           type="button"
+          className="justify-start"
           disabled={isLoading || isGoogleLoading}
-          onClick={() => {
-            setIsGoogleLoading(true)
-            signIn("google", { callbackUrl })
-          }}
+          onClick={() => quickLogin("admin@demo.com", "admin123")}
         >
-          {isGoogleLoading ? (
-            <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Icons.google className="mr-2 h-4 w-4" />
-          )}{" "}
-          Google
+          <Shield className="mr-2 h-4 w-4 text-red-600" />
+          <span className="flex-1 text-left">Admin User</span>
+          <Badge variant="destructive" className="ml-2">ADMIN</Badge>
         </Button>
         <Button
           variant="outline"
           type="button"
+          className="justify-start"
           disabled={isLoading || isGoogleLoading}
+          onClick={() => quickLogin("pro@demo.com", "demo123")}
         >
-          <Icons.gitHub className="mr-2 h-4 w-4" />
-          GitHub
+          <Crown className="mr-2 h-4 w-4 text-yellow-600" />
+          <span className="flex-1 text-left">Pro Customer</span>
+          <Badge className="ml-2">PRO</Badge>
+        </Button>
+        <Button
+          variant="outline"
+          type="button"
+          className="justify-start"
+          disabled={isLoading || isGoogleLoading}
+          onClick={() => quickLogin("free@demo.com", "demo123")}
+        >
+          <User className="mr-2 h-4 w-4" />
+          <span className="flex-1 text-left">Free Customer</span>
+          <Badge variant="outline" className="ml-2">FREE</Badge>
         </Button>
       </div>
-      <div className="text-center text-sm text-muted-foreground">
-        <p>Demo credentials:</p>
-        <p className="font-mono">admin@example.com / password123</p>
-      </div>
+      <Alert className="mt-2">
+        <AlertDescription className="text-xs">
+          <strong>Demo Credentials:</strong>
+          <div className="mt-2 space-y-1 font-mono text-xs">
+            <div>🛡️ admin@demo.com / admin123</div>
+            <div>👑 pro@demo.com / demo123</div>
+            <div>👤 free@demo.com / demo123</div>
+          </div>
+        </AlertDescription>
+      </Alert>
     </div>
   )
 }
