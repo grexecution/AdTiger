@@ -136,12 +136,13 @@ export class SyncService {
       
       switch (provider) {
         case "meta":
-          result = await this.metaSync.syncInsights(
-            accountId,
-            entityType,
-            entityId,
-            dateRange
-          )
+          // result = await this.metaSync.syncInsights(
+          //   accountId,
+          //   entityType,
+          //   entityId,
+          //   dateRange
+          // )
+          result = { success: false, message: "Meta insights sync not implemented" }
           break
         default:
           throw new Error(`Unsupported provider: ${provider}`)
