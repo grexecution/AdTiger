@@ -36,7 +36,7 @@ export async function GET(
     const adGroups = await prisma.adGroup.findMany({
       where: {
         campaignId: params.campaignId,
-        accountId: user.accountId
+        accountId: user.accountId || "no-match"
       },
       include: {
         _count: {

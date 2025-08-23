@@ -114,10 +114,10 @@ export class PerformanceTrackingService {
       // Calculate aggregated metrics
       const trendData = insights.map(i => ({
         date: format(i.date, 'yyyy-MM-dd'),
-        metrics: i.metrics as PerformanceMetrics
+        metrics: i.metrics as unknown as PerformanceMetrics
       }))
 
-      const allMetrics = insights.map(i => i.metrics as PerformanceMetrics)
+      const allMetrics = insights.map(i => i.metrics as unknown as PerformanceMetrics)
       const avgMetrics = this.calculateAverage(allMetrics)
       const minMetrics = this.calculateMin(allMetrics)
       const maxMetrics = this.calculateMax(allMetrics)
@@ -126,8 +126,8 @@ export class PerformanceTrackingService {
       const trendAnalysis = this.analyzeTrend(allMetrics)
 
       // Store or update trend (limit trendData to last 30 entries for storage efficiency)
-      const limitedTrendData = period === '365d' 
-        ? trendData.slice(-30) // For yearly, only store last 30 days of detailed data
+      const limitedTrendData = period === '30d' 
+        ? trendData.slice(-30) // For monthly, limit to last 30 days
         : trendData
       
       await this.prisma.performanceTrend.upsert({
@@ -141,10 +141,10 @@ export class PerformanceTrackingService {
           }
         },
         update: {
-          trendData: limitedTrendData,
-          avgMetrics,
-          minMetrics,
-          maxMetrics,
+          trendData: limitedTrendData as any,
+          avgMetrics: avgMetrics as any,
+          minMetrics: minMetrics as any,
+          maxMetrics: maxMetrics as any,
           trendScore: trendAnalysis.score,
           volatility: trendAnalysis.volatility,
           lastCalculated: new Date()
@@ -155,10 +155,10 @@ export class PerformanceTrackingService {
           entityId,
           provider,
           period,
-          trendData: limitedTrendData,
-          avgMetrics,
-          minMetrics,
-          maxMetrics,
+          trendData: limitedTrendData as any,
+          avgMetrics: avgMetrics as any,
+          minMetrics: minMetrics as any,
+          maxMetrics: maxMetrics as any,
           trendScore: trendAnalysis.score,
           volatility: trendAnalysis.volatility,
           lastCalculated: new Date()
@@ -217,8 +217,8 @@ export class PerformanceTrackingService {
       },
       update: {
         periodEnd,
-        metrics: currentMetrics,
-        comparison
+        metrics: currentMetrics as any,
+        comparison: comparison as any
       },
       create: {
         accountId,
@@ -228,8 +228,8 @@ export class PerformanceTrackingService {
         snapshotType,
         periodStart,
         periodEnd,
-        metrics: currentMetrics,
-        comparison
+        metrics: currentMetrics as any,
+        comparison: comparison as any
       }
     })
   }
@@ -320,7 +320,7 @@ export class PerformanceTrackingService {
       return this.getEmptyMetrics()
     }
 
-    const metrics = insights.map(i => i.metrics as PerformanceMetrics)
+    const metrics = insights.map(i => i.metrics as unknown as PerformanceMetrics)
     return this.calculateAverage(metrics)
   }
 

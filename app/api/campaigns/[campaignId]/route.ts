@@ -29,8 +29,7 @@ export async function GET(
         adAccount: true,
         _count: {
           select: {
-            adGroups: true,
-            ads: true
+            adGroups: true
           }
         }
       }

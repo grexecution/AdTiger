@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client"
-import { getMetaApiClient, type MetaApiClient } from "@/lib/meta-api-client"
+import { createMetaApiClient, type MetaApiClient } from "@/lib/meta-api-client"
 import { ChangeTrackingService } from "../change-tracking"
 
 export class MetaRealSyncService {
@@ -29,7 +29,7 @@ export class MetaRealSyncService {
       throw new Error("No access token available")
     }
 
-    const client = getMetaApiClient(token)
+    const client = createMetaApiClient(token)
     
     // Track sync progress
     let recordsSynced = 0

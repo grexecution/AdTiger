@@ -222,7 +222,7 @@ export default function ProfileSettingsPage() {
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-4">
             <Avatar className="h-32 w-32">
-              <AvatarImage src={session?.user?.image || undefined} />
+              <AvatarImage src={undefined} />
               <AvatarFallback className="text-2xl">
                 {getInitials()}
               </AvatarFallback>

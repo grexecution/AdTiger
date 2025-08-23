@@ -439,6 +439,8 @@ Format as numbered steps. Be direct and actionable. Include specific ${campaign.
             const recommendation = await this.prisma.recommendation.create({
               data: {
                 ...baseRecommendation,
+                metricsSnapshot: baseRecommendation.metricsSnapshot as any, // Cast to fix TypeScript issue
+                payload: baseRecommendation.payload as any, // Cast to fix TypeScript issue
                 aiExplanation: aiDescription,
                 aiModel: 'gpt-4o-mini'
               }

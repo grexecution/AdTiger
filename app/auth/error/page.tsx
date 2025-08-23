@@ -1,6 +1,6 @@
 import Link from "next/link"
-import { Button } from "@/registry/new-york/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/registry/new-york/ui/card"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AuthErrorPage() {
   return (

@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { Button } from "@/registry/new-york/ui/button"
+import { Button } from "@/components/ui/button"
 import { 
   Zap, 
   BarChart3, 

@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
               id: ad.id,
               name: ad.name,
               status: ad.status,
-              type: ad.creative?.type || 'display',
+              type: (ad.creative as any)?.type || 'display',
               creative: ad.creative,
               metadata: ad.metadata
             }))

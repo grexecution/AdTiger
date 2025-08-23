@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
     await prisma.connection.create({
       data: {
         id: tempConnectionId,
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: "meta",
         status: "pending_selection",
         credentials: {

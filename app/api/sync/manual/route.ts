@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const manualSyncsToday = await prisma.syncHistory.count({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         syncType: 'MANUAL',
         startedAt: {
           gte: today,
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Verify provider connection exists and is active
     const connection = await prisma.connection.findFirst({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: provider.toLowerCase(),
         status: 'active',
       },
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     // Add manual sync job to queue
     const job = await addManualSyncJob({
-      accountId: user.accountId,
+      accountId: user.accountId || "no-match",
       userId: session.user.id,
       provider,
       syncType: 'manual',
@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
     // Get recent sync history
     const recentSyncs = await prisma.syncHistory.findMany({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: provider.toUpperCase() as any,
       },
       orderBy: { startedAt: 'desc' },
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
     // Get provider connection status
     const connection = await prisma.connection.findFirst({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: provider.toLowerCase(),
       },
       select: {

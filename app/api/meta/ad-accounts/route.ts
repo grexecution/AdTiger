@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Get the Meta connection for this account
     const connection = await prisma.providerConnection.findFirst({
       where: {
-        accountId: session.user.accountId,
+        accountId: session.user.accountId || "no-match",
         provider: "meta",
         isActive: true,
       },
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // Get existing ad accounts from database
     const existingAccounts = await prisma.adAccount.findMany({
       where: {
-        accountId: session.user.accountId,
+        accountId: session.user.accountId || "no-match",
         provider: "meta",
       },
     })
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     // Get the Meta connection
     const connection = await prisma.providerConnection.findFirst({
       where: {
-        accountId: session.user.accountId,
+        accountId: session.user.accountId || "no-match",
         provider: "meta",
         isActive: true,
       },
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
         return prisma.adAccount.upsert({
           where: {
             accountId_provider_externalId: {
-              accountId: session.user.accountId,
+              accountId: session.user.accountId || "no-match",
               provider: "meta",
               externalId: account.account_id,
             },
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
             },
           },
           create: {
-            accountId: session.user.accountId,
+            accountId: session.user.accountId || "no-match",
             provider: "meta",
             externalId: account.account_id,
             name: account.name,

@@ -487,7 +487,7 @@ export default function AnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {platformData.map((platform) => (
+                  {platformData.map((platform: any) => (
                     <div key={platform.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div 
@@ -532,7 +532,7 @@ export default function AnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {campaignPerformance.map((campaign) => (
+                    {campaignPerformance.map((campaign: any) => (
                       <tr key={campaign.name} className="border-b">
                         <td className="p-3 font-medium">{campaign.name}</td>
                         <td className="p-3 text-right">${campaign.spend.toLocaleString()}</td>

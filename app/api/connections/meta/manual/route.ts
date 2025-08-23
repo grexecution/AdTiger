@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Check if a Meta connection already exists
     const existingConnection = await prisma.connection.findFirst({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: "meta"
       }
     })
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         await prisma.connection.create({
           data: {
             id: connectionId,
-            accountId: user.accountId,
+            accountId: user.accountId || "no-match",
             provider: "meta",
             status: "active",
             credentials: {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         await prisma.adAccount.upsert({
           where: {
             accountId_provider_externalId: {
-              accountId: user.accountId,
+              accountId: user.accountId || "no-match",
               provider: "meta",
               externalId: account.id
             }
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
             }
           },
           create: {
-            accountId: user.accountId,
+            accountId: user.accountId || "no-match",
             provider: "meta",
             externalId: account.id,
             name: account.name,

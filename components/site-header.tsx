@@ -1,12 +1,12 @@
 import Link from "next/link"
 import { auth } from "@/lib/auth"
-import { CommandMenu } from "@/components/command-menu"
+// import { CommandMenu } from "@/components/command-menu"
 import { Icons } from "@/components/icons"
 import { MainNav } from "@/components/main-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { ModeSwitcher } from "@/components/mode-switcher"
 import { UserAccountNav } from "@/components/user-account-nav"
-import { Button } from "@/registry/new-york/ui/button"
+import { Button } from "@/components/ui/button"
 
 export async function SiteHeader() {
   const session = await auth()
@@ -18,9 +18,9 @@ export async function SiteHeader() {
           <MainNav />
           <MobileNav />
           <div className="ml-auto flex items-center gap-2 md:flex-1 md:justify-end">
-            <div className="hidden w-full flex-1 md:flex md:w-auto md:flex-none">
+            {/* <div className="hidden w-full flex-1 md:flex md:w-auto md:flex-none">
               <CommandMenu />
-            </div>
+            </div> */}
             <nav className="flex items-center gap-2">
               <ModeSwitcher />
               {session?.user ? (

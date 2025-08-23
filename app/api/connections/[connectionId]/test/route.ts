@@ -31,14 +31,14 @@ export async function POST(
     let connection = await prisma.connection.findFirst({
       where: {
         id: params.connectionId,
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
       }
     })
 
     if (connection) {
       // Test Meta API connection
-      if (connection.provider === 'meta' && connection.credentials?.accessToken) {
-        const testUrl = `https://graph.facebook.com/v18.0/me?access_token=${connection.credentials.accessToken}`
+      if (connection.provider === 'meta' && (connection.credentials as any)?.accessToken) {
+        const testUrl = `https://graph.facebook.com/v18.0/me?access_token=${(connection.credentials as any).accessToken}`
         
         try {
           const response = await fetch(testUrl)
@@ -54,7 +54,7 @@ export async function POST(
                 data: {
                   status: 'expired',
                   metadata: {
-                    ...connection.metadata,
+                    ...(connection.metadata as any || {}),
                     lastTestError: data.error.message,
                     lastTestAt: new Date().toISOString()
                   }
@@ -78,7 +78,7 @@ export async function POST(
             where: { id: params.connectionId },
             data: {
               metadata: {
-                ...connection.metadata,
+                ...(connection.metadata as any || {}),
                 lastTestAt: new Date().toISOString(),
                 lastTestSuccess: true
               }
@@ -113,7 +113,7 @@ export async function POST(
     const legacyConnection = await prisma.providerConnection.findFirst({
       where: {
         id: params.connectionId,
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
       }
     })
 
@@ -130,7 +130,7 @@ export async function POST(
       data: {
         status: 'CONNECTED',
         lastSyncAt: new Date(),
-        syncErrors: null,
+        syncErrors: undefined,
       }
     })
 

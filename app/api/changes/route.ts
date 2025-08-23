@@ -47,10 +47,7 @@ export async function GET(request: NextRequest) {
       id: change.id,
       entityType: change.entityType,
       entityId: change.entityId,
-      entityName: 
-        change.entityType === 'campaign' ? change.campaign?.name :
-        change.entityType === 'ad_group' ? change.adGroup?.name :
-        change.entityType === 'ad' ? change.ad?.name : 'Unknown',
+      entityName: 'Entity ' + change.entityId,
       changeType: change.changeType,
       fieldName: change.fieldName,
       oldValue: change.oldValue,

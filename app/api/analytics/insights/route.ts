@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const whereClause: any = {
-      accountId: user.accountId,
+      accountId: user.accountId || "no-match",
       date: {
         gte: startDate,
         lte: endDate
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     // Get campaigns for filter dropdown
     const campaigns = await prisma.campaign.findMany({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         ...(platform !== 'all' ? { provider: platform } : {})
       },
       select: {

@@ -64,11 +64,11 @@ export async function GET(request: NextRequest) {
     )
 
     // Get snapshots if available
-    let snapshots = []
+    let snapshots: any[] = []
     if (entityType === 'campaign') {
       snapshots = await prisma.performanceSnapshot.findMany({
         where: {
-          accountId: user.accountId,
+          accountId: user.accountId || "no-match",
           entityType,
           entityId
         },

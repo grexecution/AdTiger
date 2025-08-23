@@ -383,7 +383,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton size="lg" className="h-12 text-sm group-data-[collapsible=icon]:p-0! data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={session?.user?.image || undefined} alt={userName} />
+                      <AvatarImage src={undefined} alt={userName} />
                       <AvatarFallback className="rounded-lg">{userInitials}</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">

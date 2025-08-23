@@ -1,6 +1,6 @@
 "use client"
 
-import { Input } from "@/registry/new-york/ui/input"
+import { Input } from "@/components/ui/input"
 import { Search as SearchIcon } from "lucide-react"
 
 export function Search() {

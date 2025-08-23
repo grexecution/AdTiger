@@ -27,11 +27,11 @@ export async function GET() {
     }
 
     // Try to find connections in Connection table first (new OAuth flow)
-    let connections = []
+    let connections: any[] = []
     try {
       connections = await prisma.connection.findMany({
         where: {
-          accountId: user.accountId,
+          accountId: user.accountId || "no-match",
         },
         orderBy: {
           createdAt: "desc",
@@ -42,11 +42,11 @@ export async function GET() {
     }
     
     // If no connections found, check legacy ProviderConnection table
-    let legacyConnections = []
+    let legacyConnections: any[] = []
     if (connections.length === 0) {
       const providerConnections = await prisma.providerConnection.findMany({
         where: {
-          accountId: user.accountId,
+          accountId: user.accountId || "no-match",
         },
         orderBy: {
           createdAt: "desc",
@@ -54,14 +54,14 @@ export async function GET() {
       })
       
       // Map legacy connections to new format
-      legacyConnections = providerConnections.map((conn) => ({
+      legacyConnections = providerConnections.map((conn: any) => ({
         id: conn.id,
         provider: conn.provider,
         status: conn.isActive ? "active" : "inactive",
         credentials: {
-          accessToken: conn.credentials?.accessToken,
-          refreshToken: conn.credentials?.refreshToken,
-          expiresAt: conn.credentials?.expiresAt,
+          accessToken: (conn.credentials as any)?.accessToken,
+          refreshToken: (conn.credentials as any)?.refreshToken,
+          expiresAt: (conn.credentials as any)?.expiresAt,
         },
         metadata: conn.metadata,
         createdAt: conn.createdAt,
@@ -72,7 +72,7 @@ export async function GET() {
     const allConnections = [...connections, ...legacyConnections]
     
     // Remove sensitive data before sending to client
-    const sanitizedConnections = allConnections.map((conn) => ({
+    const sanitizedConnections = allConnections.map((conn: any) => ({
       id: conn.id,
       provider: conn.provider,
       status: conn.status,

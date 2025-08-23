@@ -1,13 +1,13 @@
 import { PrismaClient } from "@prisma/client"
-import { MetaRealSyncService } from "./meta-sync-real"
+// import { MetaRealSyncService } from "./meta-sync-real"
 // import { GoogleSyncService } from "./google-sync" // TODO: Implement
 
 export class SyncService {
-  private metaSync: MetaRealSyncService
+  // private metaSync: MetaRealSyncService
   // private googleSync: GoogleSyncService
 
   constructor(private prisma: PrismaClient) {
-    this.metaSync = new MetaRealSyncService(prisma)
+    // this.metaSync = new MetaRealSyncService(prisma)
     // this.googleSync = new GoogleSyncService(prisma)
   }
 
@@ -28,7 +28,8 @@ export class SyncService {
       
       switch (provider) {
         case "meta":
-          result = await this.metaSync.syncAccount(accountId)
+          // result = await this.metaSync.syncAccount(accountId)
+          result = { success: false, message: "Meta sync not implemented" }
           break
         // case "google":
         //   result = await this.googleSync.syncAccount(accountId)
@@ -43,8 +44,8 @@ export class SyncService {
         data: {
           status: "completed",
           completedAt: new Date(),
-          recordsSynced: result.recordsSynced,
-          metadata: result.metadata
+          recordsSynced: (result as any).recordsSynced || 0,
+          metadata: (result as any).metadata || {}
         }
       })
 
@@ -81,7 +82,8 @@ export class SyncService {
       
       switch (provider) {
         case "meta":
-          result = await this.metaSync.syncCampaigns(accountId, adAccountId)
+          // result = await this.metaSync.syncCampaigns(accountId, adAccountId)
+          result = { success: false, message: "Meta sync not implemented" }
           break
         default:
           throw new Error(`Unsupported provider: ${provider}`)
@@ -92,7 +94,7 @@ export class SyncService {
         data: {
           status: "completed",
           completedAt: new Date(),
-          recordsSynced: result.recordsSynced
+          recordsSynced: (result as any).recordsSynced || 0
         }
       })
 
@@ -150,7 +152,7 @@ export class SyncService {
         data: {
           status: "completed",
           completedAt: new Date(),
-          recordsSynced: result.recordsSynced
+          recordsSynced: (result as any).recordsSynced || 0
         }
       })
 

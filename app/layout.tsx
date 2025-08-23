@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils"
 import { Analytics } from "@/components/analytics"
 import { ThemeProvider } from "@/components/providers"
 import { Toaster as DefaultToaster } from "@/registry/default/ui/toaster"
-import { Toaster as NewYorkSonner } from "@/registry/new-york/ui/sonner"
-import { Toaster as NewYorkToaster } from "@/registry/new-york/ui/toaster"
+import { Toaster as NewYorkSonner } from "@/components/ui/sonner"
+import { Toaster as NewYorkToaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: {

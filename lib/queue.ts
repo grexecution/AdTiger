@@ -9,7 +9,6 @@ const createRedisConnection = () => {
       host: 'localhost',
       port: 6379,
       maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
       enableReadyCheck: false,
       lazyConnect: true,
     })
@@ -18,7 +17,6 @@ const createRedisConnection = () => {
   // For production with Redis URL (not Upstash format)
   return new IORedis(process.env.BULLMQ_REDIS_URL || 'redis://localhost:6379', {
     maxRetriesPerRequest: 3,
-    retryDelayOnFailover: 100,
     enableReadyCheck: false,
     lazyConnect: true,
   })
@@ -229,7 +227,7 @@ export async function closeQueues() {
 process.on('SIGTERM', closeQueues)
 process.on('SIGINT', closeQueues)
 
-export default {
+const queueExports = {
   campaignSyncQueue,
   adSyncQueue,
   insightsSyncQueue,
@@ -242,3 +240,5 @@ export default {
   cleanupOldJobs,
   closeQueues,
 }
+
+export default queueExports

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Get sync status for all connected providers
     const connections = await prisma.providerConnection.findMany({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         isActive: true,
       },
       select: {
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     const providerStatuses = await Promise.all(
       connections.map(async (connection) => {
         const provider = connection.provider.toLowerCase() as 'meta' | 'google'
-        const syncStatus = await getAccountSyncStatus(user.accountId, provider)
+        const syncStatus = await getAccountSyncStatus(user.accountId || "no-match", provider)
         
         return {
           provider,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     // Get recent sync history
     const recentSyncs = await prisma.syncHistory.findMany({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
       },
       orderBy: { startedAt: 'desc' },
       take: 20,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     const manualSyncsToday = await prisma.syncHistory.count({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         syncType: 'MANUAL',
         startedAt: {
           gte: today,
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     // Calculate next scheduled sync (hourly)
     const now = new Date()
     const nextScheduledSync = new Date()
-    nextScheduledSync.setMinutes(0, 0, 0, 0)
+    nextScheduledSync.setMinutes(0, 0, 0)
     nextScheduledSync.setHours(nextScheduledSync.getHours() + 1)
 
     // Calculate sync statistics
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      accountId: user.accountId,
+      accountId: user.accountId || "no-match",
       providers: providerStatuses,
       recentSyncs,
       stats: {
@@ -215,7 +215,7 @@ export async function DELETE(request: NextRequest) {
     // Find active sync history records and mark them as cancelled
     const updatedSyncs = await prisma.syncHistory.updateMany({
       where: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: provider.toUpperCase() as any,
         status: 'FAILED', // We can only cancel jobs that haven't completed
         completedAt: null,

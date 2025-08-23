@@ -104,7 +104,7 @@ export function getCreativeImageUrl(creative: AdCreative | null | undefined): st
   if (!creative) return null
 
   // First priority: asset_feed_spec images (Meta's new format)
-  if (creative.asset_feed_spec?.images?.length > 0) {
+  if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 0) {
     const firstImage = creative.asset_feed_spec.images[0]
     if (firstImage.url) {
       return firstImage.url
@@ -190,7 +190,7 @@ export function getCreativeFormat(creative: AdCreative | null | undefined): 'ima
   if (!creative) return 'unknown'
 
   // Check for video in asset_feed_spec
-  if (creative.asset_feed_spec?.videos?.length > 0) {
+  if (creative.asset_feed_spec?.videos && Array.isArray(creative.asset_feed_spec.videos) && creative.asset_feed_spec.videos.length > 0) {
     return 'video'
   }
 
@@ -200,17 +200,17 @@ export function getCreativeFormat(creative: AdCreative | null | undefined): 'ima
   }
 
   // Check for carousel (multiple images)
-  if (creative.asset_feed_spec?.images?.length > 1) {
+  if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 1) {
     return 'carousel'
   }
 
   // Check for carousel in object_story_spec
-  if (creative.object_story_spec?.link_data?.child_attachments?.length > 1) {
+  if (creative.object_story_spec?.link_data?.child_attachments && Array.isArray(creative.object_story_spec.link_data.child_attachments) && creative.object_story_spec.link_data.child_attachments.length > 1) {
     return 'carousel'
   }
 
   // Check for single image in asset_feed_spec
-  if (creative.asset_feed_spec?.images?.length === 1) {
+  if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length === 1) {
     return 'image'
   }
 
@@ -331,7 +331,7 @@ export function getGoogleCreativeFormat(creative: GoogleAdCreative | null | unde
   if (!creative) return 'unknown'
 
   // Check for video
-  if (creative.videos?.length > 0) {
+  if (creative.videos && Array.isArray(creative.videos) && creative.videos.length > 0) {
     return 'video'
   }
 
@@ -341,12 +341,13 @@ export function getGoogleCreativeFormat(creative: GoogleAdCreative | null | unde
   }
 
   // Check for images
-  if (creative.images?.length > 0) {
+  if (creative.images && Array.isArray(creative.images) && creative.images.length > 0) {
     return 'image'
   }
 
   // Check for text ad (has headlines/descriptions but no images/videos)
-  if (creative.headlines?.length > 0 || creative.descriptions?.length > 0) {
+  if ((creative.headlines && Array.isArray(creative.headlines) && creative.headlines.length > 0) || 
+      (creative.descriptions && Array.isArray(creative.descriptions) && creative.descriptions.length > 0)) {
     return 'text'
   }
 

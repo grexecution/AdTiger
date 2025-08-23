@@ -213,6 +213,9 @@ async function fetchHistoricalInsights(daysBack: number = 7) {
                 accountId: connection.accountId,
                 provider: 'meta',
                 externalId: insight.ad_id
+              },
+              include: {
+                adGroup: true
               }
             })
             
@@ -287,7 +290,7 @@ async function fetchHistoricalInsights(daysBack: number = 7) {
                 entityType: 'ad',
                 entityId: ad.id,
                 adId: ad.id,
-                campaignId: ad.campaignId,
+                campaignId: ad.adGroup.campaignId,
                 adGroupId: ad.adGroupId,
                 date: insightDate,
                 window: '1d',

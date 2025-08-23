@@ -32,8 +32,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".contentlayer/generated",
-    "./scripts/**/*.ts"
+    ".contentlayer/generated"
   ],
-  "exclude": ["node_modules", "__registry__"]
+  "exclude": ["node_modules", "__registry__", "scripts"]
 }

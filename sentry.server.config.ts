@@ -7,7 +7,6 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
     environment: process.env.NODE_ENV,
-    autoSessionTracking: false,
     ignoreErrors: [
       "Invalid credentials",
       "Unauthorized",

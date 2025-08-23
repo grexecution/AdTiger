@@ -79,7 +79,7 @@ export function GoogleManagedAccountsDialog({
       setAccounts(data.accounts || [])
       
       // Set initially selected accounts
-      const enabled = new Set(
+      const enabled = new Set<string>(
         data.accounts
           .filter((acc: ManagedAccount) => acc.enabled)
           .map((acc: ManagedAccount) => acc.customerId)

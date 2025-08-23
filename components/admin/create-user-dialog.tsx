@@ -31,7 +31,12 @@ export function CreateUserDialog({ onUserCreated }: CreateUserDialogProps) {
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    email: string
+    password: string
+    role: UserRole
+  }>({
     name: "",
     email: "",
     password: "",

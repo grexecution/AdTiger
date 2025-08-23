@@ -55,7 +55,9 @@ export async function GET(
     // Get ads for this campaign to show in recommendations
     const ads = await prisma.ad.findMany({
       where: {
-        campaignId: params.campaignId
+        adGroup: {
+          campaignId: params.campaignId
+        }
       },
       take: 10,
       orderBy: {

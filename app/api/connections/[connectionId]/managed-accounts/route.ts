@@ -131,7 +131,7 @@ export async function GET(
     const connection = await prisma.providerConnection.findFirst({
       where: {
         id: params.connectionId,
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: {
           in: ['google', 'GOOGLE']
         }
@@ -215,7 +215,7 @@ export async function PATCH(
     const connection = await prisma.providerConnection.findFirst({
       where: {
         id: params.connectionId,
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: {
           in: ['google', 'GOOGLE']
         }
@@ -252,7 +252,7 @@ export async function PATCH(
         await prisma.adAccount.upsert({
           where: {
             accountId_provider_externalId: {
-              accountId: user.accountId,
+              accountId: user.accountId || "no-match",
               provider: 'google',
               externalId: account.customerId
             }
@@ -269,7 +269,7 @@ export async function PATCH(
             }
           },
           create: {
-            accountId: user.accountId,
+            accountId: user.accountId || "no-match",
             provider: 'google',
             externalId: account.customerId,
             name: account.name,
@@ -294,7 +294,7 @@ export async function PATCH(
     for (const accountId of disabledAccountIds) {
       await prisma.adAccount.updateMany({
         where: {
-          accountId: user.accountId,
+          accountId: user.accountId || "no-match",
           provider: 'google',
           externalId: accountId
         },

@@ -7,11 +7,11 @@ import { useForm } from "react-hook-form"
 import * as z from "zod"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/registry/new-york/ui/button"
-import { Input } from "@/registry/new-york/ui/input"
-import { Label } from "@/registry/new-york/ui/label"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Icons } from "@/components/icons"
-import { useToast } from "@/registry/new-york/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 const userRegisterSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),

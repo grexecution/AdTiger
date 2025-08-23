@@ -30,11 +30,14 @@ export async function POST(
       )
     }
 
+    const whereClause = user.role === "ADMIN" 
+      ? { id: params.connectionId }
+      : user.accountId 
+        ? { id: params.connectionId, accountId: user.accountId }
+        : { id: "no-match" }
+    
     const connection = await prisma.connection.findFirst({
-      where: {
-        id: params.connectionId,
-        accountId: user.accountId
-      }
+      where: whereClause
     })
 
     if (!connection) {
@@ -58,21 +61,24 @@ export async function POST(
     })
 
     // Get the AdAccount records that were created during manual connection
+    const adAccountWhereClause = user.role === "ADMIN"
+      ? { provider: "meta", externalId: { in: accountIds } }
+      : user.accountId
+        ? { accountId: user.accountId || "no-match", provider: "meta", externalId: { in: accountIds } }
+        : { id: "no-match" }
+    
     const selectedAdAccounts = await prisma.adAccount.findMany({
-      where: {
-        accountId: user.accountId,
-        provider: "meta",
-        externalId: { in: accountIds }
-      }
+      where: adAccountWhereClause
     })
 
     // Update AdAccount records to mark them as selected
-    await prisma.adAccount.updateMany({
-      where: {
-        accountId: user.accountId,
-        provider: "meta",
-        externalId: { in: accountIds }
-      },
+    if (user.accountId) {
+      await prisma.adAccount.updateMany({
+        where: {
+          accountId: user.accountId || "no-match",
+          provider: "meta",
+          externalId: { in: accountIds }
+        },
       data: {
         metadata: {
           selected: true,
@@ -81,11 +87,13 @@ export async function POST(
         }
       }
     })
+    }
 
     // Mark unselected accounts
-    await prisma.adAccount.updateMany({
-      where: {
-        accountId: user.accountId,
+    if (user.accountId) {
+      await prisma.adAccount.updateMany({
+        where: {
+          accountId: user.accountId || "no-match",
         provider: "meta",
         externalId: { notIn: accountIds }
       },
@@ -96,6 +104,7 @@ export async function POST(
         }
       }
     })
+    }
 
     return NextResponse.json({ 
       success: true,

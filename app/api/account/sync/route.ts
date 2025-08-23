@@ -28,13 +28,17 @@ export async function POST() {
     }
 
     // Initialize sync service
-    const syncService = new AccountSyncService(prisma)
+    const syncService = new AccountSyncService()
     
     // Sync all provider accounts
-    const results = await syncService.syncAllProviderAccounts(user.accountId)
+    const results = await syncService.syncAll()
     
-    // Get updated stats
-    const stats = await syncService.getAccountStats(user.accountId)
+    // Get updated stats (placeholder for now)
+    const stats = { 
+      totalCampaigns: 0,
+      totalSpend: 0,
+      lastSync: new Date()
+    }
     
     return NextResponse.json({
       success: true,

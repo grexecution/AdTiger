@@ -17,11 +17,15 @@ export async function GET(
   
   try {
     // Try new Connection model first
+    // Admin can see all connections, regular users only their own
+    const whereClause = session.user.role === "ADMIN" 
+      ? { id: params.connectionId }
+      : session.user.accountId 
+        ? { id: params.connectionId, accountId: session.user.accountId }
+        : { id: "no-match" } // If no accountId, return nothing
+    
     let connection = await prisma.connection.findFirst({
-      where: {
-        id: params.connectionId,
-        accountId: session.user.accountId,
-      },
+      where: whereClause,
     })
     
     if (connection) {
@@ -31,11 +35,11 @@ export async function GET(
         provider: connection.provider,
         status: connection.status,
         credentials: {
-          userName: connection.credentials?.userName,
-          userEmail: connection.credentials?.userEmail,
-          tokenExpiresAt: connection.credentials?.tokenExpiresAt,
-          selectedAccounts: connection.credentials?.selectedAccounts,
-          availableAccounts: connection.status === "pending_selection" ? connection.credentials?.availableAccounts : undefined,
+          userName: (connection.credentials as any)?.userName,
+          userEmail: (connection.credentials as any)?.userEmail,
+          tokenExpiresAt: (connection.credentials as any)?.tokenExpiresAt,
+          selectedAccounts: (connection.credentials as any)?.selectedAccounts,
+          availableAccounts: connection.status === "pending_selection" ? (connection.credentials as any)?.availableAccounts : undefined,
         },
         metadata: connection.metadata,
         createdAt: connection.createdAt,
@@ -45,11 +49,14 @@ export async function GET(
     }
     
     // Fallback to legacy ProviderConnection
+    const legacyWhereClause = session.user.role === "ADMIN" 
+      ? { id: params.connectionId }
+      : session.user.accountId 
+        ? { id: params.connectionId, accountId: session.user.accountId }
+        : { id: "no-match" } // If no accountId, return nothing
+    
     const legacyConnection = await prisma.providerConnection.findFirst({
-      where: {
-        id: params.connectionId,
-        accountId: session.user.accountId,
-      },
+      where: legacyWhereClause,
     })
     
     if (!legacyConnection) {
@@ -97,21 +104,27 @@ export async function DELETE(
   
   try {
     // Try new Connection model first
+    // Admin can see all connections, regular users only their own
+    const whereClause = session.user.role === "ADMIN" 
+      ? { id: params.connectionId }
+      : session.user.accountId 
+        ? { id: params.connectionId, accountId: session.user.accountId }
+        : { id: "no-match" } // If no accountId, return nothing
+    
     let connection = await prisma.connection.findFirst({
-      where: {
-        id: params.connectionId,
-        accountId: session.user.accountId,
-      },
+      where: whereClause,
     })
     
     if (connection) {
       // Delete associated ad accounts
-      await prisma.adAccount.deleteMany({
-        where: {
-          accountId: session.user.accountId,
-          provider: connection.provider,
-        },
-      })
+      if (session.user.accountId) {
+        await prisma.adAccount.deleteMany({
+          where: {
+            accountId: session.user.accountId,
+            provider: connection.provider,
+          },
+        })
+      }
       
       // Delete the connection
       await prisma.connection.delete({
@@ -126,11 +139,14 @@ export async function DELETE(
     }
     
     // Fallback to legacy ProviderConnection
+    const legacyWhereClause = session.user.role === "ADMIN" 
+      ? { id: params.connectionId }
+      : session.user.accountId 
+        ? { id: params.connectionId, accountId: session.user.accountId }
+        : { id: "no-match" } // If no accountId, return nothing
+    
     const legacyConnection = await prisma.providerConnection.findFirst({
-      where: {
-        id: params.connectionId,
-        accountId: session.user.accountId,
-      },
+      where: legacyWhereClause,
     })
     
     if (!legacyConnection) {
@@ -141,12 +157,14 @@ export async function DELETE(
     }
     
     // Delete associated ad accounts
-    await prisma.adAccount.deleteMany({
-      where: {
-        accountId: session.user.accountId,
-        provider: legacyConnection.provider,
-      },
-    })
+    if (session.user.accountId) {
+      await prisma.adAccount.deleteMany({
+        where: {
+          accountId: session.user.accountId,
+          provider: legacyConnection.provider,
+        },
+      })
+    }
     
     // Delete the legacy connection
     await prisma.providerConnection.delete({

@@ -9,7 +9,7 @@ import {
   PopoverTrigger 
 } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/registry/new-york/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 interface RecommendationFeedbackProps {
   recommendationId: string

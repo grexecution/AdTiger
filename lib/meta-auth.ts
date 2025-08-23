@@ -188,13 +188,13 @@ export async function saveMetaConnection(
         data: {
           accountId: accountId,
           provider: "meta",
-          name: `Meta - ${userInfo.name}`,
           status: "active",
           credentials: {
             accessToken: finalToken,
             expiresAt: expiresAt.toISOString(),
           },
           metadata: {
+            name: `Meta - ${userInfo.name}`,
             accessToken: finalToken, // Also store in metadata for compatibility
             expiresAt: expiresAt.toISOString(),
             userInfo: {

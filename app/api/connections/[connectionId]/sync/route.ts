@@ -57,7 +57,7 @@ export async function POST(
     const connection = await prisma.connection.findFirst({
       where: {
         id: params.connectionId,
-        accountId: user.accountId
+        accountId: user.accountId || "no-match"
       }
     })
 
@@ -116,7 +116,7 @@ export async function POST(
         // Find or create the AdAccount record for this external ID
         let adAccount = await prisma.adAccount.findFirst({
           where: {
-            accountId: user.accountId,
+            accountId: user.accountId || "no-match",
             provider: "meta",
             externalId: adAccountExternalId
           }
@@ -126,7 +126,7 @@ export async function POST(
           // Create the AdAccount if it doesn't exist
           adAccount = await prisma.adAccount.create({
             data: {
-              accountId: user.accountId,
+              accountId: user.accountId || "no-match",
               provider: "meta",
               externalId: adAccountExternalId,
               name: accountData.name || adAccountExternalId,
@@ -222,7 +222,7 @@ export async function POST(
             await prisma.campaign.upsert({
               where: {
                 accountId_provider_externalId: {
-                  accountId: user.accountId,
+                  accountId: user.accountId || "no-match",
                   provider: "meta",
                   externalId: campaign.id
                 }
@@ -242,7 +242,7 @@ export async function POST(
                 }
               },
               create: {
-                accountId: user.accountId,
+                accountId: user.accountId || "no-match",
                 provider: "meta",
                 externalId: campaign.id,
                 name: campaign.name,
@@ -292,7 +292,7 @@ export async function POST(
             for (const insight of dailyData.data) {
               const campaign = await prisma.campaign.findFirst({
                 where: {
-                  accountId: user.accountId,
+                  accountId: user.accountId || "no-match",
                   provider: 'meta',
                   externalId: insight.campaign_id
                 }
@@ -332,7 +332,7 @@ export async function POST(
                 await prisma.insight.upsert({
                   where: {
                     accountId_provider_entityType_entityId_date_window: {
-                      accountId: user.accountId,
+                      accountId: user.accountId || "no-match",
                       provider: 'meta',
                       entityType: 'campaign',
                       entityId: campaign.id,
@@ -361,7 +361,7 @@ export async function POST(
                     updatedAt: new Date()
                   },
                   create: {
-                    accountId: user.accountId,
+                    accountId: user.accountId || "no-match",
                     provider: 'meta',
                     entityType: 'campaign',
                     entityId: campaign.id,
@@ -437,7 +437,7 @@ export async function POST(
           // Get existing campaign to preserve metadata
           const existingCampaign = await prisma.campaign.findFirst({
             where: {
-              accountId: user.accountId,
+              accountId: user.accountId || "no-match",
               provider: "meta",
               externalId: insight.campaign_id
             }
@@ -532,7 +532,7 @@ export async function POST(
               // Find the campaign this adset belongs to
               const campaign = await prisma.campaign.findFirst({
                 where: {
-                  accountId: user.accountId,
+                  accountId: user.accountId || "no-match",
                   provider: "meta",
                   externalId: adset.campaign_id
                 }
@@ -573,7 +573,7 @@ export async function POST(
                   await prisma.adGroup.upsert({
                     where: {
                       accountId_provider_externalId: {
-                        accountId: user.accountId,
+                        accountId: user.accountId || "no-match",
                         provider: "meta",
                         externalId: adset.id
                       }
@@ -592,7 +592,7 @@ export async function POST(
                       }
                     },
                     create: {
-                      accountId: user.accountId,
+                      accountId: user.accountId || "no-match",
                       campaignId: campaign.id,
                       provider: "meta",
                       externalId: adset.id,
@@ -647,7 +647,7 @@ export async function POST(
               // Find the adset this ad belongs to
               const adGroup = await prisma.adGroup.findFirst({
                 where: {
-                  accountId: user.accountId,
+                  accountId: user.accountId || "no-match",
                   provider: "meta",
                   externalId: ad.adset_id
                 }
@@ -661,7 +661,7 @@ export async function POST(
                   let allImageUrls: any[] = []
                   
                   // Check if we have asset_feed_spec with image hashes
-                  if (ad.creative?.asset_feed_spec?.images && ad.creative.asset_feed_spec.images.length > 0) {
+                  if (ad.creative?.asset_feed_spec?.images && Array.isArray(ad.creative.asset_feed_spec.images) && ad.creative.asset_feed_spec.images.length > 0) {
                     console.log(`          Ad has ${ad.creative.asset_feed_spec.images.length} images in asset feed`)
                     
                     // Collect all image hashes
@@ -758,7 +758,7 @@ export async function POST(
                   await prisma.ad.upsert({
                     where: {
                       accountId_provider_externalId: {
-                        accountId: user.accountId,
+                        accountId: user.accountId || "no-match",
                         provider: "meta",
                         externalId: ad.id
                       }
@@ -777,7 +777,7 @@ export async function POST(
                       }
                     },
                     create: {
-                      accountId: user.accountId,
+                      accountId: user.accountId || "no-match",
                       adGroupId: adGroup.id,
                       provider: "meta",
                       externalId: ad.id,
@@ -848,7 +848,7 @@ export async function POST(
                 // First get the existing ad to preserve metadata
                 const existingAd = await prisma.ad.findFirst({
                   where: {
-                    accountId: user.accountId,
+                    accountId: user.accountId || "no-match",
                     provider: "meta",
                     externalId: insight.ad_id
                   }

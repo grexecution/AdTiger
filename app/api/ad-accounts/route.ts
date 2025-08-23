@@ -13,10 +13,15 @@ export async function GET() {
   }
   
   try {
+    // Admin can see all accounts, regular users only their own
+    const where = session.user.role === "ADMIN" 
+      ? {} 
+      : session.user.accountId 
+        ? { accountId: session.user.accountId }
+        : { accountId: "no-match" } // If no accountId, return empty
+    
     const accounts = await prisma.adAccount.findMany({
-      where: {
-        accountId: session.user.accountId,
-      },
+      where,
       orderBy: {
         createdAt: "desc",
       },

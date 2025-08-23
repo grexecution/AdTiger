@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const connection = await prisma.providerConnection.upsert({
       where: {
         accountId_provider_externalAccountId: {
-          accountId: user.accountId,
+          accountId: user.accountId || "no-match",
           provider: 'GOOGLE',
           externalAccountId: 'test_google_account',
         }
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         }
       },
       create: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: 'GOOGLE',
         externalAccountId: 'test_google_account',
         isActive: true,
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     await prisma.adAccount.upsert({
       where: {
         accountId_provider_externalId: {
-          accountId: user.accountId,
+          accountId: user.accountId || "no-match",
           provider: 'google',
           externalId: 'test_google_ad_account',
         }
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         }
       },
       create: {
-        accountId: user.accountId,
+        accountId: user.accountId || "no-match",
         provider: 'google',
         externalId: 'test_google_ad_account',
         name: 'Demo Google Ads Account',

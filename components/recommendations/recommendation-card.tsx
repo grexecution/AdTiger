@@ -30,7 +30,7 @@ import {
   ChevronUp,
   Check,
   X,
-  SnoozeIcon
+  Clock as SnoozeIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getMetaApiClient } from "@/lib/meta-api-client"
+import { createMetaApiClient } from "@/lib/meta-api-client"
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     const testToken = `test_token_${Date.now()}`
     
     // Validate that we're in test mode
-    const client = getMetaApiClient(testToken)
-    const isValid = await client.validateToken()
+    const client = createMetaApiClient(testToken)
+    const isValid = await client.testConnection()
     
     if (!isValid) {
       return NextResponse.json(
@@ -35,33 +35,42 @@ export async function POST(request: NextRequest) {
     }
 
     // Create or update the provider connection
-    const connection = await prisma.providerConnection.upsert({
+    // Use findFirst and then create/update since we don't have a unique constraint on just accountId+provider
+    let connection = await prisma.providerConnection.findFirst({
       where: {
-        accountId_provider: {
-          accountId: user.accountId,
-          provider: "meta"
-        }
-      },
-      update: {
-        isActive: true,
-        accessToken: testToken,
-        metadata: {
-          isTestMode: true,
-          connectedAt: new Date().toISOString()
-        },
-        updatedAt: new Date()
-      },
-      create: {
-        accountId: user.accountId,
-        provider: "meta",
-        isActive: true,
-        accessToken: testToken,
-        metadata: {
-          isTestMode: true,
-          connectedAt: new Date().toISOString()
-        }
+        accountId: user.accountId || "no-match",
+        provider: "meta"
       }
     })
+    
+    if (connection) {
+      connection = await prisma.providerConnection.update({
+        where: { id: connection.id },
+        data: {
+          isActive: true,
+          accessToken: testToken,
+          metadata: {
+            isTestMode: true,
+            connectedAt: new Date().toISOString()
+          },
+          updatedAt: new Date()
+        }
+      })
+    } else {
+      connection = await prisma.providerConnection.create({
+        data: {
+          accountId: user.accountId || "no-match",
+          provider: "meta",
+          externalAccountId: "test",
+          isActive: true,
+          accessToken: testToken,
+          metadata: {
+            isTestMode: true,
+            connectedAt: new Date().toISOString()
+          }
+        }
+      })
+    }
 
     return NextResponse.json({
       success: true,

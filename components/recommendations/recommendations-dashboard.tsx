@@ -72,7 +72,7 @@ export function RecommendationsDashboard() {
         const histResults = await Promise.all(histDataPromises)
         const newHistoricalData: Record<string, any[]> = {}
         histResults.forEach(result => {
-          if (result.campaignId) {
+          if (result.campaignId && typeof result.campaignId === 'string') {
             newHistoricalData[result.campaignId] = result.data
           }
         })
