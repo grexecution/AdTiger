@@ -12,18 +12,38 @@ if (!isProduction) {
   process.exit(0);
 }
 
+// Debug: Log environment info
+console.log('📍 Environment check:');
+console.log('   VERCEL:', process.env.VERCEL);
+console.log('   NODE_ENV:', process.env.NODE_ENV);
+console.log('   DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('   DATABASE_URL starts with:', process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'NOT SET');
+
 if (!process.env.DATABASE_URL) {
   console.log('⚠️  DATABASE_URL not set, skipping database setup');
   console.log('   Please set DATABASE_URL in Vercel environment variables');
   process.exit(0);
 }
 
+// Validate DATABASE_URL format
+if (!process.env.DATABASE_URL.startsWith('postgresql://') && !process.env.DATABASE_URL.startsWith('postgres://')) {
+  console.log('⚠️  DATABASE_URL must start with postgresql:// or postgres://');
+  console.log('   Current value starts with:', process.env.DATABASE_URL.substring(0, 20));
+  console.log('   Skipping database setup');
+  process.exit(0);
+}
+
 try {
   // Step 1: Push database schema
   console.log('📊 Creating database tables...');
-  execSync('npx prisma db push --skip-generate', { 
+  console.log('   Using DATABASE_URL:', process.env.DATABASE_URL.substring(0, 30) + '...');
+  
+  execSync('npx prisma db push --skip-generate --accept-data-loss', { 
     stdio: 'inherit',
-    env: { ...process.env }
+    env: { 
+      ...process.env,
+      DATABASE_URL: process.env.DATABASE_URL 
+    }
   });
   
   console.log('✅ Database tables created successfully!');
