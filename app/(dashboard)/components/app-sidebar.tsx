@@ -3,6 +3,8 @@
 import * as React from "react"
 import { useSession } from "next-auth/react"
 import { signOutAction } from "@/app/actions/auth"
+import { usePathname } from "next/navigation"
+import Link from "next/link"
 import {
   LayoutDashboard,
   FileText,
@@ -153,21 +155,14 @@ const comingSoonItems = [
   },
 ]
 
-const miscItems = [
-  {
-    title: "Documentation",
-    url: "/docs",
-    icon: SquareArrowUpRight,
-    badge: "Soon",
-    disabled: true,
-  },
-]
+const miscItems: any[] = []
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {}
 
 export function AppSidebar({ ...props }: AppSidebarProps) {
   const { state } = useSidebar()
   const { data: session, status } = useSession()
+  const pathname = usePathname()
   
   // Get user info from session
   const userEmail = session?.user?.email || ""
@@ -192,11 +187,11 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="sm" className="h-8 !p-1.5">
-              <a href="/dashboard">
+            <SidebarMenuButton asChild size="sm" className="h-8 !p-1.5 transition-all duration-200 hover:scale-[1.05] active:scale-[0.95]">
+              <Link href="/dashboard" prefetch={true}>
                 <Command className="h-4 w-4" />
                 <span className="text-base font-semibold">AdTiger</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -207,7 +202,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
             <SidebarMenu>
               <SidebarMenuItem className="flex items-center gap-2">
                 <SidebarMenuButton 
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear h-8 text-sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground hover:scale-[1.05] active:scale-[0.95] active:bg-primary/80 min-w-8 transition-all duration-200 ease-out h-8 text-sm shadow-sm hover:shadow-md"
                   size="sm"
                 >
                   <Plus className="h-4 w-4" />
@@ -229,25 +224,29 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
           <SidebarGroupLabel>{isAdmin ? "Navigation" : "Main"}</SidebarGroupLabel>
           <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
             <SidebarMenu>
-              {customerItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    size="sm"
-                    className="h-8 text-sm"
-                  >
-                    <a href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                      {item.badge && (
-                        <SidebarMenuBadge className="ml-auto">
-                          {item.badge}
-                        </SidebarMenuBadge>
-                      )}
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {customerItems.map((item) => {
+                const isActive = pathname === item.url || (item.url !== '/dashboard' && pathname.startsWith(item.url))
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      size="sm"
+                      className="h-8 text-sm transition-all duration-200 hover:scale-[1.02] hover:bg-white hover:shadow-sm active:scale-[0.98] data-[active=true]:bg-white data-[active=true]:shadow-sm data-[active=true]:font-medium"
+                      data-active={isActive}
+                    >
+                      <Link href={item.url} aria-current={isActive ? "page" : undefined} prefetch={true}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                        {item.badge && (
+                          <SidebarMenuBadge className="ml-auto">
+                            {item.badge}
+                          </SidebarMenuBadge>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -258,25 +257,29 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
             <SidebarGroupLabel>Settings</SidebarGroupLabel>
             <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
               <SidebarMenu>
-                {settingsItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      size="sm"
-                      className="h-8 text-sm"
-                    >
-                      <a href={item.url}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                        {item.badge && (
-                          <SidebarMenuBadge className="ml-auto">
-                            {item.badge}
-                          </SidebarMenuBadge>
-                        )}
-                      </a>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {settingsItems.map((item) => {
+                  const isActive = pathname === item.url || pathname.startsWith(item.url)
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        size="sm"
+                        className="h-8 text-sm transition-all duration-200 hover:scale-[1.02] hover:bg-white hover:shadow-sm active:scale-[0.98] data-[active=true]:bg-white data-[active=true]:shadow-sm data-[active=true]:font-medium"
+                        data-active={isActive}
+                      >
+                        <Link href={item.url} aria-current={isActive ? "page" : undefined} prefetch={true}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                          {item.badge && (
+                            <SidebarMenuBadge className="ml-auto">
+                              {item.badge}
+                            </SidebarMenuBadge>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -288,25 +291,29 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
             <SidebarGroupLabel className="text-red-600">Admin</SidebarGroupLabel>
             <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
               <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      size="sm"
-                      className="h-8 text-sm"
-                    >
-                      <a href={item.url}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                        {item.badge && (
-                          <SidebarMenuBadge className="ml-auto">
-                            {item.badge}
-                          </SidebarMenuBadge>
-                        )}
-                      </a>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {adminItems.map((item) => {
+                  const isActive = pathname === item.url || pathname.startsWith(item.url)
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        size="sm"
+                        className="h-8 text-sm transition-all duration-200 hover:scale-[1.02] hover:bg-white hover:shadow-sm active:scale-[0.98] data-[active=true]:bg-white data-[active=true]:shadow-sm data-[active=true]:font-medium"
+                        data-active={isActive}
+                      >
+                        <Link href={item.url} aria-current={isActive ? "page" : undefined} prefetch={true}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                          {item.badge && (
+                            <SidebarMenuBadge className="ml-auto">
+                              {item.badge}
+                            </SidebarMenuBadge>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -322,9 +329,9 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
                     asChild
                     disabled={item.disabled}
                     size="sm"
-                    className="h-8 text-sm"
+                    className="h-8 text-sm transition-all duration-200 hover:scale-[1.02] hover:bg-white hover:shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 disabled:hover:bg-transparent disabled:hover:shadow-none"
                   >
-                    <a href={item.url}>
+                    <Link href={item.url} prefetch={true}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                       {item.badge && (
@@ -332,32 +339,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
                           {item.badge}
                         </SidebarMenuBadge>
                       )}
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Misc</SidebarGroupLabel>
-          <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
-            <SidebarMenu>
-              {miscItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    disabled={item.disabled}
-                    size="sm"
-                    className="h-8 text-sm"
-                  >
-                    <a href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                      {item.badge && (
-                        <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                      )}
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -379,7 +361,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton size="lg" className="h-12 text-sm group-data-[collapsible=icon]:p-0! data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+                  <SidebarMenuButton size="lg" className="h-12 text-sm bg-white hover:bg-gray-50 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] group-data-[collapsible=icon]:p-0! data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                     <Avatar className="h-8 w-8 rounded-lg">
                       <AvatarImage src={undefined} alt={userName} />
                       <AvatarFallback className="rounded-lg">{userInitials}</AvatarFallback>
@@ -405,28 +387,28 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <a href="/dashboard/settings/profile">
+                  <Link href="/dashboard/settings/profile">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile Settings</span>
-                  </a>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <a href="/dashboard/settings/account">
+                  <Link href="/dashboard/settings/account">
                     <Users className="mr-2 h-4 w-4" />
                     <span>Account</span>
-                  </a>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <a href="/dashboard/settings/connections">
+                  <Link href="/dashboard/settings/connections">
                     <Cable className="mr-2 h-4 w-4" />
                     <span>Connections</span>
-                  </a>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <a href="/dashboard/settings">
+                  <Link href="/dashboard/settings">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
-                  </a>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>

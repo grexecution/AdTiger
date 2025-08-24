@@ -83,9 +83,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
             dangerouslySetInnerHTML={{
               __html: `
               try {
-                if (localStorage.theme === 'dark' || ((!('theme' in localStorage) || localStorage.theme === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.querySelector('meta[name="theme-color"]').setAttribute('content', '${META_THEME_COLORS.dark}')
-                }
+                // Always use light theme
+                localStorage.theme = 'light';
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
               } catch (_) {}
             `,
             }}
@@ -101,8 +102,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <AuthProvider>
             <ThemeProvider
               attribute="class"
-              defaultTheme="system"
-              enableSystem
+              defaultTheme="light"
+              enableSystem={false}
               disableTransitionOnChange
               enableColorScheme
             >

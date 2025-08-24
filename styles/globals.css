@@ -2,6 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Sidebar Animations */
+@layer components {
+  /* Smooth hover and active animations for sidebar items */
+  [data-sidebar] button {
+    @apply relative overflow-hidden;
+  }
+  
+  /* Ripple effect on click */
+  [data-sidebar] button::after {
+    content: '';
+    @apply absolute inset-0 opacity-0 bg-gradient-to-r from-transparent via-white/10 to-transparent;
+    transform: translateX(-100%);
+    transition: transform 0.6s, opacity 0.3s;
+  }
+  
+  [data-sidebar] button:active::after {
+    @apply opacity-100;
+    transform: translateX(100%);
+  }
+  
+  /* Active route indicator */
+  [data-sidebar] a[aria-current="page"] button,
+  [data-sidebar] a[data-active="true"] button {
+    @apply bg-white shadow-sm font-medium relative;
+  }
+  
+  /* Left border indicator for active items */
+  [data-sidebar] a[aria-current="page"] button::before,
+  [data-sidebar] a[data-active="true"] button::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full;
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(-100%) translateY(-50%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0) translateY(-50%);
+      opacity: 1;
+    }
+  }
+  
+  /* Smooth icon color transitions */
+  [data-sidebar] button svg {
+    @apply transition-all duration-200;
+  }
+  
+  [data-sidebar] button:hover svg {
+    @apply text-primary scale-110;
+  }
+  
+  /* Avatar section white background */
+  [data-sidebar-footer] {
+    @apply bg-white;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

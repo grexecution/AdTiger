@@ -44,28 +44,12 @@ import {
 import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns"
 import { DateRange } from "react-day-picker"
 import { cn } from "@/lib/utils"
-import dynamic from "next/dynamic"
-
-// Dynamically import chart components to avoid SSR issues
-const AreaChart = dynamic(
-  () => import("@/components/charts/area-chart").then(mod => mod.AreaChart),
-  { ssr: false, loading: () => <div className="h-[350px] flex items-center justify-center">Loading chart...</div> }
-)
-
-const BarChartComponent = dynamic(
-  () => import("@/components/charts/bar-chart").then(mod => mod.BarChart),
-  { ssr: false, loading: () => <div className="h-[350px] flex items-center justify-center">Loading chart...</div> }
-)
-
-const LineChartComponent = dynamic(
-  () => import("@/components/charts/line-chart").then(mod => mod.LineChart),
-  { ssr: false, loading: () => <div className="h-[350px] flex items-center justify-center">Loading chart...</div> }
-)
-
-const PieChartComponent = dynamic(
-  () => import("@/components/charts/pie-chart").then(mod => mod.PieChart),
-  { ssr: false, loading: () => <div className="h-[300px] flex items-center justify-center">Loading chart...</div> }
-)
+import {
+  LazyAreaChart as AreaChart,
+  LazyBarChart as BarChartComponent,
+  LazyLineChart as LineChartComponent,
+  LazyPieChart as PieChartComponent
+} from "@/components/charts/lazy-chart"
 
 // Metric card component
 const MetricCard = ({ 

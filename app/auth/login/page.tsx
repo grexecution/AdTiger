@@ -4,7 +4,6 @@ import Link from "next/link"
 import { Suspense } from "react"
 
 import { LoginWrapper } from "./login-wrapper"
-import { ModeToggle } from "@/app/(dashboard)/components/mode-toggle"
 
 export const metadata: Metadata = {
   title: "Login",
@@ -14,10 +13,9 @@ export const metadata: Metadata = {
 export default function LoginV2Page() {
   return (
     <div className="container relative h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-      <div className="absolute right-4 top-4 md:right-8 md:top-8 flex items-center gap-2">
-        <ModeToggle />
+      <div className="absolute right-4 top-4 md:right-8 md:top-8">
         <Link
-          href="/auth/register-v2"
+          href="/auth/register"
           className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background hover:bg-accent hover:text-accent-foreground h-9 px-4"
         >
           Register

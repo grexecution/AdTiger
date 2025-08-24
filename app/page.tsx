@@ -46,7 +46,7 @@ export default async function HomePage() {
                 Sign In
               </Button>
             </Link>
-            <Link href="/auth/register-v2">
+            <Link href="/auth/register">
               <Button size="sm">
                 Get Started
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -72,7 +72,7 @@ export default async function HomePage() {
             providing actionable recommendations to maximize ROI and reduce wasted spend.
           </p>
           <div className="flex items-center justify-center gap-4 pt-4">
-            <Link href="/auth/register-v2">
+            <Link href="/auth/register">
               <Button size="lg">
                 Start Free Trial
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -161,7 +161,7 @@ export default async function HomePage() {
             Join thousands of marketers using AdTiger to improve their ROAS
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
-            <Link href="/auth/register-v2">
+            <Link href="/auth/register">
               <Button size="lg">
                 Start 14-Day Free Trial
                 <ArrowRight className="ml-2 h-4 w-4" />
