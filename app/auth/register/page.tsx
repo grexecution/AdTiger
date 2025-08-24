@@ -4,8 +4,14 @@ import Link from "next/link"
 import { UserRegisterForm } from "./user-register-form"
 
 export const metadata: Metadata = {
-  title: "Create an account",
-  description: "Create a new account to get started",
+  title: "Sign Up - AdFire",
+  description: "Create your AdFire account to start automating your ad campaigns",
+  robots: {
+    index: false,
+    follow: false,
+    noarchive: true,
+    nosnippet: true,
+  },
 }
 
 export default function RegisterPage() {
@@ -22,13 +28,13 @@ export default function RegisterPage() {
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="relative z-20 flex items-center text-lg font-medium">
-          <span className="text-2xl mr-2">🐅</span>
-          AdTiger
+          <span className="text-2xl mr-2">🔥</span>
+          AdFire
         </div>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
-              "AdTiger's AI-powered recommendations have transformed our approach to digital advertising. 
+              "AdFire's AI-powered recommendations have transformed our approach to digital advertising. 
               We're seeing better results with less manual work."
             </p>
             <footer className="text-sm">Michael Chen - Head of Digital Marketing</footer>

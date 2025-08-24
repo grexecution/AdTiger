@@ -13,7 +13,6 @@ import {
   Users,
   User,
   AlertCircle,
-  Command,
   Plus,
   Mail,
   SquareArrowUpRight,
@@ -189,15 +188,14 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="sm" className="h-8 !p-1.5 transition-all duration-200 hover:scale-[1.05] active:scale-[0.95]">
               <Link href="/dashboard" prefetch={true}>
-                <Command className="h-4 w-4" />
-                <span className="text-base font-semibold">AdTiger</span>
+                <span className="text-base font-semibold">🔥 AdFire</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
+        {/*<SidebarGroup>
           <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">
             <SidebarMenu>
               <SidebarMenuItem className="flex items-center gap-2">
@@ -219,7 +217,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
-        </SidebarGroup>
+        </SidebarGroup>*/}
         <SidebarGroup>
           <SidebarGroupLabel>{isAdmin ? "Navigation" : "Main"}</SidebarGroupLabel>
           <SidebarGroupContent className="w-full text-sm flex flex-col gap-2">

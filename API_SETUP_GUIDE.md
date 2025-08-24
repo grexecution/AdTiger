@@ -1,8 +1,8 @@
-# API Setup Guide for AdTiger
+# API Setup Guide for AdFire
 
 ## 🚀 Complete Implementation Overview
 
-AdTiger now supports both **Meta (Facebook & Instagram)** and **Google Ads (Search, YouTube, Display, Shopping)** with a fully integrated settings page where each user can add their own API credentials.
+AdFire now supports both **Meta (Facebook & Instagram)** and **Google Ads (Search, YouTube, Display, Shopping)** with a fully integrated settings page where each user can add their own API credentials.
 
 ## 📍 Where to Access Settings
 
@@ -38,7 +38,7 @@ AdTiger now supports both **Meta (Facebook & Instagram)** and **Google Ads (Sear
    - Grant permissions: `ads_read`, `ads_management`, `business_management`, `insights`
    - Generate and copy the token
 
-#### 4. Add to AdTiger
+#### 4. Add to AdFire
 1. Go to Settings → Connections
 2. Click **"Connect"** under Meta
 3. Enter your credentials
@@ -71,7 +71,7 @@ AdTiger now supports both **Meta (Facebook & Instagram)** and **Google Ads (Sear
 
 #### 2. Create Google Cloud Project
 1. Go to [Google Cloud Console](https://console.cloud.google.com/projectcreate)
-2. Create a new project (e.g., "AdTiger Integration")
+2. Create a new project (e.g., "AdFire Integration")
 3. Note your Project ID
 
 #### 3. Enable Google Ads API
@@ -107,7 +107,7 @@ AdTiger now supports both **Meta (Facebook & Instagram)** and **Google Ads (Sear
 3. Remove dashes when entering (e.g., 1234567890)
 4. If using a manager account, note both Customer IDs
 
-#### 7. Add to AdTiger
+#### 7. Add to AdFire
 1. Go to Settings → Connections
 2. Click **"Connect"** under Google Ads
 3. Enter all credentials:
@@ -226,7 +226,7 @@ All Google ad formats display as they appear on mobile devices:
 ### External Resources
 - [Meta Business Help Center](https://www.facebook.com/business/help)
 - [Google Ads API Documentation](https://developers.google.com/google-ads/api/docs/start)
-- [AdTiger Support](mailto:support@adtiger.com)
+- [AdFire Support](mailto:support@adfire.com)
 
 ---
 
@@ -238,7 +238,7 @@ All Google ad formats display as they appear on mobile devices:
 - [ ] Copied App ID
 - [ ] Copied App Secret
 - [ ] Generated Access Token with permissions
-- [ ] Tested connection in AdTiger
+- [ ] Tested connection in AdFire
 - [ ] Saved connection
 
 ### Google Ads Setup Checklist
@@ -248,7 +248,7 @@ All Google ad formats display as they appear on mobile devices:
 - [ ] Created OAuth2 credentials
 - [ ] Generated Refresh Token
 - [ ] Found Customer ID(s)
-- [ ] Tested connection in AdTiger
+- [ ] Tested connection in AdFire
 - [ ] Saved connection
 
 ---
@@ -265,7 +265,7 @@ All Google ad formats display as they appear on mobile devices:
 
 ## 🔒 Privacy & Compliance
 
-- AdTiger is **SOC 2 Type II** compliant
+- AdFire is **SOC 2 Type II** compliant
 - All data transmission uses **TLS 1.3**
 - Credentials are **encrypted at rest**
 - We never access your ad accounts without permission

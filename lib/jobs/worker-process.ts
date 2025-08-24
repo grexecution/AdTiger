@@ -8,7 +8,7 @@ import { createRedisConnection } from '@/lib/queue/redis'
 const isProduction = process.env.NODE_ENV === 'production'
 
 async function startWorkers() {
-  console.log('🚀 Starting AdTiger ETL Workers...')
+  console.log('🚀 Starting AdFire ETL Workers...')
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`)
   
   try {

@@ -89,12 +89,12 @@ export function Sidebar() {
       <div className="flex h-16 items-center border-b px-4">
         {!isCollapsed && (
           <Link href="/dashboard" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold">🐅 AdTiger</span>
+            <span className="text-2xl font-bold">🔥 AdFire</span>
           </Link>
         )}
         {isCollapsed && (
           <Link href="/dashboard" className="flex items-center justify-center w-full">
-            <span className="text-2xl">🐅</span>
+            <span className="text-2xl">🔥</span>
           </Link>
         )}
       </div>

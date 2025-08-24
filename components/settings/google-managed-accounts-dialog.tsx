@@ -197,7 +197,7 @@ export function GoogleManagedAccountsDialog({
         <DialogHeader>
           <DialogTitle>Manage Google Ads Accounts</DialogTitle>
           <DialogDescription>
-            Select which accounts from your Manager Account (MCC) should be synced to AdTiger.
+            Select which accounts from your Manager Account (MCC) should be synced to AdFire.
           </DialogDescription>
         </DialogHeader>
 

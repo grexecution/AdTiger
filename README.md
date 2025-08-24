@@ -1,6 +1,6 @@
-# AdTiger - AI Performance Marketing Dashboard
+# 🔥 AdFire - AI Performance Marketing Dashboard
 
-AdTiger is an AI-powered performance marketing dashboard that helps marketers optimize their ad campaigns across multiple platforms with automated insights and recommendations.
+AdFire is an AI-powered performance marketing dashboard that helps marketers optimize their ad campaigns across multiple platforms with automated insights and recommendations.
 
 ## 🚀 Features
 

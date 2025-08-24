@@ -6,8 +6,24 @@ import { Suspense } from "react"
 import { LoginWrapper } from "./login-wrapper"
 
 export const metadata: Metadata = {
-  title: "Login",
-  description: "Login to your account",
+  title: "Login - AdFire Dashboard | AI Marketing Automation Platform",
+  description: "Sign in to AdFire to access your AI-powered marketing dashboard. Automate your Meta & Google ads campaigns with intelligent optimization that works 24/7.",
+  keywords: ["AdFire login", "marketing dashboard login", "ad automation platform", "sign in"],
+  openGraph: {
+    title: "Login to AdFire - AI Marketing Automation",
+    description: "Access your AI-powered marketing dashboard and start automating your ad campaigns.",
+    type: "website",
+    url: "https://adfire.io/auth/login",
+  },
+  twitter: {
+    card: "summary",
+    title: "Login to AdFire",
+    description: "Access your AI-powered marketing dashboard",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 }
 
 export default function LoginV2Page() {
@@ -24,8 +40,8 @@ export default function LoginV2Page() {
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="relative z-20 flex items-center text-lg font-medium">
-          <span className="text-2xl mr-2">🐅</span>
-          AdTiger
+          <span className="text-2xl mr-2">🔥</span>
+          AdFire
         </div>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">

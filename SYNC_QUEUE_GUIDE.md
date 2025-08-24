@@ -1,8 +1,8 @@
-# AdTiger Professional Queue System Guide
+# AdFire Professional Queue System Guide
 
 ## 🎯 Overview
 
-AdTiger uses a professional-grade queue system built with **BullMQ** and **Redis** to handle data synchronization from advertising platforms (Meta, Google Ads). This system is designed to scale to 1000+ users with robust error handling, rate limiting, and retry mechanisms.
+AdFire uses a professional-grade queue system built with **BullMQ** and **Redis** to handle data synchronization from advertising platforms (Meta, Google Ads). This system is designed to scale to 1000+ users with robust error handling, rate limiting, and retry mechanisms.
 
 ## 🏗️ Architecture
 

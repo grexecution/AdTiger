@@ -14,7 +14,7 @@ import { UserNav } from "@/app/(dashboard)/dashboard/components/user-nav"
 import { PageTransition } from "@/components/page-transition"
 
 export const metadata: Metadata = {
-  title: "Dashboard - AdTiger",
+  title: "Dashboard - AdFire",
   description: "AI Performance Marketing Dashboard",
 }
 

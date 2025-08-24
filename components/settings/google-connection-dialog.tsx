@@ -240,7 +240,7 @@ export function GoogleConnectionDialog({ open, onOpenChange, onSuccess }: Google
                     </a>
                   </Button>
                   <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
-                    <li>Enter a project name (e.g., "AdTiger Integration")</li>
+                    <li>Enter a project name (e.g., "AdFire Integration")</li>
                     <li>Click "Create" and wait for the project to be created</li>
                     <li>Make note of your Project ID</li>
                   </ul>

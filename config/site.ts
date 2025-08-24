@@ -1,12 +1,12 @@
 export const siteConfig = {
-  name: "AdTiger",
-  url: "https://adtiger.io",
-  ogImage: "https://adtiger.io/og.jpg",
+  name: "AdFire",
+  url: "https://adfire.io",
+  ogImage: "https://adfire.io/og.jpg",
   description:
     "AI-powered performance marketing dashboard that helps marketers optimize their ad campaigns across multiple platforms with intelligent recommendations and automated insights.",
   links: {
-    twitter: "https://twitter.com/adtiger",
-    github: "https://github.com/adtiger",
+    twitter: "https://twitter.com/adfire",
+    github: "https://github.com/adfire",
     support: "/support",
     docs: "/docs",
     privacy: "/privacy",

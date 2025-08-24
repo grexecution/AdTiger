@@ -207,7 +207,7 @@ export function MetaConnectionDialog({ open, onOpenChange, onSuccess }: MetaConn
               </DialogTitle>
               <DialogDescription>
                 {showAccountSelection 
-                  ? "Choose which ad accounts to sync with AdTiger"
+                  ? "Choose which ad accounts to sync with AdFire"
                   : "Connect your Meta Business account to sync Facebook and Instagram campaigns"
                 }
               </DialogDescription>
@@ -220,7 +220,7 @@ export function MetaConnectionDialog({ open, onOpenChange, onSuccess }: MetaConn
             <Alert>
               <Shield className="h-4 w-4" />
               <AlertDescription>
-                You'll be redirected to Facebook to authorize AdTiger. We'll only access your ad data, never post on your behalf.
+                You'll be redirected to Facebook to authorize AdFire. We'll only access your ad data, never post on your behalf.
               </AlertDescription>
             </Alert>
 

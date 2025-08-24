@@ -13,35 +13,42 @@ import { Toaster as NewYorkToaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: {
-    default: siteConfig.name,
-    template: `%s - ${siteConfig.name}`,
+    default: "AdFire - AI Autopilot for Performance Marketing | Automate Meta & Google Ads",
+    template: `%s | AdFire - AI Marketing Automation`,
   },
   metadataBase: new URL(siteConfig.url),
-  description: siteConfig.description,
+  description: "Stop doing manual ad optimization. AdFire's AI autopilot automatically manages your Meta & Google ads 24/7. Increase ROAS by 47% on average. Start free automation today.",
   keywords: [
-    "Performance Marketing",
-    "Ad Optimization",
-    "AI Marketing",
-    "Campaign Management",
-    "Meta Ads",
-    "Google Ads",
-    "Marketing Dashboard",
-    "Ad Analytics",
+    "AI marketing automation",
+    "automated ad optimization",
+    "performance marketing software",
+    "Meta ads automation",
+    "Google ads autopilot",
+    "Facebook ads AI",
+    "Instagram ads automation",
+    "ROAS optimization tool",
+    "campaign automation platform",
+    "ad management software",
+    "marketing AI assistant",
+    "PPC automation",
+    "programmatic advertising",
+    "digital marketing automation",
+    "ad spend optimization"
   ],
   authors: [
     {
-      name: "AdTiger",
-      url: "https://adtiger.io",
+      name: "AdFire",
+      url: "https://adfire.io",
     },
   ],
-  creator: "AdTiger",
+  creator: "AdFire",
   openGraph: {
     type: "website",
     locale: "en_US",
     url: siteConfig.url,
-    title: siteConfig.name,
-    description: siteConfig.description,
-    siteName: siteConfig.name,
+    title: "AdFire - AI Autopilot for Performance Marketing",
+    description: "Stop doing manual ad optimization. AdFire's AI autopilot automatically manages your Meta & Google ads 24/7. Increase ROAS by 47% on average.",
+    siteName: "AdFire",
     images: [
       {
         url: siteConfig.ogImage,
@@ -53,10 +60,29 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.name,
-    description: siteConfig.description,
+    title: "AdFire - AI Autopilot for Performance Marketing",
+    description: "Stop doing manual ad optimization. AdFire's AI autopilot automatically manages your Meta & Google ads 24/7. Increase ROAS by 47%.",
     images: [siteConfig.ogImage],
-    creator: "@adtiger",
+    creator: "@adfire",
+    site: "@adfire",
+  },
+  alternates: {
+    canonical: siteConfig.url,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "your-google-verification-code",
+    yandex: "your-yandex-verification-code",
   },
   icons: {
     icon: "/favicon.ico",

@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * AdTiger Sync Worker
+ * AdFire Sync Worker
  * 
  * This script starts the BullMQ worker that processes sync jobs.
  * It should be run as a separate process from the Next.js app.
@@ -15,7 +15,7 @@
 import 'dotenv/config'
 import '../services/sync/queue-worker'
 
-console.log('🚀 AdTiger Sync Worker started')
+console.log('🚀 AdFire Sync Worker started')
 console.log('📋 Queue: campaign-sync, ad-sync, insights-sync')
 console.log('🔄 Concurrency: 3 jobs')
 console.log('⏰ Retry: 3 attempts with exponential backoff')

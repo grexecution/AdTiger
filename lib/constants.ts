@@ -18,7 +18,7 @@ export const REDIS_TOKEN = process.env.REDIS_TOKEN || ''
 export const CRON_SECRET = process.env.CRON_SECRET || ''
 
 // Application constants
-export const APP_NAME = 'AdTiger'
+export const APP_NAME = 'AdFire'
 export const APP_DESCRIPTION = 'AI-Powered Performance Marketing Dashboard'
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3333'
 

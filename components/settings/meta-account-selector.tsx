@@ -132,7 +132,7 @@ export function MetaAccountSelector({
         <DialogHeader>
           <DialogTitle>Select Ad Accounts to Sync</DialogTitle>
           <DialogDescription>
-            Choose which Meta ad accounts you want to sync with AdTiger.
+            Choose which Meta ad accounts you want to sync with AdFire.
             You can change this selection later in settings.
           </DialogDescription>
         </DialogHeader>
