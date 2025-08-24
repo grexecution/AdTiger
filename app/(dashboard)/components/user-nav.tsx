@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { signOut } from "next-auth/react"
+import { signOutAction } from "@/app/actions/auth"
 import {
   Avatar,
   AvatarFallback,
@@ -141,9 +141,9 @@ export function UserNav({ user }: UserNavProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="cursor-pointer"
-          onSelect={(event) => {
+          onSelect={async (event) => {
             event.preventDefault()
-            signOut({ callbackUrl: "/auth/login-v2" })
+            await signOutAction()
           }}
         >
           <LogOut className="mr-2 h-4 w-4" />

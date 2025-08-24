@@ -1,12 +1,12 @@
 import "@/styles/globals.css"
 import { Metadata, Viewport } from "next"
-import { SessionProvider } from "next-auth/react"
 
 import { META_THEME_COLORS, siteConfig } from "@/config/site"
 import { fontMono, fontSans } from "@/lib/fonts"
 import { cn } from "@/lib/utils"
 import { Analytics } from "@/components/analytics"
 import { ThemeProvider } from "@/components/providers"
+import { AuthProvider } from "@/components/providers/auth-provider"
 import { Toaster as DefaultToaster } from "@/registry/default/ui/toaster"
 import { Toaster as NewYorkSonner } from "@/components/ui/sonner"
 import { Toaster as NewYorkToaster } from "@/components/ui/toaster"
@@ -98,7 +98,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             fontMono.variable
           )}
         >
-          <SessionProvider>
+          <AuthProvider>
             <ThemeProvider
               attribute="class"
               defaultTheme="system"
@@ -116,7 +116,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               <DefaultToaster />
               <NewYorkSonner />
             </ThemeProvider>
-          </SessionProvider>
+          </AuthProvider>
         </body>
       </html>
     </>

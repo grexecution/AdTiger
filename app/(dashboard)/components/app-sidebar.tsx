@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useSession, signOut } from "next-auth/react"
+import { useSession } from "next-auth/react"
+import { signOutAction } from "@/app/actions/auth"
 import {
   LayoutDashboard,
   FileText,
@@ -182,11 +183,8 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
         .slice(0, 2)
     : ""
 
-  const handleSignOut = () => {
-    signOut({
-      callbackUrl: "/auth/login",
-      redirect: true
-    })
+  const handleSignOut = async () => {
+    await signOutAction()
   }
 
   return (
