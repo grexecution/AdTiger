@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { SyncService } from "@/services/sync/sync-service"
 import { z } from "zod"
 
+export const dynamic = 'force-dynamic'
+
 const syncSchema = z.object({
   provider: z.enum(["meta", "google"]),
   type: z.enum(["full", "campaigns", "insights"]).optional(),

@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { Suspense } from "react"
 
 import { UserAuthForm } from "./user-auth-form"
 import { ModeToggle } from "@/app/(dashboard)/components/mode-toggle"
@@ -48,7 +49,9 @@ export default function LoginV2Page() {
               Enter your email below to login to your account
             </p>
           </div>
-          <UserAuthForm />
+          <Suspense fallback={<div className="flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <UserAuthForm />
+          </Suspense>
           <p className="px-8 text-center text-sm text-muted-foreground">
             By clicking continue, you agree to our{" "}
             <Link

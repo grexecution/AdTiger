@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { UserRole } from "@prisma/client"
-import { exec } from "child_process"
-import { promisify } from "util"
 
+export const dynamic = 'force-dynamic'import { auth } from "@/lib/auth"
+
+export const dynamic = 'force-dynamic'import { UserRole } from "@prisma/client"
+
+export const dynamic = 'force-dynamic'import { exec } from "child_process"
+
+export const dynamic = 'force-dynamic'import { promisify } from "util"
+
+export const dynamic = 'force-dynamic'
 const execAsync = promisify(exec)
 
 export async function GET(request: NextRequest) {

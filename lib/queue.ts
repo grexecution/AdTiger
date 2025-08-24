@@ -3,29 +3,36 @@ import IORedis from 'ioredis'
 
 // Create IORedis instance for BullMQ (separate from Upstash Redis)
 const createRedisConnection = () => {
-  // For local development
-  if (!process.env.REDIS_URL || process.env.REDIS_URL.includes('localhost') || process.env.REDIS_URL.includes('127.0.0.1')) {
+  // During build time or when BULLMQ_REDIS_URL is not set, return a dummy connection
+  // This prevents connection attempts during static generation
+  if (!process.env.BULLMQ_REDIS_URL || process.env.NODE_ENV === 'production' && !process.env.BULLMQ_REDIS_URL) {
+    console.warn('BULLMQ_REDIS_URL not configured, queue operations will be disabled')
+    // Return a dummy connection that won't attempt to connect
     return new IORedis({
-      host: 'localhost',
+      host: 'dummy',
       port: 6379,
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: 0,
       enableReadyCheck: false,
       lazyConnect: true,
+      retryStrategy: () => null, // Disable retries
     })
   }
   
-  // For production with Redis URL (not Upstash format)
-  return new IORedis(process.env.BULLMQ_REDIS_URL || 'redis://localhost:6379', {
+  // For production with Redis URL
+  return new IORedis(process.env.BULLMQ_REDIS_URL, {
     maxRetriesPerRequest: 3,
     enableReadyCheck: false,
     lazyConnect: true,
   })
 }
 
-const redisConnection = createRedisConnection()
+// Only create connection if we're not in build phase
+const redisConnection = typeof window === 'undefined' && process.env.BULLMQ_REDIS_URL 
+  ? createRedisConnection()
+  : null
 
 // Queue configuration
-const queueConfig = {
+const queueConfig = redisConnection ? {
   connection: redisConnection,
   defaultJobOptions: {
     removeOnComplete: 10, // Keep only 10 completed jobs
@@ -36,7 +43,7 @@ const queueConfig = {
       delay: 2000,        // Start with 2 second delay
     },
   },
-}
+} : {} as any
 
 // Sync job data interfaces
 export interface SyncJobData {
@@ -53,10 +60,10 @@ export interface CampaignSyncJobData extends SyncJobData {
   lastSyncAt?: Date
 }
 
-// Create sync queues
-export const campaignSyncQueue = new Queue<CampaignSyncJobData>('campaign-sync', queueConfig)
-export const adSyncQueue = new Queue<SyncJobData>('ad-sync', queueConfig)
-export const insightsSyncQueue = new Queue<SyncJobData>('insights-sync', queueConfig)
+// Create sync queues (only if Redis is configured)
+export const campaignSyncQueue = redisConnection ? new Queue<CampaignSyncJobData>('campaign-sync', queueConfig) : null as any
+export const adSyncQueue = redisConnection ? new Queue<SyncJobData>('ad-sync', queueConfig) : null as any
+export const insightsSyncQueue = redisConnection ? new Queue<SyncJobData>('insights-sync', queueConfig) : null as any
 
 // Job priorities
 export const JOB_PRIORITY = {
@@ -74,6 +81,11 @@ export async function addCampaignSyncJob(
     jobId?: string
   }
 ) {
+  if (!campaignSyncQueue) {
+    console.warn('Campaign sync queue not available (Redis not configured)')
+    return null
+  }
+  
   try {
     const job = await campaignSyncQueue.add('sync-campaigns', data, {
       ...options,
@@ -117,6 +129,17 @@ export async function getQueueStats(queueName: 'campaign-sync' | 'ad-sync' | 'in
   const queue = queueName === 'campaign-sync' ? campaignSyncQueue : 
                 queueName === 'ad-sync' ? adSyncQueue : insightsSyncQueue
   
+  if (!queue) {
+    return {
+      waiting: 0,
+      active: 0,
+      completed: 0,
+      failed: 0,
+      delayed: 0,
+      total: 0,
+    }
+  }
+  
   const [waiting, active, completed, failed, delayed] = await Promise.all([
     queue.getWaiting(),
     queue.getActive(),
@@ -137,6 +160,10 @@ export async function getQueueStats(queueName: 'campaign-sync' | 'ad-sync' | 'in
 
 // Check if account is currently syncing
 export async function isAccountSyncing(accountId: string, provider: string): Promise<boolean> {
+  if (!campaignSyncQueue) {
+    return false
+  }
+  
   try {
     const activeJobs = await campaignSyncQueue.getActive()
     return activeJobs.some(job => 
@@ -151,6 +178,17 @@ export async function isAccountSyncing(accountId: string, provider: string): Pro
 
 // Get sync status for account
 export async function getAccountSyncStatus(accountId: string, provider: string) {
+  if (!campaignSyncQueue) {
+    return {
+      isActive: false,
+      isWaiting: false,
+      hasRecentFailures: false,
+      activeJob: null,
+      queuePosition: null,
+      recentFailures: [],
+    }
+  }
+  
   try {
     const [active, waiting, failed] = await Promise.all([
       campaignSyncQueue.getActive(),
@@ -194,9 +232,14 @@ export async function getAccountSyncStatus(accountId: string, provider: string) 
 
 // Cleanup completed and failed jobs
 export async function cleanupOldJobs() {
+  const queues = [campaignSyncQueue, adSyncQueue, insightsSyncQueue].filter(Boolean)
+  
+  if (queues.length === 0) {
+    console.log('No queues available for cleanup')
+    return
+  }
+  
   try {
-    const queues = [campaignSyncQueue, adSyncQueue, insightsSyncQueue]
-    
     for (const queue of queues) {
       await queue.clean(24 * 60 * 60 * 1000, 50, 'completed') // Clean completed jobs older than 24h, keep 50
       await queue.clean(7 * 24 * 60 * 60 * 1000, 100, 'failed') // Clean failed jobs older than 7 days, keep 100
@@ -211,13 +254,17 @@ export async function cleanupOldJobs() {
 // Graceful shutdown
 export async function closeQueues() {
   try {
-    await Promise.all([
-      campaignSyncQueue.close(),
-      adSyncQueue.close(),
-      insightsSyncQueue.close(),
-      redisConnection.disconnect(),
-    ])
-    console.log('All queues closed successfully')
+    const closeTasks = []
+    
+    if (campaignSyncQueue) closeTasks.push(campaignSyncQueue.close())
+    if (adSyncQueue) closeTasks.push(adSyncQueue.close())
+    if (insightsSyncQueue) closeTasks.push(insightsSyncQueue.close())
+    if (redisConnection) closeTasks.push(redisConnection.disconnect())
+    
+    if (closeTasks.length > 0) {
+      await Promise.all(closeTasks)
+      console.log('All queues closed successfully')
+    }
   } catch (error) {
     console.error('Error closing queues:', error)
   }

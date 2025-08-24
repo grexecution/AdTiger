@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { z } from "zod"
-import { FeedbackLabel } from "@prisma/client"
 
+export const dynamic = 'force-dynamic'import { auth } from "@/lib/auth"
+
+export const dynamic = 'force-dynamic'import { prisma } from "@/lib/prisma"
+
+export const dynamic = 'force-dynamic'import { z } from "zod"
+
+export const dynamic = 'force-dynamic'import { FeedbackLabel } from "@prisma/client"
+
+export const dynamic = 'force-dynamic'
 const feedbackSchema = z.object({
   recommendationId: z.string(),
   label: z.enum(["THUMBS_UP", "THUMBS_DOWN", "IGNORED"]),

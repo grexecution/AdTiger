@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { exchangeCodeForToken, saveMetaConnection } from "@/lib/meta-auth"
 
+export const dynamic = 'force-dynamic'import { exchangeCodeForToken, saveMetaConnection } from "@/lib/meta-auth"
+
+export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get("code")

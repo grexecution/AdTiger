@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+export const dynamic = 'force-dynamic'
 // This is a test route - can be removed after debugging
 export async function GET() {
   try {

@@ -3,6 +3,7 @@ import { z } from "zod"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = 'force-dynamic'
 const updateAccountSchema = z.object({
   name: z.string().min(2).max(50).optional(),
   timezone: z.string().optional(),
