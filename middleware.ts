@@ -18,24 +18,36 @@ export default async function middleware(request: NextRequest) {
     pathname.startsWith(route)
   ) || pathname === "/"
   
-  // Get session
-  const session = await auth()
-  
-  // If not authenticated and not on a public route, redirect to login
-  if (!session && !isPublicRoute) {
-    const loginUrl = new URL("/auth/login", request.url)
-    loginUrl.searchParams.set("callbackUrl", pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-  
-  // If authenticated and trying to access auth pages, redirect to dashboard
-  if (session && pathname.startsWith("/auth/")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-  
-  // If authenticated and on root, redirect to dashboard
-  if (session && pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+  try {
+    // Get session - this will fail if database is not connected
+    const session = await auth()
+    
+    // If not authenticated and not on a public route, redirect to login
+    if (!session && !isPublicRoute) {
+      const loginUrl = new URL("/auth/login", request.url)
+      loginUrl.searchParams.set("callbackUrl", pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+    
+    // If authenticated and trying to access auth pages, redirect to dashboard
+    if (session && pathname.startsWith("/auth/")) {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+    
+    // If authenticated and on root, redirect to dashboard
+    if (session && pathname === "/") {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+  } catch (error) {
+    // Database connection error - redirect to login with error
+    console.error("Database connection error in middleware:", error)
+    
+    // Only redirect to error if not already on an auth page
+    if (!pathname.startsWith("/auth/")) {
+      const errorUrl = new URL("/auth/login", request.url)
+      errorUrl.searchParams.set("error", "DatabaseError")
+      return NextResponse.redirect(errorUrl)
+    }
   }
   
   // Add account headers for API routes

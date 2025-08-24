@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Suspense } from "react"
 
-import { UserAuthForm } from "./user-auth-form"
+import { LoginWrapper } from "./login-wrapper"
 import { ModeToggle } from "@/app/(dashboard)/components/mode-toggle"
 
 export const metadata: Metadata = {
@@ -50,7 +50,7 @@ export default function LoginV2Page() {
             </p>
           </div>
           <Suspense fallback={<div className="flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <UserAuthForm />
+            <LoginWrapper />
           </Suspense>
           <p className="px-8 text-center text-sm text-muted-foreground">
             By clicking continue, you agree to our{" "}
