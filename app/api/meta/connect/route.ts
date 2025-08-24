@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 
-export const dynamic = 'force-dynamic'import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth"
 
-export const dynamic = 'force-dynamic'import { getMetaOAuthUrl } from "@/lib/meta-auth"
+import { getMetaOAuthUrl } from "@/lib/meta-auth"
 
-export const dynamic = 'force-dynamic'import { nanoid } from "nanoid"
+import { nanoid } from "nanoid"
 
 export const dynamic = 'force-dynamic'
 export async function GET() {

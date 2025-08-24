@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 
-export const dynamic = 'force-dynamic'import { getProvider, getAllProviders, isProviderSupported } from "@/lib/providers"
+import { getProvider, getAllProviders, isProviderSupported } from "@/lib/providers"
 
-export const dynamic = 'force-dynamic'import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
-export const dynamic = 'force-dynamic'import { getAccountFromHeaders } from "@/lib/account-context"
+import { getAccountFromHeaders } from "@/lib/account-context"
 
 export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 
-export const dynamic = 'force-dynamic'import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth"
 
-export const dynamic = 'force-dynamic'import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
-export const dynamic = 'force-dynamic'import { AIRecommendationService } from "@/services/ai-recommendations"
+import { AIRecommendationService } from "@/services/ai-recommendations"
 
 export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {

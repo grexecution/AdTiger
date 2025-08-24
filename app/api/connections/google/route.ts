@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
+export const dynamic = 'force-dynamic'
 // Simple base64 encoding for demo (use proper encryption in production)
 function encrypt(text: string): string {
   // For demo purposes, just use base64 encoding

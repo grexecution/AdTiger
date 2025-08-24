@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 
-export const dynamic = 'force-dynamic'import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth"
 
-export const dynamic = 'force-dynamic'import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
-export const dynamic = 'force-dynamic'import { z } from "zod"
+import { z } from "zod"
 
-export const dynamic = 'force-dynamic'import { FeedbackLabel } from "@prisma/client"
+import { FeedbackLabel } from "@prisma/client"
 
 export const dynamic = 'force-dynamic'
 const feedbackSchema = z.object({

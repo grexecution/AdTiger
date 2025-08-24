@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-
-export const dynamic = 'force-dynamic'import { auth } from "@/lib/auth"
-
-export const dynamic = 'force-dynamic'import { prisma } from "@/lib/prisma"
-
-export const dynamic = 'force-dynamic'import { UserRole, SubscriptionTier, SubscriptionStatus } from "@prisma/client"
-
-export const dynamic = 'force-dynamic'import { z } from "zod"
-
-export const dynamic = 'force-dynamic'import { hashPassword } from "@/lib/auth"
-
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { UserRole, SubscriptionTier, SubscriptionStatus } from "@prisma/client"
+import { z } from "zod"
+import { hashPassword } from "@/lib/auth"
 export const dynamic = 'force-dynamic'
 const updateUserSchema = z.object({
   name: z.string().optional(),

@@ -166,7 +166,7 @@ export async function isAccountSyncing(accountId: string, provider: string): Pro
   
   try {
     const activeJobs = await campaignSyncQueue.getActive()
-    return activeJobs.some(job => 
+    return activeJobs.some((job: any) => 
       job.data.accountId === accountId && 
       job.data.provider === provider
     )
@@ -197,9 +197,9 @@ export async function getAccountSyncStatus(accountId: string, provider: string) 
     ])
 
     const accountJobs = {
-      active: active.filter(job => job.data.accountId === accountId && job.data.provider === provider),
-      waiting: waiting.filter(job => job.data.accountId === accountId && job.data.provider === provider),
-      failed: failed.filter(job => job.data.accountId === accountId && job.data.provider === provider).slice(0, 5), // Last 5 failed jobs
+      active: active.filter((job: any) => job.data.accountId === accountId && job.data.provider === provider),
+      waiting: waiting.filter((job: any) => job.data.accountId === accountId && job.data.provider === provider),
+      failed: failed.filter((job: any) => job.data.accountId === accountId && job.data.provider === provider).slice(0, 5), // Last 5 failed jobs
     }
 
     return {
@@ -208,9 +208,9 @@ export async function getAccountSyncStatus(accountId: string, provider: string) 
       hasRecentFailures: accountJobs.failed.length > 0,
       activeJob: accountJobs.active[0] || null,
       queuePosition: accountJobs.waiting.length > 0 ? 
-        waiting.findIndex(job => job.data.accountId === accountId && job.data.provider === provider) + 1 : 
+        waiting.findIndex((job: any) => job.data.accountId === accountId && job.data.provider === provider) + 1 : 
         null,
-      recentFailures: accountJobs.failed.map(job => ({
+      recentFailures: accountJobs.failed.map((job: any) => ({
         id: job.id,
         error: job.failedReason,
         timestamp: job.timestamp,

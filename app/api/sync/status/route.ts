@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getQueueStats, getAccountSyncStatus } from '@/lib/queue'
 
+export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()

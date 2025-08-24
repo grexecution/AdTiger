@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { convertCurrency } from "@/lib/currency"
 import { ensureValidMetaToken } from "@/lib/utils/token-refresh"
 
+export const dynamic = 'force-dynamic'
 interface CampaignInsight {
   campaign_id: string
   campaign_name: string

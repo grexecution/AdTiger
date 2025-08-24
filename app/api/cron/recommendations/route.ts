@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { AIRecommendationService } from '@/services/ai-recommendations'
 
+export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret for security

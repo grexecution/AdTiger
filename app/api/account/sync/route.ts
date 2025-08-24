@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { AccountSyncService } from "@/services/sync/account-sync"
 
+export const dynamic = 'force-dynamic'
 export async function POST() {
   const session = await auth()
   

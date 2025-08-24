@@ -5,6 +5,7 @@ import { addManualSyncJob, isAccountSyncing, getAccountSyncStatus } from '@/lib/
 import { z } from 'zod'
 import { ensureValidMetaToken } from '@/lib/utils/token-refresh'
 
+export const dynamic = 'force-dynamic'
 // Validation schema
 const manualSyncSchema = z.object({
   provider: z.enum(['meta', 'google']),
