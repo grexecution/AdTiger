@@ -68,7 +68,7 @@ export function UserRegisterForm({ className, ...props }: UserRegisterFormProps)
         description: "Please login with your new account.",
       })
 
-      router.push("/auth/login-v2")
+      router.push("/auth/login")
     } catch (error) {
       toast({
         title: "Registration failed",

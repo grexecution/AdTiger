@@ -41,7 +41,7 @@ export default async function HomePage() {
             <Link href="/docs" className="text-sm font-medium text-muted-foreground hover:text-primary">
               Documentation
             </Link>
-            <Link href="/auth/login-v2">
+            <Link href="/auth/login">
               <Button variant="outline" size="sm">
                 Sign In
               </Button>
