@@ -24,6 +24,7 @@ import {
 import { MetaConnectionDialog } from "@/components/settings/meta-connection-dialog"
 import { GoogleConnectionDialog } from "@/components/settings/google-connection-dialog"
 import { GoogleManagedAccountsInline } from "@/components/settings/google-managed-accounts-inline"
+import { MetaManagedAccountsInline } from "@/components/settings/meta-managed-accounts-inline"
 import { MetaManualConnection } from "@/components/settings/meta-manual-connection"
 
 interface Connection {
@@ -298,7 +299,9 @@ export default function ConnectionsPage() {
                     <div>
                       <p className="text-muted-foreground">Account</p>
                       <p className="font-medium">
-                        {platform.connection.metadata?.accountName || 'Connected Account'}
+                        {platform.provider === 'META' 
+                          ? platform.connection.metadata?.userInfo?.name || platform.connection.metadata?.name || 'Connected Account'
+                          : platform.connection.metadata?.accountName || 'Connected Account'}
                       </p>
                     </div>
                     <div>
@@ -354,6 +357,14 @@ export default function ConnectionsPage() {
                   {/* Show managed accounts inline for Google - always show for any Google connection */}
                   {platform.provider === 'GOOGLE' && (
                     <GoogleManagedAccountsInline
+                      connectionId={platform.connection.id}
+                      onUpdate={fetchConnections}
+                    />
+                  )}
+                  
+                  {/* Show managed accounts inline for Meta - always show for any Meta connection */}
+                  {platform.provider === 'META' && (
+                    <MetaManagedAccountsInline
                       connectionId={platform.connection.id}
                       onUpdate={fetchConnections}
                     />

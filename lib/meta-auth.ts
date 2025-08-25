@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 
 export const META_APP_ID = process.env.META_APP_ID!
 export const META_APP_SECRET = process.env.META_APP_SECRET!
-export const META_REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL + "/api/meta/callback"
+export const META_REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL + "/api/meta/oauth/callback"
 export const META_API_VERSION = "v18.0"
 
 // Scopes needed for ads management
