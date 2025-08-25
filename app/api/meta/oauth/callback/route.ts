@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get("state")
     const error = searchParams.get("error")
     const errorDescription = searchParams.get("error_description")
+    
+    console.log("OAuth callback received:", { code: !!code, state: !!state, error, errorDescription })
 
     // Handle OAuth errors
     if (error) {
@@ -70,15 +72,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Exchange code for access token
-    const tokenData = await exchangeCodeForToken(code)
+    // Build the redirect URI that matches what was used in the OAuth dialog
+    const protocol = request.headers.get('x-forwarded-proto') || 'https'
+    const host = request.headers.get('host') || 'www.adfire.io'
+    const redirectUri = `${protocol}://${host}/api/meta/oauth/callback`
+    
+    console.log("Exchanging code for token with redirect URI:", redirectUri)
+    let tokenData
+    try {
+      tokenData = await exchangeCodeForToken(code, redirectUri)
+      console.log("Token exchange successful:", { hasToken: !!tokenData?.access_token })
+    } catch (tokenError) {
+      console.error("Token exchange failed:", tokenError)
+      throw tokenError
+    }
     
     // Save the connection
+    console.log("Saving connection...")
     const connection = await saveMetaConnection(
       session.user.accountId,
       session.user.id,
       tokenData.access_token,
       tokenData.expires_in || 5184000 // Default to 60 days
     )
+    console.log("Connection saved:", { connectionId: connection.id })
 
     // Fetch available ad accounts
     let availableAccounts = []
@@ -108,13 +125,15 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error("OAuth callback error:", error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to complete authentication'
+    
     return new NextResponse(`
       <html>
         <body>
           <script>
             window.opener.postMessage({
               type: 'oauth-error',
-              error: 'Failed to complete authentication'
+              error: '${errorMessage.replace(/'/g, "\\'")}'
             }, '*');
             window.close();
           </script>

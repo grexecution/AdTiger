@@ -28,20 +28,27 @@ export function getMetaOAuthUrl(state: string) {
   return `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?${params.toString()}`
 }
 
-export async function exchangeCodeForToken(code: string) {
+export async function exchangeCodeForToken(code: string, redirectUri?: string) {
+  // Use the provided redirect URI or fall back to the default
+  const actualRedirectUri = redirectUri || META_REDIRECT_URI
+  
   const params = new URLSearchParams({
     client_id: META_APP_ID,
     client_secret: META_APP_SECRET,
-    redirect_uri: META_REDIRECT_URI,
+    redirect_uri: actualRedirectUri,
     code: code,
   })
+  
+  console.log("Exchanging token with redirect_uri:", actualRedirectUri)
   
   const response = await fetch(
     `https://graph.facebook.com/${META_API_VERSION}/oauth/access_token?${params.toString()}`
   )
   
   if (!response.ok) {
-    throw new Error("Failed to exchange code for token")
+    const errorText = await response.text()
+    console.error("Token exchange failed:", errorText)
+    throw new Error(`Failed to exchange code for token: ${errorText}`)
   }
   
   return response.json()
