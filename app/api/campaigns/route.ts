@@ -195,6 +195,8 @@ export async function GET(request: NextRequest) {
           name: campaign.name,
           status: campaign.status,
           provider: campaign.provider,
+          channel: campaign.channel,
+          adAccountId: campaign.adAccountId,
           objective: campaign.objective,
           budgetAmount: campaign.budgetAmount || 0,
           budgetCurrency: campaign.budgetCurrency || "USD",

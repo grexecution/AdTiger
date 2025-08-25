@@ -14,12 +14,39 @@ export async function GET() {
   }
   
   try {
-    // Admin can see all accounts, regular users only their own
+    // Get all connections for the user's account
+    const connections = await prisma.connection.findMany({
+      where: {
+        accountId: session.user.accountId || "no-match",
+        status: { in: ["active", "CONNECTED"] }
+      }
+    })
+    
+    // Extract selected account IDs from connections
+    const selectedAccountIds: string[] = []
+    connections.forEach(conn => {
+      const credentials = conn.credentials as any
+      if (credentials?.selectedAccountIds) {
+        selectedAccountIds.push(...credentials.selectedAccountIds)
+      } else if (credentials?.selectedAccounts) {
+        const ids = credentials.selectedAccounts.map((acc: any) => 
+          typeof acc === 'string' ? acc : (acc.id || acc.account_id)
+        )
+        selectedAccountIds.push(...ids)
+      } else if (credentials?.accountIds) {
+        selectedAccountIds.push(...credentials.accountIds)
+      }
+    })
+    
+    // Now get only the ad accounts that are selected
     const where = session.user.role === "ADMIN" 
       ? {} 
       : session.user.accountId 
-        ? { accountId: session.user.accountId }
-        : { accountId: "no-match" } // If no accountId, return empty
+        ? { 
+            accountId: session.user.accountId,
+            externalId: { in: selectedAccountIds }
+          }
+        : { accountId: "no-match" }
     
     const accounts = await prisma.adAccount.findMany({
       where,

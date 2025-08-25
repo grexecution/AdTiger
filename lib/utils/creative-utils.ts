@@ -199,13 +199,21 @@ export function getCreativeFormat(creative: AdCreative | null | undefined): 'ima
     return 'video'
   }
 
-  // Check for carousel (multiple images)
-  if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 1) {
+  // Check for carousel in object_story_spec (actual carousel format)
+  if (creative.object_story_spec?.link_data?.child_attachments && Array.isArray(creative.object_story_spec.link_data.child_attachments) && creative.object_story_spec.link_data.child_attachments.length > 1) {
     return 'carousel'
   }
-
-  // Check for carousel in object_story_spec
-  if (creative.object_story_spec?.link_data?.child_attachments && Array.isArray(creative.object_story_spec.link_data.child_attachments) && creative.object_story_spec.link_data.child_attachments.length > 1) {
+  
+  // Check if asset_feed_spec has carousel indicators (not just multiple sizes)
+  // Multiple images in asset_feed_spec often means multiple aspect ratios, not carousel
+  // Only consider it carousel if there's explicit carousel configuration
+  if (creative.asset_feed_spec?.call_to_action_types && 
+      creative.asset_feed_spec?.images && 
+      Array.isArray(creative.asset_feed_spec.images) && 
+      creative.asset_feed_spec.images.length > 1 &&
+      creative.asset_feed_spec?.link_urls && 
+      Array.isArray(creative.asset_feed_spec.link_urls) && 
+      creative.asset_feed_spec.link_urls.length > 1) {
     return 'carousel'
   }
 

@@ -78,6 +78,13 @@ export function AdDetailDialog({ ad, open, onClose }: AdDetailDialogProps) {
   const allImageUrls = getAllCreativeImageUrls(creative)
   const imagesWithDimensions = getCreativeImagesWithDimensions(creative)
   
+  // Get publisher platforms
+  const publisherPlatforms = creative?.object_story_spec?.link_data?.publisher_platforms || 
+                            creative?.asset_feed_spec?.publisher_platforms ||
+                            ad.metadata?.rawData?.creative?.object_story_spec?.link_data?.publisher_platforms ||
+                            ad.metadata?.rawData?.creative?.asset_feed_spec?.publisher_platforms ||
+                            []
+  
   // Get metrics from ad data
   const adMetrics = ad.metadata?.insights || {}
   const engagementMetrics = {
@@ -215,6 +222,23 @@ export function AdDetailDialog({ ad, open, onClose }: AdDetailDialogProps) {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Publisher Platforms */}
+                    {publisherPlatforms.length > 0 && (
+                      <>
+                        <Separator />
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Publisher Platforms</p>
+                          <div className="flex gap-2 flex-wrap">
+                            {publisherPlatforms.map((platform: string, idx: number) => (
+                              <Badge key={`${platform}-${idx}`} variant="secondary" className="text-xs">
+                                {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                     
                     <Separator />
                     

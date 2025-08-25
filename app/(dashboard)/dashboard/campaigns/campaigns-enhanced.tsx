@@ -104,7 +104,9 @@ import {
   CircleCheckBig,
   RefreshCw,
   Info,
-  SlidersHorizontal
+  SlidersHorizontal,
+  AtSign,
+  Building
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -114,18 +116,38 @@ import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCrea
 import { AdDetailDialog } from "@/components/campaigns/ad-detail-dialog"
 
 // Platform icons
-const PlatformIcon = ({ platform }: { platform: string }) => {
+const PlatformIcon = ({ platform, size = "h-4 w-4" }: { platform: string, size?: string }) => {
   switch (platform?.toLowerCase()) {
     case 'facebook':
-      return <Facebook className="h-4 w-4 text-blue-600" />
+      return <Facebook className={`${size} text-blue-600`} />
     case 'instagram':
-      return <Instagram className="h-4 w-4 text-pink-600" />
+      return <Instagram className={`${size} text-pink-600`} />
+    case 'messenger':
+      return <MessageCircle className={`${size} text-blue-500`} />
+    case 'threads':
+      return <AtSign className={`${size} text-gray-800`} />
+    case 'whatsapp':
+      return <MessageCircle className={`${size} text-green-600`} />
     case 'meta':
+      // Official Meta infinity logo
       return (
-        <div className="flex gap-0.5">
-          <Facebook className="h-3 w-3 text-blue-600" />
-          <Instagram className="h-3 w-3 text-pink-600" />
-        </div>
+        <svg viewBox="0 0 290 191" className={size} fill="none">
+          <defs>
+            <linearGradient id="meta-grad1" x1="61" y1="117" x2="259" y2="127" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#0064e1" offset="0"/>
+              <stop stopColor="#0064e1" offset="0.4"/>
+              <stop stopColor="#0073ee" offset="0.83"/>
+              <stop stopColor="#0082fb" offset="1"/>
+            </linearGradient>
+            <linearGradient id="meta-grad2" x1="45" y1="139" x2="45" y2="66" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#0082fb" offset="0"/>
+              <stop stopColor="#0064e0" offset="1"/>
+            </linearGradient>
+          </defs>
+          <path fill="#0081fb" d="m31.06,125.96c0,10.98 2.41,19.41 5.56,24.51 4.13,6.68 10.29,9.51 16.57,9.51 8.1,0 15.51-2.01 29.79-21.76 11.44-15.83 24.92-38.05 33.99-51.98l15.36-23.6c10.67-16.39 23.02-34.61 37.18-46.96 11.56-10.08 24.03-15.68 36.58-15.68 21.07,0 41.14,12.21 56.5,35.11 16.81,25.08 24.97,56.67 24.97,89.27 0,19.38-3.82,33.62-10.32,44.87-6.28,10.88-18.52,21.75-39.11,21.75l0-31.02c17.63,0 22.03-16.2 22.03-34.74 0-26.42-6.16-55.74-19.73-76.69-9.63-14.86-22.11-23.94-35.84-23.94-14.85,0-26.8,11.2-40.23,31.17-7.14,10.61-14.47,23.54-22.7,38.13l-9.06,16.05c-18.2,32.27-22.81,39.62-31.91,51.75-15.95,21.24-29.57,29.29-47.5,29.29-21.27,0-34.72-9.21-43.05-23.09-6.8-11.31-10.14-26.15-10.14-43.06z"/>
+          <path fill="url(#meta-grad1)" d="m24.49,37.3c14.24-21.95 34.79-37.3 58.36-37.3 13.65,0 27.22,4.04 41.39,15.61 15.5,12.65 32.02,33.48 52.63,67.81l7.39,12.32c17.84,29.72 27.99,45.01 33.93,52.22 7.64,9.26 12.99,12.02 19.94,12.02 17.63,0 22.03-16.2 22.03-34.74l27.4-.86c0,19.38-3.82,33.62-10.32,44.87-6.28,10.88-18.52,21.75-39.11,21.75-12.8,0-24.14-2.78-36.68-14.61-9.64-9.08-20.91-25.21-29.58-39.71l-25.79-43.08c-12.94-21.62-24.81-37.74-31.68-45.04-7.39-7.85-16.89-17.33-32.05-17.33-12.27,0-22.69,8.61-31.41,21.78z"/>
+          <path fill="url(#meta-grad2)" d="m82.35,31.23c-12.27,0-22.69,8.61-31.41,21.78-12.33,18.61-19.88,46.33-19.88,72.95 0,10.98 2.41,19.41 5.56,24.51l-26.48,17.44c-6.8-11.31-10.14-26.15-10.14-43.06 0-30.75 8.44-62.8 24.49-87.55 14.24-21.95 34.79-37.3 58.36-37.3z"/>
+        </svg>
       )
     case 'google':
       return (
@@ -151,7 +173,7 @@ const FormatIcon = ({ format }: { format: string }) => {
   return <ImageIcon className="h-4 w-4" />
 }
 
-// Status badge with colors
+// Status badge with colors and green dot for active
 const StatusBadge = ({ status }: { status: string }) => {
   const getVariant = () => {
     switch (status?.toUpperCase()) {
@@ -167,8 +189,13 @@ const StatusBadge = ({ status }: { status: string }) => {
     }
   }
   
+  const isActive = status?.toUpperCase() === 'ACTIVE'
+  
   return (
-    <Badge variant={getVariant()} className="text-xs">
+    <Badge variant={getVariant()} className="text-xs flex items-center gap-1">
+      {isActive && (
+        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+      )}
       {status}
     </Badge>
   )
@@ -224,7 +251,15 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   adSet: any
   onExpand: () => void 
 }) => {
-  const platform = ad.metadata?.platform || (campaign.provider === 'google' ? 'google_search' : 'facebook')
+  // Get publisher platforms from metadata or creative
+  const publisherPlatforms = ad.metadata?.publisherPlatforms || 
+                            ad.creative?.object_story_spec?.link_data?.publisher_platforms || 
+                            ad.creative?.asset_feed_spec?.publisher_platforms ||
+                            ad.metadata?.rawData?.creative?.object_story_spec?.link_data?.publisher_platforms ||
+                            ad.metadata?.rawData?.creative?.asset_feed_spec?.publisher_platforms ||
+                            []
+  
+  // Get provider (Meta or Google)
   const provider = campaign.provider || 'meta'
   
   // Use Google Ad Preview for Google ads
@@ -302,10 +337,10 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
                 (e.target as HTMLImageElement).src = `https://picsum.photos/400/400?random=${ad.id}`
               }}
             />
-            {/* Carousel indicator */}
+            {/* Carousel indicator - only show for actual carousels */}
             <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
               <Layers className="h-3 w-3" />
-              {allImageUrls.length} images
+              {allImageUrls.length} cards
             </div>
           </div>
         ) : (
@@ -327,18 +362,37 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
           )
         )}
         
-        {/* Platform badge */}
+        {/* Provider icon - show Meta or Google */}
         <div className="absolute top-2 left-2">
-          <Badge variant="secondary" className="bg-white/90 backdrop-blur">
-            <PlatformIcon platform={platform} />
-            <span className="ml-1 capitalize text-xs">{platform}</span>
-          </Badge>
+          <div className="bg-white/90 backdrop-blur rounded-full p-1 border border-gray-200 shadow-sm">
+            <PlatformIcon platform={provider} size="h-4 w-4" />
+          </div>
         </div>
+        
+        {/* Channel icons - show actual publishing platforms bottom-left */}
+        {publisherPlatforms && publisherPlatforms.length > 0 && (
+          <div className="absolute bottom-2 left-2">
+            <div className="flex items-center">
+              {publisherPlatforms.map((p: string, idx: number) => (
+                <div 
+                  key={`${p}-${idx}`} 
+                  className="bg-black/70 backdrop-blur rounded-full p-0.5 hover:z-10 transition-all"
+                  style={{ 
+                    marginLeft: idx > 0 ? '-4px' : '0',
+                    zIndex: publisherPlatforms.length - idx
+                  }}
+                >
+                  <PlatformIcon platform={p} size="h-3 w-3" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* Status and Format badges */}
         <div className="absolute top-2 right-2 flex gap-2">
-          <Badge className="bg-white/90 backdrop-blur text-xs">
-            {creativeFormat === 'unknown' ? 'Image' : creativeFormat.charAt(0).toUpperCase() + creativeFormat.slice(1)}
+          <Badge className="bg-white backdrop-blur text-xs font-medium text-gray-800 border-gray-200">
+            {isVideo ? 'Video' : isCarousel ? 'Carousel' : 'Image'}
           </Badge>
           <StatusBadge status={ad.status} />
         </div>
@@ -439,6 +493,8 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
 // Main enhanced campaigns component
 export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { activeTab?: string, setActiveTab?: (value: string) => void }) {
   const [campaigns, setCampaigns] = useState<any[]>([])
+  const [adAccounts, setAdAccounts] = useState<any[]>([])
+  const [selectedAdAccounts, setSelectedAdAccounts] = useState<string[]>([])
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([])
   const [selectedAdSets, setSelectedAdSets] = useState<string[]>([])
   const [selectedAd, setSelectedAd] = useState<any>(null)
@@ -446,6 +502,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [adAccountSearchQuery, setAdAccountSearchQuery] = useState('')
   const [campaignSearchQuery, setCampaignSearchQuery] = useState('')
   const [adSetSearchQuery, setAdSetSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -457,6 +514,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   
   useEffect(() => {
     fetchCampaigns()
+    fetchAdAccounts()
   }, [])
   
   const fetchCampaigns = async () => {
@@ -476,6 +534,18 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchAdAccounts = async () => {
+    try {
+      const response = await fetch('/api/ad-accounts')
+      if (response.ok) {
+        const data = await response.json()
+        setAdAccounts(data.accounts || [])
+      }
+    } catch (error) {
+      console.error('Error fetching ad accounts:', error)
     }
   }
 
@@ -529,7 +599,9 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
             campaignId: campaign.id,
             adSetId: adSet.id,
             campaignName: campaign.name,
-            adSetName: adSet.name
+            adSetName: adSet.name,
+            provider: campaign.provider,
+            channel: campaign.channel
           })
         })
       })
@@ -556,17 +628,32 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   const filteredAds = useMemo(() => {
     let filtered = [...allAds]
     
-    // Filter by platform
+    // Filter by selected ad accounts
+    if (selectedAdAccounts.length > 0) {
+      // First filter campaigns by ad account
+      const filteredCampaignIds = campaigns
+        .filter(campaign => selectedAdAccounts.includes(campaign.adAccountId))
+        .map(campaign => campaign.id)
+      
+      // Then filter ads by those campaigns
+      filtered = filtered.filter(ad => filteredCampaignIds.includes(ad.campaignId))
+    }
+    
+    // Filter by platform (provider)
     if (platformFilter !== 'all') {
       filtered = filtered.filter(ad => {
-        return ad.provider === platformFilter
+        // Check both ad.provider and campaign.provider for compatibility
+        const provider = ad.provider || ad.campaign?.provider
+        return provider?.toLowerCase() === platformFilter.toLowerCase()
       })
     }
     
     // Filter by channel  
     if (channelFilter !== 'all') {
       filtered = filtered.filter(ad => {
-        return ad.channel === channelFilter
+        // Check both ad.channel and campaign.channel for compatibility
+        const channel = ad.channel || ad.campaign?.channel
+        return channel?.toLowerCase() === channelFilter.toLowerCase()
       })
     }
     
@@ -613,7 +700,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
     }
     
     return filtered
-  }, [allAds, selectedCampaigns, selectedAdSets, searchQuery, statusFilter, formatFilter, platformFilter, channelFilter])
+  }, [allAds, campaigns, selectedAdAccounts, selectedCampaigns, selectedAdSets, searchQuery, statusFilter, formatFilter, platformFilter, channelFilter])
   
   // Calculate metrics for filtered ads
   const filteredMetrics = useMemo(() => {
@@ -640,6 +727,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   }, [filteredAds, campaigns])
   
   const clearFilters = () => {
+    setSelectedAdAccounts([])
     setSelectedCampaigns([])
     setSelectedAdSets([])
     setSearchQuery('')
@@ -649,7 +737,8 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
     setChannelFilter('all')
   }
   
-  const hasActiveFilters = selectedCampaigns.length > 0 || 
+  const hasActiveFilters = selectedAdAccounts.length > 0 ||
+                          selectedCampaigns.length > 0 || 
                           selectedAdSets.length > 0 || 
                           searchQuery || 
                           statusFilter !== 'all' || 
@@ -712,6 +801,78 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
                 className="w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
+            
+            {/* Ad Accounts Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="min-w-[160px] justify-between">
+                  <span className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    Ad Accounts
+                    {selectedAdAccounts.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 px-1 min-w-[20px]">
+                        {selectedAdAccounts.length}
+                      </Badge>
+                    )}
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[350px] p-2">
+                <div className="space-y-2">
+                  <div className="flex items-center px-2 pb-2">
+                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                    <input
+                      placeholder="Search ad accounts..."
+                      value={adAccountSearchQuery}
+                      onChange={(e) => setAdAccountSearchQuery(e.target.value)}
+                      className="flex h-9 w-full rounded-md bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-1">
+                      {adAccounts
+                        .filter(account => 
+                          !adAccountSearchQuery || 
+                          account.name?.toLowerCase().includes(adAccountSearchQuery.toLowerCase()) ||
+                          account.externalId?.toLowerCase().includes(adAccountSearchQuery.toLowerCase())
+                        )
+                        .map((account) => (
+                        <div
+                          key={account.id}
+                          className="flex items-center space-x-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer"
+                          onClick={() => {
+                            setSelectedAdAccounts(prev =>
+                              prev.includes(account.id)
+                                ? prev.filter(id => id !== account.id)
+                                : [...prev, account.id]
+                            )
+                          }}
+                        >
+                          <Checkbox
+                            checked={selectedAdAccounts.includes(account.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedAdAccounts(prev => [...prev, account.id])
+                              } else {
+                                setSelectedAdAccounts(prev => prev.filter(id => id !== account.id))
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{account.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {account.provider} • {account.currency}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </PopoverContent>
+            </Popover>
             
             {/* Campaign Filter */}
             <Popover>
@@ -900,6 +1061,24 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
                     Instagram
                   </span>
                 </SelectItem>
+                <SelectItem value="messenger">
+                  <span className="flex items-center gap-2">
+                    <PlatformIcon platform="messenger" />
+                    Messenger
+                  </span>
+                </SelectItem>
+                <SelectItem value="threads">
+                  <span className="flex items-center gap-2">
+                    <PlatformIcon platform="threads" />
+                    Threads
+                  </span>
+                </SelectItem>
+                <SelectItem value="whatsapp">
+                  <span className="flex items-center gap-2">
+                    <PlatformIcon platform="whatsapp" />
+                    WhatsApp
+                  </span>
+                </SelectItem>
                 <SelectItem value="google_search">
                   <span className="flex items-center gap-2">
                     <PlatformIcon platform="google" />
@@ -1031,6 +1210,21 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
           {hasActiveFilters && (
             <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t">
               <span className="text-sm text-muted-foreground">Active filters:</span>
+              {selectedAdAccounts.map(accountId => {
+                const account = adAccounts.find(a => a.id === accountId)
+                return account ? (
+                  <Badge key={accountId} variant="secondary" className="gap-1">
+                    <Building className="h-3 w-3" />
+                    {account.name}
+                    <button
+                      onClick={() => setSelectedAdAccounts(prev => prev.filter(id => id !== accountId))}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ) : null
+              })}
               {selectedCampaigns.map(campaignId => {
                 const campaign = campaigns.find(c => c.id === campaignId)
                 return campaign ? (

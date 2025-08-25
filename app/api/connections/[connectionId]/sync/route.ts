@@ -231,8 +231,8 @@ export async function POST(
             // Convert budget to main currency
             const convertedBudget = await convertCurrency(budgetValue, adAccountCurrency, mainCurrency)
             
-            // Detect channel (will be refined when we get adset targeting data)
-            let channel = 'facebook' // Default
+            // Default channel - will be updated when we process ads with creative data
+            let channel = 'meta' // Use meta as default for campaigns
             
             await prisma.campaign.upsert({
               where: {
@@ -770,6 +770,33 @@ export async function POST(
                     mainImageUrl = ad.creative?.image_url || ad.creative?.thumbnail_url
                   }
                   
+                  // Detect publisher platforms from creative
+                  let publisherPlatforms: string[] = []
+                  if (processedCreative?.object_story_spec?.link_data?.publisher_platforms) {
+                    publisherPlatforms = processedCreative.object_story_spec.link_data.publisher_platforms
+                  } else if (processedCreative?.asset_feed_spec?.publisher_platforms) {
+                    publisherPlatforms = processedCreative.asset_feed_spec.publisher_platforms
+                  } else if (ad.creative?.object_story_spec?.link_data?.publisher_platforms) {
+                    publisherPlatforms = ad.creative.object_story_spec.link_data.publisher_platforms
+                  } else if (ad.creative?.asset_feed_spec?.publisher_platforms) {
+                    publisherPlatforms = ad.creative.asset_feed_spec.publisher_platforms
+                  }
+                  
+                  // Determine primary channel from publisher platforms
+                  let adChannel = adGroup.channel // Default to adGroup channel
+                  if (publisherPlatforms.length > 0) {
+                    // Priority: Instagram > Facebook > Messenger > Threads
+                    if (publisherPlatforms.includes('instagram')) {
+                      adChannel = 'instagram'
+                    } else if (publisherPlatforms.includes('facebook')) {
+                      adChannel = 'facebook'
+                    } else if (publisherPlatforms.includes('messenger')) {
+                      adChannel = 'messenger'
+                    } else if (publisherPlatforms.includes('threads')) {
+                      adChannel = 'threads'
+                    }
+                  }
+                  
                   await prisma.ad.upsert({
                     where: {
                       accountId_provider_externalId: {
@@ -781,14 +808,16 @@ export async function POST(
                     update: {
                       name: ad.name,
                       status: ad.status?.toLowerCase() || "unknown",
-                      channel: adGroup.channel,
+                      channel: adChannel,
                       creative: processedCreative,
                       metadata: {
                         lastSyncedAt: new Date().toISOString(),
                         rawData: ad,
                         // Store main image URL and all URLs for easier access
                         imageUrl: mainImageUrl,
-                        allImageUrls: allImageUrls
+                        allImageUrls: allImageUrls,
+                        // Store publisher platforms
+                        publisherPlatforms
                       }
                     },
                     create: {
@@ -798,14 +827,16 @@ export async function POST(
                       externalId: ad.id,
                       name: ad.name,
                       status: ad.status?.toLowerCase() || "unknown",
-                      channel: adGroup.channel,
+                      channel: adChannel,
                       creative: processedCreative,
                       metadata: {
                         lastSyncedAt: new Date().toISOString(),
                         rawData: ad,
                         // Store main image URL and all URLs for easier access
                         imageUrl: mainImageUrl,
-                        allImageUrls: allImageUrls
+                        allImageUrls: allImageUrls,
+                        // Store publisher platforms
+                        publisherPlatforms
                       }
                     }
                   })
