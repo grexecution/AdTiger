@@ -220,7 +220,7 @@ export default function ConnectionsPage() {
       name: 'Meta (Facebook & Instagram)',
       description: 'Connect your Meta Business account to sync Facebook and Instagram ad campaigns',
       connected: connections.some(c => (c.provider === 'META' || c.provider === 'meta') && (c.status === 'CONNECTED' || c.status === 'active')),
-      connection: connections.find(c => c.provider === 'META' || c.provider === 'meta'),
+      connection: connections.find(c => (c.provider === 'META' || c.provider === 'meta') && (c.status === 'CONNECTED' || c.status === 'active')) || null,
       onConnect: () => setShowMetaDialog(true),
       features: ['Facebook Ads', 'Instagram Ads', 'Audience Insights', 'Campaign Performance']
     },
@@ -229,7 +229,7 @@ export default function ConnectionsPage() {
       name: 'Google Ads',
       description: 'Connect your Google Ads account to sync Search, Display, YouTube, and Shopping campaigns',
       connected: connections.some(c => (c.provider === 'GOOGLE' || c.provider === 'google') && (c.status === 'CONNECTED' || c.status === 'active')),
-      connection: connections.find(c => c.provider === 'GOOGLE' || c.provider === 'google'),
+      connection: connections.find(c => (c.provider === 'GOOGLE' || c.provider === 'google') && (c.status === 'CONNECTED' || c.status === 'active')) || null,
       onConnect: () => setShowGoogleDialog(true),
       features: ['Search Ads', 'YouTube Ads', 'Display Network', 'Shopping Ads']
     }
