@@ -173,19 +173,20 @@ export default function ConnectionsPage() {
   }
 
   const getStatusBadge = (status: string) => {
+    const normalizedStatus = status?.toLowerCase()
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      CONNECTED: "default",
+      connected: "default",
       active: "default",
-      ERROR: "destructive",
-      EXPIRED: "destructive",
+      error: "destructive",
       expired: "destructive",
-      DISCONNECTED: "secondary"
+      disconnected: "secondary",
+      inactive: "secondary"
     }
     
-    const displayStatus = status === 'active' ? 'CONNECTED' : status.toUpperCase()
+    const displayStatus = normalizedStatus === 'active' ? 'CONNECTED' : status?.toUpperCase()
     
     return (
-      <Badge variant={variants[status] || variants[status.toUpperCase()] || "outline"}>
+      <Badge variant={variants[normalizedStatus] || "outline"}>
         {displayStatus}
       </Badge>
     )
@@ -218,8 +219,8 @@ export default function ConnectionsPage() {
       provider: 'META',
       name: 'Meta (Facebook & Instagram)',
       description: 'Connect your Meta Business account to sync Facebook and Instagram ad campaigns',
-      connected: connections.some(c => c.provider === 'META' && c.status === 'CONNECTED'),
-      connection: connections.find(c => c.provider === 'META'),
+      connected: connections.some(c => (c.provider === 'META' || c.provider === 'meta') && (c.status === 'CONNECTED' || c.status === 'active')),
+      connection: connections.find(c => c.provider === 'META' || c.provider === 'meta'),
       onConnect: () => setShowMetaDialog(true),
       features: ['Facebook Ads', 'Instagram Ads', 'Audience Insights', 'Campaign Performance']
     },
@@ -227,8 +228,8 @@ export default function ConnectionsPage() {
       provider: 'GOOGLE',
       name: 'Google Ads',
       description: 'Connect your Google Ads account to sync Search, Display, YouTube, and Shopping campaigns',
-      connected: connections.some(c => c.provider === 'GOOGLE' && c.status === 'CONNECTED'),
-      connection: connections.find(c => c.provider === 'GOOGLE'),
+      connected: connections.some(c => (c.provider === 'GOOGLE' || c.provider === 'google') && (c.status === 'CONNECTED' || c.status === 'active')),
+      connection: connections.find(c => c.provider === 'GOOGLE' || c.provider === 'google'),
       onConnect: () => setShowGoogleDialog(true),
       features: ['Search Ads', 'YouTube Ads', 'Display Network', 'Shopping Ads']
     }

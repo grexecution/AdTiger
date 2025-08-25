@@ -28,10 +28,12 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const accountIdParam = searchParams.get("accountId") // Allow admins to filter by account
 
-    // Get Google connection to check enabled accounts
+    // Get enabled accounts for both providers
     let enabledGoogleAccounts: string[] = []
+    let enabledMetaAccounts: string[] = []
     const targetAccountId = isAdmin && accountIdParam ? accountIdParam : user?.accountId
     
+    // Check Google connection
     if (targetAccountId && (!provider || provider === "all" || provider === "google")) {
       const googleConnection = await prisma.providerConnection.findFirst({
         where: {
@@ -43,6 +45,21 @@ export async function GET(request: NextRequest) {
       if (googleConnection) {
         const metadata = googleConnection.metadata as any
         enabledGoogleAccounts = metadata?.enabledAccounts || []
+      }
+    }
+    
+    // Check Meta connection in new Connection table
+    if (targetAccountId && (!provider || provider === "all" || provider === "meta")) {
+      const metaConnection = await prisma.connection.findFirst({
+        where: {
+          accountId: targetAccountId,
+          provider: { in: ['meta', 'META'] }
+        }
+      })
+      
+      if (metaConnection) {
+        const credentials = metaConnection.credentials as any
+        enabledMetaAccounts = credentials?.selectedAccountIds || []
       }
     }
 
@@ -62,20 +79,45 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
-    // If we have Google enabled accounts, filter campaigns
+    // Filter campaigns based on enabled accounts
+    const orConditions = []
+    
+    // Add Google filter if we have enabled accounts
     if (enabledGoogleAccounts.length > 0) {
-      // Get campaigns that either:
-      // 1. Are not from Google, OR
-      // 2. Are from Google AND belong to enabled accounts
-      where.OR = [
-        { provider: { notIn: ['google', 'GOOGLE'] } },
-        { 
-          provider: { in: ['google', 'GOOGLE'] },
-          adAccount: {
-            externalId: { in: enabledGoogleAccounts }
-          }
+      orConditions.push({
+        provider: { in: ['google', 'GOOGLE'] },
+        adAccount: {
+          externalId: { in: enabledGoogleAccounts }
         }
-      ]
+      })
+    } else if (!provider || provider === "all" || provider === "google") {
+      // If no Google accounts selected, don't show Google campaigns
+      orConditions.push({
+        provider: { notIn: ['google', 'GOOGLE'] }
+      })
+    }
+    
+    // Add Meta filter if we have enabled accounts  
+    if (enabledMetaAccounts.length > 0) {
+      // For Meta, we need to match against the AdAccount's externalId
+      orConditions.push({
+        provider: { in: ['meta', 'META'] },
+        adAccount: {
+          externalId: { in: enabledMetaAccounts }
+        }
+      })
+    } else if (!provider || provider === "all" || provider === "meta") {
+      // If no Meta accounts selected, don't show Meta campaigns
+      if (orConditions.length === 0) {
+        orConditions.push({
+          provider: { notIn: ['meta', 'META'] }
+        })
+      }
+    }
+    
+    // Apply OR conditions if we have any filters
+    if (orConditions.length > 0) {
+      where.OR = orConditions
     }
 
     // Fetch campaigns with their ad groups and latest insights

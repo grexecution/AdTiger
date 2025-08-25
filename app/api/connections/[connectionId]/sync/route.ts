@@ -80,21 +80,35 @@ export async function POST(
     
     const credentials = connection.credentials as any
 
-    const selectedAccounts = credentials?.selectedAccountIds || credentials?.selectedAccounts || credentials?.accountIds || []
+    // Handle both formats: array of IDs (OAuth) or array of objects (manual)
+    let selectedAccountIds: string[] = []
     
-    if (selectedAccounts.length === 0) {
+    if (credentials?.selectedAccountIds) {
+      // OAuth format - array of IDs
+      selectedAccountIds = credentials.selectedAccountIds
+    } else if (credentials?.selectedAccounts) {
+      // Manual format - array of objects
+      selectedAccountIds = credentials.selectedAccounts.map((acc: any) => 
+        typeof acc === 'string' ? acc : acc.id
+      )
+    } else if (credentials?.accountIds) {
+      // Legacy format
+      selectedAccountIds = credentials.accountIds
+    }
+    
+    if (selectedAccountIds.length === 0) {
       return NextResponse.json({ error: "No accounts selected for sync" }, { status: 400 })
     }
 
-    console.log(`Starting sync for ${selectedAccounts.length} accounts`)
+    console.log(`Starting sync for ${selectedAccountIds.length} accounts`)
 
     let totalCampaigns = 0
     let totalAds = 0
     let errors = []
 
     // Sync each selected account
-    for (const accountId of selectedAccounts) {
-      const adAccountExternalId = typeof accountId === 'string' ? accountId : accountId.id
+    for (const accountId of selectedAccountIds) {
+      const adAccountExternalId = accountId
       
       try {
         console.log(`\nSyncing account: ${adAccountExternalId}`)
