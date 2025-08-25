@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { auth } from "@/lib/auth"
 import { exchangeCodeForToken, saveMetaConnection, getMetaAdAccounts } from "@/lib/meta-auth"
 
 export async function GET(request: NextRequest) {
@@ -51,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current session
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     if (!session?.user?.accountId) {
       return new NextResponse(`
         <html>
