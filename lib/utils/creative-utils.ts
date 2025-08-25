@@ -35,6 +35,9 @@ export interface AdCreative {
     descriptions?: Array<{
       text: string
     }>
+    call_to_action_types?: Array<string>
+    link_urls?: Array<string>
+    publisher_platforms?: Array<string>
   }
 }
 
