@@ -939,11 +939,37 @@ export async function POST(
                   const purchaseRoas = insight.purchase_roas ? parseFloat(insight.purchase_roas[0]?.value || '0') : 0
                   const websitePurchaseRoas = insight.website_purchase_roas ? parseFloat(insight.website_purchase_roas[0]?.value || '0') : 0
                   
+                  // Fetch comments if we have a positive comment count
+                  let commentsData = []
+                  if (comments > 0 && insight.ad_id) {
+                    try {
+                      // Try to get the effective_object_story_id to fetch comments
+                      const adDetailsUrl = `https://graph.facebook.com/v18.0/${insight.ad_id}?fields=effective_object_story_id,creative&access_token=${credentials.accessToken}`
+                      const adDetailsResponse = await fetch(adDetailsUrl)
+                      const adDetails = await adDetailsResponse.json()
+                      
+                      if (adDetails.effective_object_story_id) {
+                        // Fetch comments for the post
+                        const commentsUrl = `https://graph.facebook.com/v18.0/${adDetails.effective_object_story_id}/comments?fields=id,message,from,created_time,like_count,comment_count,comments{id,message,from,created_time,like_count}&limit=25&access_token=${credentials.accessToken}`
+                        const commentsResponse = await fetch(commentsUrl)
+                        const commentsResult = await commentsResponse.json()
+                        
+                        if (commentsResult.data) {
+                          commentsData = commentsResult.data
+                          console.log(`💬 Fetched ${commentsData.length} comments for ad "${insight.ad_name}"`)
+                        }
+                      }
+                    } catch (error) {
+                      // Silently fail - comments are optional
+                    }
+                  }
+                  
                   await prisma.ad.update({
                     where: { id: existingAd.id },
                     data: {
                       metadata: {
                         ...existingMetadata,
+                        comments: commentsData, // Store actual comments array
                         insights: {
                           impressions: parseInt(insight.impressions || '0'),
                           clicks: parseInt(insight.clicks || '0'),
@@ -969,7 +995,8 @@ export async function POST(
                           costPerConversion: parseFloat(insight.cost_per_conversion || '0'),
                           // Raw data for reference
                           rawActions: insight.actions
-                        }
+                        },
+                        lastSyncedAt: new Date().toISOString()
                       }
                     }
                   })

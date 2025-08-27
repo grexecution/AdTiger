@@ -120,7 +120,7 @@ import { GoogleAdPreview } from "@/components/ads/google-ad-preview"
 import { SyncStatusPanel } from "@/components/dashboard/sync-status-panel"
 import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl } from "@/lib/utils/creative-utils"
 import { getCurrencySymbol } from "@/lib/currency"
-import { AdDetailDialog } from "@/components/campaigns/ad-detail-dialog"
+import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
 
 // Helper functions for formatting metrics
 const formatMetricNumber = (value: number | undefined | null): string => {
@@ -1814,8 +1814,11 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
       )}
       
       {/* Ad Detail Dialog */}
-      <AdDetailDialog 
-        ad={selectedAd} 
+      <AdDetailDialogEnhanced 
+        ad={selectedAd}
+        campaign={selectedAd?.campaign}
+        adSet={selectedAd?.adSet}
+        adAccounts={adAccounts}
         open={!!selectedAd} 
         onClose={() => setSelectedAd(null)} 
       />

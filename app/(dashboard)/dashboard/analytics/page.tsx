@@ -108,6 +108,7 @@ export default function AnalyticsPage() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all")
   const [selectedMetric, setSelectedMetric] = useState<string>("spend")
   const [isLoading, setIsLoading] = useState(true)
+  const [accountCurrency, setAccountCurrency] = useState<string>("USD")
   const [analyticsData, setAnalyticsData] = useState<any>({
     performanceData: [],
     platformData: [],
@@ -137,6 +138,19 @@ export default function AnalyticsPage() {
     { label: "This month", value: "month", range: { from: startOfMonth(new Date()), to: endOfMonth(new Date()) } },
     { label: "This week", value: "week", range: { from: startOfWeek(new Date()), to: endOfWeek(new Date()) } },
   ]
+
+  // Fetch account settings to get base currency
+  const fetchAccountSettings = async () => {
+    try {
+      const response = await fetch('/api/account')
+      if (response.ok) {
+        const data = await response.json()
+        setAccountCurrency(data.account?.currency || 'USD')
+      }
+    } catch (error) {
+      console.error('Error fetching account settings:', error)
+    }
+  }
 
   // Fetch real analytics data
   const fetchAnalyticsData = async () => {
