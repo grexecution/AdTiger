@@ -106,14 +106,182 @@ import {
   Info,
   SlidersHorizontal,
   AtSign,
-  Building
+  Building,
+  MapPin,
+  User,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Hash
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { GoogleAdPreview } from "@/components/ads/google-ad-preview"
 import { SyncStatusPanel } from "@/components/dashboard/sync-status-panel"
 import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl } from "@/lib/utils/creative-utils"
+import { getCurrencySymbol } from "@/lib/currency"
 import { AdDetailDialog } from "@/components/campaigns/ad-detail-dialog"
+
+// Helper functions for formatting metrics
+const formatMetricNumber = (value: number | undefined | null): string => {
+  if (value === undefined || value === null || isNaN(value)) return '-'
+  
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1)}M`
+  } else if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}K`
+  } else {
+    return value.toFixed(0)
+  }
+}
+
+const formatCTR = (ctr: number | undefined, clicks: number | undefined, impressions: number | undefined): string => {
+  // If CTR is provided, use it
+  if (ctr !== undefined && ctr !== null && !isNaN(ctr)) {
+    return `${ctr.toFixed(2)}%`
+  }
+  
+  // Otherwise calculate it from clicks and impressions
+  if (clicks !== undefined && impressions !== undefined && impressions > 0) {
+    const calculatedCtr = (clicks / impressions) * 100
+    return `${calculatedCtr.toFixed(2)}%`
+  }
+  
+  return '-'
+}
+
+const formatCPC = (cpc: number | undefined, spend: number | undefined, clicks: number | undefined, currency: string = 'USD'): string => {
+  const symbol = getCurrencySymbol(currency)
+  
+  // If CPC is provided and valid, use it (removed > 0 check as CPC can be 0)
+  if (cpc !== undefined && cpc !== null && !isNaN(cpc)) {
+    return `${symbol}${cpc.toFixed(2)}`
+  }
+  
+  // Otherwise calculate it from spend and clicks
+  if (spend !== undefined && spend !== null && !isNaN(spend) && 
+      clicks !== undefined && clicks !== null && !isNaN(clicks) && clicks > 0) {
+    const calculatedCpc = spend / clicks
+    return `${symbol}${calculatedCpc.toFixed(2)}`
+  }
+  
+  // If we have spend but no clicks, CPC is technically undefined (not 0)
+  if (spend !== undefined && spend > 0 && (!clicks || clicks === 0)) {
+    return '-'
+  }
+  
+  // If no spend and no clicks, CPC is 0
+  if ((spend === 0 || !spend) && (clicks === 0 || !clicks)) {
+    return `${symbol}0.00`
+  }
+  
+  return '-'
+}
+
+// Targeting info component
+const TargetingInfo = ({ adSet }: { adSet: any }) => {
+  // Extract targeting data from adSet metadata
+  const targeting = adSet?.metadata?.rawData?.targeting || {}
+  
+  // Format age range
+  const ageRange = targeting.age_min && targeting.age_max 
+    ? `${targeting.age_min}-${targeting.age_max}` 
+    : targeting.age_min 
+      ? `${targeting.age_min}+` 
+      : targeting.age_max 
+        ? `Up to ${targeting.age_max}` 
+        : null
+  
+  // Format genders - handle array properly
+  const genders = targeting.genders && Array.isArray(targeting.genders) && targeting.genders.length > 0
+    ? targeting.genders.map((g: number) => g === 1 ? 'M' : g === 2 ? 'F' : 'All').join('/')
+    : null
+  
+  // Format locations - abbreviated
+  const locations = targeting.geo_locations?.countries 
+    ? targeting.geo_locations.countries.join(', ')
+    : targeting.geo_locations?.cities 
+      ? targeting.geo_locations.cities.map((c: any) => c.name || c).join(', ')
+      : targeting.geo_locations?.regions
+        ? targeting.geo_locations.regions.map((r: any) => r.name || r).join(', ')
+        : null
+  
+  // Format languages - debug and fix the "5" issue
+  let languages = null
+  if (targeting.locales && Array.isArray(targeting.locales) && targeting.locales.length > 0) {
+    const processedLanguages = targeting.locales
+      .map((l: any) => {
+        // Skip numeric values (like "5") which aren't locale codes
+        if (typeof l === 'number' || (typeof l === 'string' && !isNaN(Number(l)))) {
+          console.log('Skipping numeric locale value:', l)
+          return null
+        }
+        
+        // Map locale codes to language names
+        const langMap: { [key: string]: string } = {
+          'en_US': 'English',
+          'en_GB': 'English',
+          'de_DE': 'German',
+          'de_AT': 'German',
+          'de_CH': 'German',
+          'fr_FR': 'French',
+          'es_ES': 'Spanish',
+          'it_IT': 'Italian',
+          'pt_PT': 'Portuguese',
+          'pt_BR': 'Portuguese',
+          'nl_NL': 'Dutch',
+          'pl_PL': 'Polish',
+          'ru_RU': 'Russian',
+          'ar_AR': 'Arabic',
+          'zh_CN': 'Chinese',
+          'ja_JP': 'Japanese',
+          'ko_KR': 'Korean'
+        }
+        
+        const langCode = typeof l === 'object' ? l.key || l.value || l : l
+        return langMap[langCode] || (langCode?.length <= 3 ? langCode : null)
+      })
+      .filter(Boolean)
+      .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
+    
+    if (processedLanguages.length > 0) {
+      languages = processedLanguages.join('/')
+    }
+  }
+  
+  // Build display with compact layout
+  if (!locations && !ageRange && !genders && !languages) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        No targeting data
+      </p>
+    )
+  }
+  
+  // Compact single-line layout
+  return (
+    <div className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap">
+      {locations && (
+        <span className="flex items-center gap-1">
+          <MapPin className="h-3 w-3 flex-shrink-0" />
+          <span className="truncate max-w-[100px]">{locations}</span>
+        </span>
+      )}
+      {(ageRange || genders) && (
+        <span className="flex items-center gap-1">
+          <User className="h-3 w-3 flex-shrink-0" />
+          <span>{[ageRange, genders].filter(Boolean).join(' ')}</span>
+        </span>
+      )}
+      {languages && (
+        <span className="flex items-center gap-1">
+          <Globe className="h-3 w-3 flex-shrink-0" />
+          <span>{languages}</span>
+        </span>
+      )}
+    </div>
+  )
+}
 
 // Platform icons
 const PlatformIcon = ({ platform, size = "h-4 w-4" }: { platform: string, size?: string }) => {
@@ -284,7 +452,25 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   const allImageUrls = getAllCreativeImageUrls(creative)
   
   // Use real engagement metrics from ad data
-  const adMetrics = ad.metadata?.insights || ad.campaign?.metadata?.insights || {}
+  const adMetrics = ad.metadata?.insights || {}
+  
+  // Debug logging for CPC issues
+  if (typeof window !== 'undefined') {
+    if (ad.name && ad.name.includes('Zahnarzt')) {
+      console.log('=== ZAHNARZT AD DEBUG ===')
+      console.log('Ad Name:', ad.name)
+      console.log('Full metadata:', ad.metadata)
+      console.log('Insights:', adMetrics)
+      console.log('Specific values:', {
+        cpc: adMetrics.cpc,
+        spend: adMetrics.spend,
+        clicks: adMetrics.clicks,
+        impressions: adMetrics.impressions
+      })
+      console.log('=========================')
+    }
+  }
+  
   const engagementMetrics = {
     likes: adMetrics.likes || 0,
     comments: adMetrics.comments || 0,
@@ -403,17 +589,11 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
         <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex items-start justify-between">
-              <h4 className="font-semibold text-sm line-clamp-1">{ad.name}</h4>
+              <h4 className="font-semibold text-sm line-clamp-2">{ad.name}</h4>
               <FormatIcon format={creativeFormat} />
             </div>
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-primary">
-                {campaign.name}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {adSet.name}
-              </p>
-            </div>
+            {/* Targeting info */}
+            <TargetingInfo adSet={adSet} />
           </div>
           
           {/* Engagement metrics */}
@@ -463,24 +643,36 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
           
           <Separator />
           
-          {/* Performance metrics from actual data */}
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          {/* Performance metrics from ad-level data */}
+          <div className="grid grid-cols-5 gap-1 text-xs">
             <div>
-              <p className="text-muted-foreground">CTR</p>
+              <p className="text-muted-foreground text-[10px]">Impr.</p>
               <p className="font-semibold">
-                {((campaign.metrics?.ctr || Math.random() * 3 + 0.5).toFixed(2))}%
+                {formatMetricNumber(adMetrics.impressions)}
               </p>
             </div>
             <div>
-              <p className="text-muted-foreground">CPC</p>
+              <p className="text-muted-foreground text-[10px]">Clicks</p>
               <p className="font-semibold">
-                ${((campaign.metrics?.cpc || Math.random() * 2 + 0.3).toFixed(2))}
+                {formatMetricNumber(adMetrics.clicks)}
               </p>
             </div>
             <div>
-              <p className="text-muted-foreground">ROAS</p>
+              <p className="text-muted-foreground text-[10px]">CTR</p>
               <p className="font-semibold">
-                {((campaign.metrics?.roas || Math.random() * 5 + 1).toFixed(1))}x
+                {formatCTR(adMetrics.ctr, adMetrics.clicks, adMetrics.impressions)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-[10px]">CPC</p>
+              <p className="font-semibold">
+                {formatCPC(adMetrics.cpc, adMetrics.spend, adMetrics.clicks, ad.currency)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-[10px]">Conv.</p>
+              <p className="font-semibold">
+                {formatMetricNumber(adMetrics.conversions)}
               </p>
             </div>
           </div>
@@ -510,6 +702,8 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   const [platformFilter, setPlatformFilter] = useState<string>('all')
   const [channelFilter, setChannelFilter] = useState<string>('all')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false)
+  const [sortBy, setSortBy] = useState<string>('performance')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const { toast } = useToast()
   
   useEffect(() => {
@@ -590,6 +784,10 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   const allAds = useMemo(() => {
     const ads: any[] = []
     campaigns.forEach(campaign => {
+      // Find the ad account for this campaign to get the currency
+      const adAccount = adAccounts.find(acc => acc.id === campaign.adAccountId)
+      const currency = adAccount?.currency || campaign.budgetCurrency || 'USD'
+      
       campaign.adGroups?.forEach((adSet: any) => {
         adSet.ads?.forEach((ad: any) => {
           ads.push({
@@ -601,13 +799,14 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
             campaignName: campaign.name,
             adSetName: adSet.name,
             provider: campaign.provider,
-            channel: campaign.channel
+            channel: campaign.channel,
+            currency: currency
           })
         })
       })
     })
     return ads
-  }, [campaigns])
+  }, [campaigns, adAccounts])
   
   // Get unique ad sets for filter options
   const allAdSets = useMemo(() => {
@@ -702,29 +901,115 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
     return filtered
   }, [allAds, campaigns, selectedAdAccounts, selectedCampaigns, selectedAdSets, searchQuery, statusFilter, formatFilter, platformFilter, channelFilter])
   
-  // Calculate metrics for filtered ads
-  const filteredMetrics = useMemo(() => {
-    const uniqueCampaigns = new Set(filteredAds.map(ad => ad.campaignId))
-    const relevantCampaigns = campaigns.filter(c => uniqueCampaigns.has(c.id))
+  // Sort filtered ads based on selected criteria
+  const sortedAds = useMemo(() => {
+    const sorted = [...filteredAds]
     
-    return relevantCampaigns.reduce((acc, campaign) => {
-      return {
-        spend: acc.spend + (campaign.metrics?.spend || 0),
-        impressions: acc.impressions + (campaign.metrics?.impressions || 0),
-        clicks: acc.clicks + (campaign.metrics?.clicks || 0),
-        conversions: acc.conversions + (campaign.metrics?.conversions || 0),
+    sorted.sort((a, b) => {
+      const aMetrics = a.metadata?.insights || {}
+      const bMetrics = b.metadata?.insights || {}
+      
+      // Calculate derived metrics
+      const aCtr = aMetrics.impressions > 0 ? (aMetrics.clicks / aMetrics.impressions) * 100 : 0
+      const bCtr = bMetrics.impressions > 0 ? (bMetrics.clicks / bMetrics.impressions) * 100 : 0
+      
+      const aCpc = aMetrics.clicks > 0 ? (aMetrics.spend / aMetrics.clicks) : Number.MAX_VALUE
+      const bCpc = bMetrics.clicks > 0 ? (bMetrics.spend / bMetrics.clicks) : Number.MAX_VALUE
+      
+      let comparison = 0
+      
+      switch (sortBy) {
+        case 'performance':
+          // Multi-factor performance sorting: CPC (lower better) > CTR (higher better) > Clicks > Impressions
+          // First compare CPC (lower is better, so reversed)
+          if (aCpc !== bCpc) {
+            comparison = aCpc - bCpc // Lower CPC is better
+          } else if (aCtr !== bCtr) {
+            comparison = bCtr - aCtr // Higher CTR is better
+          } else if (aMetrics.clicks !== bMetrics.clicks) {
+            comparison = (bMetrics.clicks || 0) - (aMetrics.clicks || 0) // Higher clicks is better
+          } else {
+            comparison = (bMetrics.impressions || 0) - (aMetrics.impressions || 0) // Higher impressions is better
+          }
+          break
+          
+        case 'spend':
+          comparison = (bMetrics.spend || 0) - (aMetrics.spend || 0)
+          break
+          
+        case 'impressions':
+          comparison = (bMetrics.impressions || 0) - (aMetrics.impressions || 0)
+          break
+          
+        case 'clicks':
+          comparison = (bMetrics.clicks || 0) - (aMetrics.clicks || 0)
+          break
+          
+        case 'ctr':
+          comparison = bCtr - aCtr
+          break
+          
+        case 'cpc':
+          comparison = aCpc - bCpc // Lower is better for CPC
+          break
+          
+        case 'conversions':
+          comparison = (bMetrics.conversions || 0) - (aMetrics.conversions || 0)
+          break
+          
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '')
+          break
+          
+        case 'status':
+          comparison = (a.status || '').localeCompare(b.status || '')
+          break
+          
+        case 'recent':
+          // Sort by updatedAt if available, otherwise by id
+          const aDate = a.updatedAt || a.createdAt || a.id
+          const bDate = b.updatedAt || b.createdAt || b.id
+          comparison = bDate.localeCompare(aDate)
+          break
+          
+        default:
+          comparison = 0
       }
-    }, { spend: 0, impressions: 0, clicks: 0, conversions: 0 })
-  }, [filteredAds, campaigns])
-  
-  // Calculate average ROAS for filtered campaigns
-  const avgRoas = useMemo(() => {
-    const uniqueCampaigns = new Set(filteredAds.map(ad => ad.campaignId))
-    const relevantCampaigns = campaigns.filter(c => uniqueCampaigns.has(c.id))
+      
+      // Apply sort order (desc by default)
+      return sortOrder === 'asc' ? -comparison : comparison
+    })
     
-    if (relevantCampaigns.length === 0) return 0
-    return relevantCampaigns.reduce((sum, c) => sum + (c.metrics?.roas || 0), 0) / relevantCampaigns.length
-  }, [filteredAds, campaigns])
+    return sorted
+  }, [filteredAds, sortBy, sortOrder])
+  
+  // Calculate metrics for filtered ads - aggregate from ad-level data
+  const filteredMetrics = useMemo(() => {
+    return filteredAds.reduce((acc, ad) => {
+      const adMetrics = ad.metadata?.insights || {}
+      return {
+        spend: acc.spend + (adMetrics.spend || 0),
+        impressions: acc.impressions + (adMetrics.impressions || 0),
+        clicks: acc.clicks + (adMetrics.clicks || 0),
+        conversions: acc.conversions + (adMetrics.conversions || 0),
+        ctr: 0, // Will calculate after
+        cpc: 0  // Will calculate after
+      }
+    }, { spend: 0, impressions: 0, clicks: 0, conversions: 0, ctr: 0, cpc: 0 })
+  }, [filteredAds])
+  
+  // Calculate aggregate CTR and CPC for filtered ads
+  const aggregateMetrics = useMemo(() => {
+    const ctr = filteredMetrics.impressions > 0 
+      ? (filteredMetrics.clicks / filteredMetrics.impressions) * 100 
+      : 0
+    
+    const cpc = filteredMetrics.clicks > 0 
+      ? filteredMetrics.spend / filteredMetrics.clicks 
+      : 0
+    
+    return { ctr, cpc }
+  }, [filteredMetrics])
   
   const clearFilters = () => {
     setSelectedAdAccounts([])
@@ -761,7 +1046,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
         <div>
           <h2 className="text-3xl font-bold tracking-tight">All Ads Overview</h2>
           <p className="text-muted-foreground">
-            Viewing {filteredAds.length} of {allAds.length} ads across all campaigns
+            Viewing {sortedAds.length} of {allAds.length} ads across all campaigns
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -789,7 +1074,14 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
       {/* Filters Bar */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="space-y-4">
+            {/* Filtering Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Filters</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1155,9 +1447,112 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
               </>
             )}
             
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 border rounded-md p-1">
-              <TooltipProvider>
+              </div>
+            </div>
+            
+            {/* Divider */}
+            <Separator className="my-2" />
+            
+            {/* Sorting & View Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Sort & View</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Sorting Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[180px] h-9 bg-muted/50 border-muted">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="performance">
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      Best Performance
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="spend">
+                    <span className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Highest Spend
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="impressions">
+                    <span className="flex items-center gap-2">
+                      <Eye className="h-4 w-4" />
+                      Most Impressions
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="clicks">
+                    <span className="flex items-center gap-2">
+                      <MousePointerClick className="h-4 w-4" />
+                      Most Clicks
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="ctr">
+                    <span className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Highest CTR
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="cpc">
+                    <span className="flex items-center gap-2">
+                      <TrendingDown className="h-4 w-4" />
+                      Lowest CPC
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="conversions">
+                    <span className="flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Most Conversions
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="recent">
+                    <span className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Most Recent
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="name">
+                    <span className="flex items-center gap-2">
+                      <Hash className="h-4 w-4" />
+                      Alphabetical
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="status">
+                    <span className="flex items-center gap-2">
+                      <CircleCheckBig className="h-4 w-4" />
+                      Status
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              
+                  {/* Sort Order Toggle */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 bg-muted/50 border-muted"
+                          onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                        >
+                          {sortOrder === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {sortOrder === 'desc' ? 'Sort Descending' : 'Sort Ascending'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+            
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-1 border rounded-md p-1 bg-muted/50 border-muted">
+                  <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -1192,18 +1587,20 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
               </TooltipProvider>
             </div>
             
-            {/* Clear Filters */}
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="text-muted-foreground"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Clear
-              </Button>
-            )}
+                {/* Clear Filters */}
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="text-muted-foreground ml-auto"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
           
           {/* Active Filter Badges */}
@@ -1321,20 +1718,8 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
         <Card>
           <CardContent className="p-6">
             <MetricCard
-              label="Total Spend"
-              value={filteredMetrics.spend.toFixed(2)}
-              prefix="$"
-              change={12}
-              trend="up"
-              icon={DollarSign}
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <MetricCard
               label="Impressions"
-              value={filteredMetrics.impressions}
+              value={formatMetricNumber(filteredMetrics.impressions)}
               change={8}
               trend="up"
               icon={Eye}
@@ -1345,7 +1730,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
           <CardContent className="p-6">
             <MetricCard
               label="Clicks"
-              value={filteredMetrics.clicks}
+              value={formatMetricNumber(filteredMetrics.clicks)}
               change={15}
               trend="up"
               icon={MousePointerClick}
@@ -1355,23 +1740,35 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
         <Card>
           <CardContent className="p-6">
             <MetricCard
-              label="Conversions"
-              value={filteredMetrics.conversions}
-              change={23}
+              label="CTR"
+              value={aggregateMetrics.ctr.toFixed(2)}
+              suffix="%"
+              change={5}
               trend="up"
-              icon={Target}
+              icon={TrendingUp}
             />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6">
             <MetricCard
-              label="Avg ROAS"
-              value={avgRoas.toFixed(2)}
-              suffix="x"
-              change={5}
+              label="Avg CPC"
+              value={aggregateMetrics.cpc.toFixed(2)}
+              prefix="$"
+              change={-3}
+              trend="down"
+              icon={DollarSign}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <MetricCard
+              label="Conversions"
+              value={formatMetricNumber(filteredMetrics.conversions)}
+              change={23}
               trend="up"
-              icon={TrendingUp}
+              icon={Target}
             />
           </CardContent>
         </Card>
@@ -1385,9 +1782,9 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
           statusFilter={statusFilter}
           platformFilter={platformFilter}
         />
-      ) : filteredAds.length > 0 ? (
+      ) : sortedAds.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredAds.map((ad) => (
+          {sortedAds.map((ad) => (
             <AdPreview 
               key={ad.id} 
               ad={ad}

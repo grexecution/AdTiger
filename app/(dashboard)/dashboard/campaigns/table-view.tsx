@@ -45,6 +45,7 @@ import {
   Edit,
   Trash2
 } from "lucide-react"
+import { getCurrencySymbol } from "@/lib/currency"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,12 +97,13 @@ const StatusIcon = ({ status }: { status: string }) => {
 }
 
 // Format metric values
-const formatMetric = (value: number, type: 'currency' | 'number' | 'percent' = 'number') => {
+const formatMetric = (value: number, type: 'currency' | 'number' | 'percent' = 'number', currency: string = 'USD') => {
   if (value === null || value === undefined) return '-'
   
   switch (type) {
     case 'currency':
-      return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      const symbol = getCurrencySymbol(currency)
+      return `${symbol}${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     case 'percent':
       return `${value.toFixed(2)}%`
     default:
@@ -133,16 +135,24 @@ interface TableViewProps {
   searchQuery: string
   statusFilter: string
   platformFilter: string
+  adAccounts?: any[]
 }
 
 export default function TableView({ 
   campaigns, 
   searchQuery, 
   statusFilter,
-  platformFilter 
+  platformFilter,
+  adAccounts = [] 
 }: TableViewProps) {
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set())
   const [expandedAdGroups, setExpandedAdGroups] = useState<Set<string>>(new Set())
+  
+  // Helper to get currency for a campaign
+  const getCampaignCurrency = (campaign: any) => {
+    const adAccount = adAccounts.find(acc => acc.id === campaign.adAccountId)
+    return adAccount?.currency || campaign.budgetCurrency || 'USD'
+  }
   
   // Filter campaigns
   const filteredCampaigns = useMemo(() => {
@@ -292,10 +302,10 @@ export default function TableView({
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(campaign.budgetAmount, 'currency')}
+                        {formatMetric(campaign.budgetAmount, 'currency', getCampaignCurrency(campaign))}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(campaign.metrics?.spend, 'currency')}
+                        {formatMetric(campaign.metrics?.spend, 'currency', getCampaignCurrency(campaign))}
                       </TableCell>
                       <TableCell className="text-right">
                         {formatMetric(campaign.metrics?.impressions)}
@@ -310,7 +320,7 @@ export default function TableView({
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatMetric(campaign.metrics?.cpc, 'currency')}
+                        {formatMetric(campaign.metrics?.cpc, 'currency', getCampaignCurrency(campaign))}
                       </TableCell>
                       <TableCell className="text-right">
                         {formatMetric(campaign.metadata?.insights?.likes || 0)}
@@ -395,10 +405,10 @@ export default function TableView({
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {formatMetric(adGroup.budgetAmount, 'currency')}
+                                  {formatMetric(adGroup.budgetAmount, 'currency', getCampaignCurrency(campaign))}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {formatMetric(adGroup.metrics?.spend, 'currency')}
+                                  {formatMetric(adGroup.metrics?.spend, 'currency', getCampaignCurrency(campaign))}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   {formatMetric(adGroup.metrics?.impressions)}
@@ -410,7 +420,7 @@ export default function TableView({
                                   {formatMetric(adGroup.metrics?.ctr, 'percent')}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {formatMetric(adGroup.metrics?.cpc, 'currency')}
+                                  {formatMetric(adGroup.metrics?.cpc, 'currency', getCampaignCurrency(campaign))}
                                 </TableCell>
                                 <TableCell className="text-right">-</TableCell>
                                 <TableCell className="text-right">-</TableCell>
@@ -459,7 +469,7 @@ export default function TableView({
                                       </TableCell>
                                       <TableCell className="text-right">-</TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(ad.metadata?.insights?.spend || 0, 'currency')}
+                                        {formatMetric(ad.metadata?.insights?.spend || 0, 'currency', getCampaignCurrency(campaign))}
                                       </TableCell>
                                       <TableCell className="text-right">
                                         {formatMetric(ad.metadata?.insights?.impressions || 0)}
@@ -471,7 +481,7 @@ export default function TableView({
                                         {formatMetric(ad.metadata?.insights?.ctr || 0, 'percent')}
                                       </TableCell>
                                       <TableCell className="text-right">
-                                        {formatMetric(ad.metadata?.insights?.cpc || 0, 'currency')}
+                                        {formatMetric(ad.metadata?.insights?.cpc || 0, 'currency', getCampaignCurrency(campaign))}
                                       </TableCell>
                                       <TableCell className="text-right">
                                         {formatMetric(ad.metadata?.insights?.likes || 0)}
@@ -522,7 +532,8 @@ export default function TableView({
             <p className="text-xl font-bold">
               {formatMetric(
                 filteredCampaigns.reduce((sum, c) => sum + (c.metrics?.spend || 0), 0),
-                'currency'
+                'currency',
+                'USD' // Total uses account base currency
               )}
             </p>
           </div>

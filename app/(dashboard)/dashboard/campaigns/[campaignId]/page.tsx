@@ -56,6 +56,7 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<any>(null)
   const [adGroups, setAdGroups] = useState<any[]>([])
   const [insights, setInsights] = useState<any>(null)
+  const [adAccountCurrency, setAdAccountCurrency] = useState<string>("USD")
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
 

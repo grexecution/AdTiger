@@ -359,10 +359,10 @@ export async function POST(
                     metrics: {
                       impressions: parseInt(insight.impressions || '0'),
                       clicks: parseInt(insight.clicks || '0'),
-                      spend: parseFloat(insight.spend || '0') / 100,
+                      spend: parseFloat(insight.spend || '0'),
                       ctr: parseFloat(insight.ctr || '0'),
-                      cpc: parseFloat(insight.cpc || '0') / 100,
-                      cpm: parseFloat(insight.cpm || '0') / 100,
+                      cpc: parseFloat(insight.cpc || '0'),
+                      cpm: parseFloat(insight.cpm || '0'),
                       likes,
                       comments,
                       shares,
@@ -386,10 +386,10 @@ export async function POST(
                     metrics: {
                       impressions: parseInt(insight.impressions || '0'),
                       clicks: parseInt(insight.clicks || '0'),
-                      spend: parseFloat(insight.spend || '0') / 100,
+                      spend: parseFloat(insight.spend || '0'),
                       ctr: parseFloat(insight.ctr || '0'),
-                      cpc: parseFloat(insight.cpc || '0') / 100,
-                      cpm: parseFloat(insight.cpm || '0') / 100,
+                      cpc: parseFloat(insight.cpc || '0'),
+                      cpm: parseFloat(insight.cpm || '0'),
                       likes,
                       comments,
                       shares,
@@ -437,11 +437,9 @@ export async function POST(
 
         // Update campaigns with insights data
         for (const insight of allCampaignInsights) {
-          // Convert monetary values from cents and to main currency
-          const spendCents = parseFloat(insight.spend || '0')
-          const spend = spendCents / 100
-          const cpcCents = parseFloat(insight.cpc || '0')
-          const cpc = cpcCents / 100
+          // Parse monetary values (Meta returns them in currency units, not cents)
+          const spend = parseFloat(insight.spend || '0')
+          const cpc = parseFloat(insight.cpc || '0')
           const cpmCents = parseFloat(insight.cpm || '0')
           const cpm = cpmCents / 100
           
@@ -879,13 +877,20 @@ export async function POST(
             if (insightsData.data) {
               // Update ads with insights data
               for (const insight of insightsData.data) {
-                // Convert monetary values from cents and to main currency
-                const spendCents = parseFloat(insight.spend || '0')
-                const spend = spendCents / 100
-                const cpcCents = parseFloat(insight.cpc || '0')
-                const cpc = cpcCents / 100
-                const cpmCents = parseFloat(insight.cpm || '0')
-                const cpm = cpmCents / 100
+                // Parse monetary values (Meta returns them in currency units, not cents)
+                const spend = parseFloat(insight.spend || '0')
+                const cpc = parseFloat(insight.cpc || '0')
+                const cpm = parseFloat(insight.cpm || '0')
+                
+                // Debug logging for ads with clicks but no CPC
+                if (parseInt(insight.clicks || '0') > 0 && cpc === 0) {
+                  console.log(`⚠️ Ad ${insight.ad_name} has ${insight.clicks} clicks but CPC is 0`)
+                  console.log('  Raw API data:', {
+                    spend: insight.spend,
+                    cpc: insight.cpc,
+                    clicks: insight.clicks
+                  })
+                }
                 
                 const convertedSpend = await convertCurrency(spend, adAccountCurrency, mainCurrency)
                 const convertedCpc = await convertCurrency(cpc, adAccountCurrency, mainCurrency)

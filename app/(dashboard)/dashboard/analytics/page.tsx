@@ -167,6 +167,11 @@ export default function AnalyticsPage() {
     }
   }
 
+  // Fetch account settings on mount
+  useEffect(() => {
+    fetchAccountSettings()
+  }, [])
+
   // Fetch data on mount and when filters change
   useEffect(() => {
     fetchAnalyticsData()
