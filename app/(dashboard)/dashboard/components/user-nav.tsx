@@ -52,10 +52,10 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
+        <Button variant="default" size="icon" className="size-9 bg-primary text-primary-foreground shadow-xs hover:bg-primary/90">
+          <Avatar className="h-6 w-6">
             <AvatarImage src={undefined} alt={session.user.name || "User avatar"} />
-            <AvatarFallback>{getInitials()}</AvatarFallback>
+            <AvatarFallback className="bg-transparent text-xs">{getInitials()}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>

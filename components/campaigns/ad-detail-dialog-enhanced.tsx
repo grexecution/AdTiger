@@ -57,44 +57,151 @@ import {
   UserCheck,
   Zap,
   ChevronRight,
+  BarChart3,
+  Info,
+  MessageSquare,
+  Square,
+  X,
+  Bookmark,
+  MoreHorizontal,
+  Camera,
+  Music,
+  Send,
 } from "lucide-react"
-import {
-  getCreativeImageUrl,
-  getCreativeFormat,
-  isVideoCreative,
-  isCarouselCreative,
-  getAllCreativeImageUrls,
-  getCreativeImagesWithDimensions,
-  getBestCreativeImageUrl,
-} from "@/lib/utils/creative-utils"
+import { cn } from "@/lib/utils"
 import { getCurrencySymbol } from "@/lib/currency"
-import { format } from "date-fns"
 
-// Platform logos as SVG components
+// Creative helper functions
+const getCreativeImageUrl = (creative: any): string => {
+  if (!creative) return ''
+  
+  // Check various possible image locations
+  if (creative.image_url) return creative.image_url
+  if (creative.thumbnail_url) return creative.thumbnail_url
+  if (creative.asset_feed_spec?.images?.[0]?.url) return creative.asset_feed_spec.images[0].url
+  if (creative.asset_feed_spec?.images?.[0]?.hash) {
+    return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture`
+  }
+  if (creative.object_story_spec?.link_data?.picture) return creative.object_story_spec.link_data.picture
+  if (creative.object_story_spec?.video_data?.image_url) return creative.object_story_spec.video_data.image_url
+  
+  return ''
+}
+
+const getCreativeFormat = (creative: any): string => {
+  if (!creative) return 'single_image'
+  
+  if (creative.asset_feed_spec?.videos?.length > 0) return 'video'
+  if (creative.asset_feed_spec?.images?.length > 1) return 'carousel'
+  if (creative.object_story_spec?.video_data) return 'video'
+  
+  return 'single_image'
+}
+
+const isVideoCreative = (creative: any): boolean => {
+  return getCreativeFormat(creative) === 'video'
+}
+
+const isCarouselCreative = (creative: any): boolean => {
+  return getCreativeFormat(creative) === 'carousel'
+}
+
+const getAllCreativeImageUrls = (creative: any): string[] => {
+  if (!creative) return []
+  
+  const images = creative.asset_feed_spec?.images || []
+  return images.map((img: any) => img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`)
+}
+
+const getBestCreativeImageUrl = (creative: any, targetRatio: number): string => {
+  const images = creative.asset_feed_spec?.images || []
+  if (images.length === 0) return getCreativeImageUrl(creative)
+  
+  // If only one image, return it
+  if (images.length === 1) {
+    return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+  }
+  
+  // For 3 images, assume they are [square, vertical, horizontal] in order
+  if (images.length === 3) {
+    if (targetRatio === 1) return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture` // Square
+    if (targetRatio === 0.5625) return images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture` // Vertical 9:16
+    if (targetRatio === 1.78) return images[2].url || `https://graph.facebook.com/v18.0/${images[2].hash}/picture` // Horizontal 16:9
+  }
+  
+  // Find image with closest aspect ratio if we have dimensions
+  let bestImage = images[0]
+  let bestDiff = Infinity
+  let foundMatch = false
+  
+  for (let i = 0; i < images.length; i++) {
+    const img = images[i]
+    if (img.width && img.height) {
+      const ratio = img.width / img.height
+      const diff = Math.abs(ratio - targetRatio)
+      if (diff < bestDiff) {
+        bestDiff = diff
+        bestImage = img
+        foundMatch = true
+      }
+    }
+  }
+  
+  // If we found a match with dimensions, return it
+  if (foundMatch) {
+    return bestImage.url || `https://graph.facebook.com/v18.0/${bestImage.hash}/picture`
+  }
+  
+  // Try different images based on index to ensure variety
+  if (images.length >= 2) {
+    // Map target ratio to likely index position
+    if (targetRatio < 0.7) return images[1] ? (images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture`) : images[0].url // Vertical
+    if (targetRatio > 1.5) return images[images.length - 1].url || `https://graph.facebook.com/v18.0/${images[images.length - 1].hash}/picture` // Horizontal
+    return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture` // Square
+  }
+  
+  // Default to first image
+  return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+}
+
+const getCreativeImagesWithDimensions = (creative: any): any[] => {
+  const images = creative.asset_feed_spec?.images || []
+  return images.map((img: any) => ({
+    url: img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`,
+    width: img.width || 0,
+    height: img.height || 0
+  }))
+}
+
+// Platform Icons as SVG components
 const MetaLogo = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm4.441 7.559c1.168 0 2.115.947 2.115 2.115s-.947 2.115-2.115 2.115-2.115-.947-2.115-2.115.947-2.115 2.115-2.115zm-8.882 0c1.168 0 2.115.947 2.115 2.115s-.947 2.115-2.115 2.115-2.115-.947-2.115-2.115.947-2.115 2.115-2.115zM12 19.174c-3.954 0-7.174-3.22-7.174-7.174 0-.322.022-.639.064-.949.324.119.669.183 1.028.183 1.562 0 2.831-1.269 2.831-2.831 0-.085-.004-.169-.012-.252 1.011-.638 2.205-1.009 3.488-1.009 1.283 0 2.477.371 3.488 1.009-.008.083-.012.167-.012.252 0 1.562 1.269 2.831 2.831 2.831.359 0 .704-.064 1.028-.183.042.31.064.627.064.949 0 3.954-3.22 7.174-7.174 7.174z"/>
+    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12c1.422 0 2.79-.245 4.057-.688l.108-.037c4.711-1.611 8.098-6.075 8.098-11.275 0-6.627-5.373-12-12-12zm7.862 11.014c-.411.006-.818-.019-1.21-.074a6.82 6.82 0 0 0-.319-.055c-.196-.035-.39-.075-.583-.119-.157-.036-.313-.074-.468-.115-.168-.044-.335-.091-.5-.141-.183-.055-.363-.114-.543-.175a15.357 15.357 0 0 0-.481-.167c-2.353-.845-4.399-2.269-5.746-4.007a14.638 14.638 0 0 1-.305-.41 8.55 8.55 0 0 1-.278-.402c-.086-.131-.169-.263-.249-.396a8.14 8.14 0 0 1-.216-.389c-.073-.142-.143-.285-.209-.429a7.563 7.563 0 0 1-.348-.901 6.74 6.74 0 0 1-.231-.882 6.148 6.148 0 0 1-.076-.883c.003-.263.024-.524.064-.783.044-.282.11-.56.197-.832.078-.244.173-.482.283-.713.118-.247.253-.485.404-.712.138-.208.29-.406.454-.593.18-.204.375-.394.582-.57.188-.16.387-.307.595-.441a5.208 5.208 0 0 1 1.376-.615c.242-.072.489-.126.739-.162.272-.039.547-.057.823-.055.276.003.551.027.824.072.249.041.495.099.737.173a5.205 5.205 0 0 1 1.348.598c.199.126.39.265.571.416.199.166.386.346.559.538.158.176.304.362.438.557.146.213.276.436.391.668.104.211.194.428.27.651.081.238.146.481.194.728.043.221.072.444.085.669.015.245.011.491-.011.735a6.147 6.147 0 0 1-.148.843c-.074.315-.175.624-.301.923a7.567 7.567 0 0 1-.427.919c-.072.131-.148.26-.227.388a8.145 8.145 0 0 1-.254.389c-.088.125-.179.248-.273.37-.097.126-.197.249-.301.37-.844 1.006-1.935 1.823-3.188 2.365-.173.075-.348.145-.525.211-.162.061-.326.119-.491.173-.15.049-.301.096-.454.14-.167.048-.336.093-.505.134-.153.038-.307.073-.462.106a9.03 9.03 0 0 1-.509.094c-.398.065-.804.106-1.215.112z"/>
   </svg>
 )
 
 const GoogleLogo = ({ className = "h-4 w-4" }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z" fill="#4285F4"/>
-    <path d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z" fill="#34A853"/>
-    <path d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 000 10.76l3.98-3.09z" fill="#FBBC05"/>
-    <path d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z" fill="#EA4335"/>
+  <svg className={className} viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
   </svg>
 )
 
-// Platform/Channel icon mapping
+// Platform-specific icon component
 const PlatformIcon = ({ platform }: { platform: string }) => {
-  switch (platform?.toLowerCase()) {
-    case 'facebook':
-      return <Facebook className="h-3.5 w-3.5" />
+  switch (platform.toLowerCase()) {
     case 'instagram':
-      return <Instagram className="h-3.5 w-3.5" />
+      return <Instagram className="h-4 w-4 text-pink-600" />
+    case 'facebook':
+      return <Facebook className="h-4 w-4 text-blue-600" />
+    case 'messenger':
+      return <MessageCircle className="h-4 w-4 text-blue-500" />
+    case 'audience_network':
+      return <Globe className="h-4 w-4 text-orange-500" />
     default:
-      return <Globe className="h-3.5 w-3.5" />
+      return <Globe className="h-4 w-4 text-gray-500" />
   }
 }
 
@@ -456,14 +563,14 @@ export function AdDetailDialogEnhanced({
   onClose,
   adAccounts = []
 }: AdDetailDialogEnhancedProps) {
-  const [selectedFormat, setSelectedFormat] = useState<string>('auto')
+  const [selectedPlacement, setSelectedPlacement] = useState<string>('') // Will be set based on available placements
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [showComments, setShowComments] = useState(false)
   
+  if (!ad) return null
+  
   // Get real comments from ad data
   const comments = getAdComments(ad)
-  
-  if (!ad) return null
   
   // Get campaign and adset from props or ad object
   const adCampaign = campaign || ad.campaign
@@ -482,15 +589,163 @@ export function AdDetailDialogEnhanced({
   const allImageUrls = getAllCreativeImageUrls(creative)
   const imagesWithDimensions = getCreativeImagesWithDimensions(creative)
   
-  // Get the best image based on selected format
-  const getImageForFormat = () => {
-    if (selectedFormat === 'square') return getBestCreativeImageUrl(creative, 1)
-    if (selectedFormat === 'vertical') return getBestCreativeImageUrl(creative, 0.5625) // 9:16
-    if (selectedFormat === 'horizontal') return getBestCreativeImageUrl(creative, 1.91) // 1.91:1
-    return getCreativeImageUrl(creative) // auto
+  // Get publisher platforms - safely handle arrays that might contain objects
+  const getPublisherPlatforms = () => {
+    const platforms = creative?.asset_feed_spec?.publisher_platforms || 
+                     creative?.publisher_platforms || 
+                     ['facebook', 'instagram']
+    return platforms.filter((p: any) => typeof p === 'string')
+  }
+  const publisherPlatforms = getPublisherPlatforms()
+  
+  // Get targeting info from adSet to find actual placements
+  const targeting = adAdSet?.metadata?.rawData?.targeting || adAdSet?.metadata?.targeting || adAdSet?.targeting || {}
+  const facebookPositions = targeting.facebook_positions || []
+  
+  // Get available placements from actual ad targeting
+  const getAvailablePlacements = () => {
+    const allPlacements = []
+    const placementSet = new Set()
+    
+    // Get detailed placements for each platform
+    publisherPlatforms.forEach((platform: string) => {
+      const platformPlacements = getDetailedPlacements(platform, targeting)
+      platformPlacements.forEach((placement: string) => {
+        const normalizedPlacement = placement.toLowerCase().replace(/\s+/g, '_')
+        if (!placementSet.has(normalizedPlacement)) {
+          allPlacements.push({ 
+            value: normalizedPlacement, 
+            label: placement,
+            platform: platform 
+          })
+          placementSet.add(normalizedPlacement)
+        }
+      })
+    })
+    
+    // If no placements found, add default ones
+    if (allPlacements.length === 0) {
+      const hasInstagram = publisherPlatforms.includes('instagram')
+      const hasFacebook = publisherPlatforms.includes('facebook')
+      
+      if (hasFacebook || hasInstagram) {
+        allPlacements.push(
+          { value: 'feed', label: 'Feed', platform: 'all' },
+          { value: 'stories', label: 'Stories', platform: 'all' },
+          { value: 'reels', label: 'Reels', platform: 'all' }
+        )
+      }
+    }
+    
+    return allPlacements
   }
   
-  const displayImageUrl = isCarousel ? allImageUrls[selectedImageIndex] : getImageForFormat()
+  const availablePlacements = getAvailablePlacements()
+  
+  // Use the selected placement or default to first available
+  const currentPlacement = selectedPlacement || (availablePlacements[0]?.value || 'feed')
+  
+  // Get the best image/video based on selected placement
+  const getMediaForPlacement = () => {
+    // Check if we have specific assets for different placements
+    const assetFeedSpec = creative?.asset_feed_spec
+    const images = assetFeedSpec?.images || []
+    const videos = assetFeedSpec?.videos || []
+    
+    
+    // For Stories/Reels - Need 9:16 vertical format
+    if (currentPlacement === 'stories' || currentPlacement === 'reels' || currentPlacement.includes('stories') || currentPlacement.includes('reels')) {
+      // Check for videos first (Stories/Reels often use video)
+      if (videos.length > 0) {
+        const video = videos[0]
+        if (video.thumbnail_url) return video.thumbnail_url
+        if (video.video_id) return `https://graph.facebook.com/v18.0/${video.video_id}/thumbnails`
+      }
+      
+      // Look for 9:16 vertical images
+      for (const img of images) {
+        if (img.width && img.height) {
+          const ratio = img.width / img.height
+          // 9:16 = 0.5625, allow some tolerance
+          if (ratio >= 0.5 && ratio <= 0.65) {
+            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+          }
+        }
+      }
+      
+      // If we have 3 images, assume [square, vertical, horizontal] pattern
+      if (images.length === 3) {
+        // Return the vertical one (index 1)
+        return images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture`
+      }
+      
+      // Last resort - try to find any portrait image
+      for (const img of images) {
+        if (img.width && img.height && img.width < img.height) {
+          return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+        }
+      }
+    }
+    
+    // For Feed/Video Feed - Prefer 1:1 square or 4:5 portrait
+    if (currentPlacement === 'feed' || currentPlacement === 'video_feed' || currentPlacement.includes('feed')) {
+      // First try to find 1:1 square image
+      for (const img of images) {
+        if (img.width && img.height) {
+          const ratio = img.width / img.height
+          // 1:1 square, allow tolerance
+          if (ratio >= 0.9 && ratio <= 1.1) {
+            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+          }
+        }
+      }
+      
+      // Then try 4:5 portrait (common for mobile feed)
+      for (const img of images) {
+        if (img.width && img.height) {
+          const ratio = img.width / img.height
+          // 4:5 = 0.8
+          if (ratio >= 0.75 && ratio <= 0.85) {
+            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+          }
+        }
+      }
+      
+      // If we have 3 images, assume [square, vertical, horizontal] pattern
+      if (images.length === 3) {
+        // Return the square one (index 0)
+        return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+      }
+    }
+    
+    // For Explore - Use square 1:1
+    if (currentPlacement === 'explore' || currentPlacement.includes('explore')) {
+      // Find 1:1 square image
+      for (const img of images) {
+        if (img.width && img.height) {
+          const ratio = img.width / img.height
+          if (ratio >= 0.9 && ratio <= 1.1) {
+            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+          }
+        }
+      }
+      
+      // Default to first image for explore
+      if (images.length > 0) {
+        return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+      }
+    }
+    
+    // Fallback - return first available image
+    if (images.length > 0) {
+      return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+    }
+    
+    // Last resort - try the old method
+    return getBestCreativeImageUrl(creative, currentPlacement === 'stories' || currentPlacement === 'reels' ? 0.5625 : 1)
+  }
+  
+  const displayImageUrl = getMediaForPlacement()
   
   // Get text content - safely handle objects
   const getTitleText = () => {
@@ -523,15 +778,6 @@ export function AdDetailDialogEnhanced({
   const ctaText = creative?.asset_feed_spec?.call_to_action_types?.[0] || creative?.call_to_action?.type || 'LEARN_MORE'
   const linkUrl = getLinkUrl()
   
-  // Get publisher platforms - safely handle arrays that might contain objects
-  const getPublisherPlatforms = () => {
-    const platforms = creative?.asset_feed_spec?.publisher_platforms || 
-                     creative?.publisher_platforms || 
-                     ['facebook', 'instagram']
-    return platforms.filter((p: any) => typeof p === 'string')
-  }
-  const publisherPlatforms = getPublisherPlatforms()
-  
   // Get metrics from ad data
   const adMetrics = ad.metadata?.insights || {}
   const engagementMetrics = {
@@ -548,8 +794,7 @@ export function AdDetailDialogEnhanced({
     videoViews: adMetrics.video_views || 0,
   }
   
-  // Get targeting info from adSet - check rawData path first
-  const targeting = adAdSet?.metadata?.rawData?.targeting || adAdSet?.metadata?.targeting || adAdSet?.targeting || {}
+  // Targeting already defined above, no need to redefine
   const geoLocations = targeting.geo_locations || {}
   const ageMin = targeting.age_min || 18
   const ageMax = targeting.age_max || 65
@@ -576,993 +821,839 @@ export function AdDetailDialogEnhanced({
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] p-0 overflow-hidden">
-        {/* Beautiful redesigned header */}
-        <DialogHeader className="border-b bg-gradient-to-r from-slate-50/50 via-white to-slate-50/50">
-          <div className="px-6 pt-4 pb-3 space-y-3">
-            {/* Top row: Platform, Channel, and Status */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {/* Platform with proper logo */}
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border shadow-sm">
-                  {adCampaign?.provider?.toLowerCase() === 'google' ? (
-                    <GoogleLogo className="h-4 w-4" />
-                  ) : (
-                    <MetaLogo className="h-4 w-4" />
-                  )}
-                  <span className="text-xs font-medium">
-                    {adCampaign?.provider?.charAt(0).toUpperCase() + adCampaign?.provider?.slice(1) || 'Meta'}
-                  </span>
-                </div>
-                
-                {/* Channel */}
-                <Badge variant="secondary" className="h-7">
-                  <Zap className="h-3 w-3 mr-1" />
-                  {adCampaign?.channel || 'Social'}
-                </Badge>
-                
-                {/* Publisher Platforms */}
-                {publisherPlatforms.length > 0 && (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded-md">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">on</span>
-                    {publisherPlatforms.map((platform: string) => (
-                      <div key={platform} className="flex items-center">
-                        <PlatformIcon platform={platform} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              {/* Status */}
-              <StatusBadge status={ad.status} />
-            </div>
-            
-            {/* Beautiful hierarchy with better spacing */}
-            <div className="space-y-2">
-              {/* Campaign → Ad Set flow */}
-              <div className="flex items-center text-xs">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 rounded-l-lg border-l-2 border-primary/20">
-                  <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Campaign</span>
-                  <span className="font-medium text-foreground truncate max-w-[250px]" title={adCampaign?.name}>
-                    {adCampaign?.name || 'Untitled Campaign'}
-                  </span>
-                </div>
-                <div className="h-7 w-px bg-border" />
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/20 rounded-r-lg">
-                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Ad Set</span>
-                  <span className="font-medium text-foreground truncate max-w-[250px]" title={adAdSet?.name}>
-                    {adAdSet?.name || 'Untitled Ad Set'}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Ad name - the star of the show */}
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-                <div className="p-1.5 bg-primary/10 rounded">
-                  <FileText className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Advertisement</p>
-                  <p className="font-semibold text-sm text-foreground truncate" title={ad.name}>
-                    {ad.name}
-                  </p>
-                </div>
-                {ad.externalId && (
-                  <code className="text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded font-mono">
-                    ID: {ad.externalId.slice(-8)}
-                  </code>
-                )}
+      <DialogContent className="max-w-6xl max-h-[90vh] p-0 overflow-hidden">
+        {/* Compact Beautiful Header */}
+        <DialogHeader className="px-4 pt-4 pb-2 bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {adCampaign?.provider?.toLowerCase() === 'google' ? (
+                <GoogleLogo className="h-5 w-5" />
+              ) : (
+                <MetaLogo className="h-5 w-5" />
+              )}
+              <div className="flex items-center gap-2">
+                {publisherPlatforms.map((platform: string) => (
+                  <Badge key={platform} variant="secondary" className="text-[10px] py-0.5">
+                    {platform}
+                  </Badge>
+                ))}
               </div>
             </div>
+            <StatusBadge status={ad.status} />
           </div>
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="text-muted-foreground">Campaign:</span>
+            <span className="font-medium truncate max-w-[150px]">{adCampaign?.name}</span>
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">Ad Set:</span>
+            <span className="font-medium truncate max-w-[150px]">{adAdSet?.name}</span>
+          </div>
+          <div className="font-semibold text-sm mt-1">{ad.name}</div>
         </DialogHeader>
         
-        {/* Tab Navigation */}
-        <Tabs defaultValue="preview" className="flex-1 flex flex-col h-[calc(90vh-180px)]">
-          <TabsList className="mx-6 mt-4 grid grid-cols-3">
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
-          </TabsList>
-          
-          {/* Preview Tab */}
-          <TabsContent value="preview" className="flex-1 mt-0 overflow-hidden">
-            <div className="flex h-full">
-              {/* Left side - Ad Preview */}
-              <div className="w-1/2 border-r bg-gray-50 overflow-hidden">
-                <ScrollArea className="h-full p-6">
-                  <div className="space-y-4">
-              {/* Format selector */}
-              {imagesWithDimensions.length > 1 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Preview Format</span>
-                  <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">Auto (Best Fit)</SelectItem>
-                      <SelectItem value="square">Square (1:1)</SelectItem>
-                      <SelectItem value="vertical">Vertical (9:16)</SelectItem>
-                      <SelectItem value="horizontal">Landscape (1.91:1)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              
-              {/* Mock Facebook/Instagram Post */}
-              <Card className="overflow-hidden">
-                <div className="bg-white">
-                  {/* Post Header */}
-                  <div className="flex items-center gap-3 p-4">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500" />
-                    <div className="flex-1">
-                      <div className="font-medium">{adAccount?.name || 'Business Page'}</div>
-                      <div className="text-xs text-muted-foreground">Sponsored • Just now</div>
-                    </div>
-                  </div>
-                  
-                  {/* Post Text */}
-                  {(adTitle || adBody) && (
-                    <div className="px-4 pb-3 space-y-2">
-                      {adTitle && <div className="font-medium">{adTitle}</div>}
-                      {adBody && <div className="text-sm whitespace-pre-wrap">{adBody}</div>}
-                    </div>
-                  )}
-                  
-                  {/* Creative Image/Video */}
-                  <div className="relative bg-black">
-                    {isCarousel && allImageUrls.length > 0 ? (
-                      <div className="relative">
-                        <div className="aspect-square">
-                          <img 
-                            src={displayImageUrl || `https://picsum.photos/800/800?random=${ad.id}`}
-                            alt={ad.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = `https://picsum.photos/800/800?random=${ad.id}_${selectedImageIndex}`
-                            }}
-                          />
-                        </div>
-                        {/* Carousel navigation */}
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                          {allImageUrls.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setSelectedImageIndex(idx)}
-                              className={`w-2 h-2 rounded-full transition-colors ${
-                                idx === selectedImageIndex ? 'bg-white' : 'bg-white/50'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ) : displayImageUrl ? (
-                      <div className="relative">
-                        <img 
-                          src={displayImageUrl}
-                          alt={ad.name}
-                          className="w-full object-cover"
-                          style={{
-                            aspectRatio: selectedFormat === 'square' ? '1/1' : 
-                                       selectedFormat === 'vertical' ? '9/16' :
-                                       selectedFormat === 'horizontal' ? '1.91/1' : 'auto'
-                          }}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = `https://picsum.photos/800/800?random=${ad.id}`
-                          }}
-                        />
-                        {isVideo && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                            <div className="rounded-full bg-white/90 p-4 shadow-lg">
-                              <Play className="h-8 w-8 text-gray-900" fill="currentColor" />
+        {/* Main Content with Side-by-side Layout */}
+        <div className="flex h-[calc(90vh-100px)]">
+          {/* Left Side - Full Height Ad Preview with Comments */}
+          <div className="w-[45%] border-r bg-gradient-to-b from-gray-50/50 to-white overflow-y-auto">
+            <Card className="rounded-none border-0">
+              <div className="bg-white flex flex-col">
+                {/* Placement Selector */}
+                <div className="p-3 border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Ad Preview</div>
+                    {/* Placement Switcher - Show available placements */}
+                    {availablePlacements.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Select value={currentPlacement} onValueChange={setSelectedPlacement}>
+                          <SelectTrigger className="w-32 h-7 text-[10px]">
+                            <div className="flex items-center gap-1.5">
+                              {(() => {
+                                const selectedPlacement = availablePlacements.find(p => p.value === currentPlacement)
+                                const label = selectedPlacement?.label || currentPlacement
+                                
+                                // Determine icon based on placement name
+                                let icon = <Layout className="w-3 h-3" />
+                                if (currentPlacement.includes('stories') || currentPlacement.includes('story')) {
+                                  icon = <Smartphone className="w-3 h-3" />
+                                } else if (currentPlacement.includes('reels')) {
+                                  icon = <PlayCircle className="w-3 h-3" />
+                                } else if (currentPlacement.includes('explore')) {
+                                  icon = <Search className="w-3 h-3" />
+                                } else if (currentPlacement.includes('video')) {
+                                  icon = <Video className="w-3 h-3" />
+                                } else if (currentPlacement.includes('feed')) {
+                                  icon = <Layout className="w-3 h-3" />
+                                }
+                                
+                                return (
+                                  <>
+                                    {icon}
+                                    <span className="truncate">{label}</span>
+                                  </>
+                                )
+                              })()}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="aspect-square flex items-center justify-center bg-gray-100">
-                        <ImageIcon className="h-16 w-16 text-muted-foreground" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availablePlacements.map(placement => (
+                              <SelectItem key={placement.value} value={placement.value}>
+                                <div className="flex items-center gap-1.5">
+                                  {(() => {
+                                    // Determine icon based on placement name
+                                    if (placement.value.includes('stories') || placement.value.includes('story')) {
+                                      return <Smartphone className="w-3 h-3" />
+                                    } else if (placement.value.includes('reels')) {
+                                      return <PlayCircle className="w-3 h-3" />
+                                    } else if (placement.value.includes('explore')) {
+                                      return <Search className="w-3 h-3" />
+                                    } else if (placement.value.includes('video')) {
+                                      return <Video className="w-3 h-3" />
+                                    } else if (placement.value.includes('feed')) {
+                                      return <Layout className="w-3 h-3" />
+                                    } else {
+                                      return <Layout className="w-3 h-3" />
+                                    }
+                                  })()}
+                                  <span>{placement.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
                   </div>
-                  
-                  {/* CTA Section */}
-                  {ctaText && (
-                    <div className="p-4">
-                      <Button 
-                        className="w-full" 
-                        variant="default"
-                        onClick={handleCTAClick}
-                      >
-                        {formatCTAText(ctaText)}
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {/* Engagement Stats */}
-                  <div className="border-t px-4 py-2">
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1">
-                          <ThumbsUp className="h-4 w-4 text-blue-500" />
-                          {engagementMetrics.likes.toLocaleString()}
-                        </span>
-                        <button 
-                          onClick={() => setShowComments(!showComments)}
-                          className="hover:underline"
-                        >
-                          {comments.length > 0 
-                            ? `${comments.length} comments` 
-                            : `${engagementMetrics.comments.toLocaleString()} comments`}
-                        </button>
-                        <span>{engagementMetrics.shares.toLocaleString()} shares</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="border-t grid grid-cols-3">
-                    <button className="flex items-center justify-center gap-2 py-3 hover:bg-gray-50 text-sm font-medium">
-                      <ThumbsUp className="h-4 w-4" />
-                      Like
-                    </button>
-                    <button className="flex items-center justify-center gap-2 py-3 hover:bg-gray-50 text-sm font-medium">
-                      <MessageCircle className="h-4 w-4" />
-                      Comment
-                    </button>
-                    <button className="flex items-center justify-center gap-2 py-3 hover:bg-gray-50 text-sm font-medium">
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </button>
-                  </div>
-                  
-                  {/* Comments Section */}
-                  {showComments && (
-                    <div className="border-t p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">Comments</div>
-                        {comments.length === 0 && (
-                          <span className="text-xs text-muted-foreground">No comments data available</span>
+                </div>
+                
+                {/* Placement-based Mockup Container */}
+                <div className={cn(
+                  "flex items-center justify-center p-4 pb-16 mb-8",
+                  currentPlacement === 'stories' || currentPlacement === 'reels' || currentPlacement.includes('stories') || currentPlacement.includes('reels')
+                    ? "bg-gradient-to-br from-purple-50 to-pink-50" 
+                    : "bg-gray-100"
+                )}>
+                  {/* Stories/Reels Mockup - Phone Frame with 9:16 ratio */}
+                  {(currentPlacement === 'stories' || currentPlacement === 'reels' || currentPlacement.includes('stories') || currentPlacement.includes('reels')) && (
+                    <div className="relative w-[280px] h-[497px] bg-black rounded-[40px] p-3 shadow-2xl">
+                      <div className="relative w-full h-full bg-black rounded-[35px] overflow-hidden">
+                        {/* Background Image or Placeholder */}
+                        {displayImageUrl ? (
+                          <img
+                            src={displayImageUrl}
+                            alt="Ad preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                            <div className="text-center">
+                              <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-2" />
+                              <p className="text-gray-500 text-sm">No creative available</p>
+                              <p className="text-gray-600 text-xs mt-1">for this placement</p>
+                            </div>
+                          </div>
                         )}
-                      </div>
-                      
-                      {comments.length > 0 ? (
-                        <ScrollArea className="h-48">
-                          <div className="space-y-3">
-                            {comments.map(comment => (
-                              <div key={comment.id} className="flex gap-3">
-                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">
-                                  {comment.user.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex-1 space-y-1">
-                                  <div className="bg-gray-100 rounded-2xl px-3 py-2">
-                                    <div className="font-medium text-sm">{comment.user}</div>
-                                    <div className="text-sm">{comment.text}</div>
+                        
+                        {/* Dark gradient overlays for text readability */}
+                        <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/60 via-black/20 to-transparent z-10" />
+                        <div className="absolute bottom-0 left-0 right-0 h-56 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10" />
+                        
+                        {/* Stories-specific UI */}
+                        {currentPlacement.includes('stories') && (
+                          <>
+                            {/* Story Progress Bar - At the very top */}
+                            <div className="absolute top-3 left-3 right-3 z-20 flex gap-1">
+                              <div className="flex-1 h-[2px] bg-white/30 rounded-full overflow-hidden">
+                                <div className="w-2/3 h-full bg-white rounded-full animate-[progress_5s_linear]" />
+                              </div>
+                              <div className="flex-1 h-[2px] bg-white/30 rounded-full" />
+                              <div className="flex-1 h-[2px] bg-white/30 rounded-full" />
+                            </div>
+                            
+                            {/* Profile Row - Under progress bar */}
+                            <div className="absolute top-7 left-3 right-3 z-20 flex items-center justify-between">
+                              <div className="flex items-center gap-2.5">
+                                {/* Instagram gradient ring profile pic */}
+                                <div className="w-8 h-8 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 rounded-full p-[2px]">
+                                  <div className="w-full h-full bg-black rounded-full p-[2px]">
+                                    <div className="w-full h-full bg-gray-400 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+                                      B
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                    <button className="hover:underline">Like</button>
-                                    <button className="hover:underline">Reply</button>
-                                    {comment.time && (
-                                      <span>{new Date(comment.time).toLocaleString()}</span>
-                                    )}
-                                    {comment.likes > 0 && (
-                                      <span className="flex items-center gap-1">
-                                        <ThumbsUp className="h-3 w-3" />
-                                        {comment.likes}
-                                      </span>
-                                    )}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-white text-[13px] font-semibold drop-shadow">Business</span>
+                                  <span className="text-white/60 text-[11px] drop-shadow">•</span>
+                                  <span className="text-white/60 text-[11px] drop-shadow">Sponsored</span>
+                                </div>
+                              </div>
+                              <X className="w-5 h-5 text-white/80 drop-shadow" />
+                            </div>
+                            
+                            {/* Ad Text Content - Positioned in the lower third */}
+                            {adBody && (
+                              <div className="absolute bottom-24 left-4 right-4 z-20">
+                                <p className="text-white text-[12px] leading-[1.3] font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] line-clamp-4">
+                                  {adBody}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* CTA Button and Engagement for Stories */}
+                            <div className="absolute bottom-4 left-4 right-4 z-20">
+                              {/* Engagement metrics row */}
+                              <div className="flex items-center justify-between mb-3 px-1">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-1">
+                                    <Heart className="w-4 h-4 text-white drop-shadow-lg" />
+                                    <span className="text-white text-[10px] font-medium drop-shadow">
+                                      {engagementMetrics.likes > 999 ? `${(engagementMetrics.likes/1000).toFixed(1)}K` : engagementMetrics.likes}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <MessageCircle className="w-4 h-4 text-white drop-shadow-lg" />
+                                    <span className="text-white text-[10px] font-medium drop-shadow">
+                                      {engagementMetrics.comments}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Send className="w-4 h-4 text-white drop-shadow-lg -rotate-12" />
+                                    <span className="text-white text-[10px] font-medium drop-shadow">
+                                      {engagementMetrics.shares}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Bookmark className="w-5 h-5 text-white drop-shadow-lg" />
+                              </div>
+                              
+                              {/* CTA Button */}
+                              <Button 
+                                size="sm" 
+                                className="w-full h-11 text-[13px] font-semibold bg-white text-black hover:bg-gray-100 rounded-md shadow-lg"
+                                onClick={handleCTAClick}
+                              >
+                                {formatCTAText(ctaText)}
+                              </Button>
+                              {/* Swipe Up hint */}
+                              <div className="flex items-center justify-center mt-2 gap-1">
+                                <ChevronRight className="w-3 h-3 text-white/60 rotate-[-90deg]" />
+                                <span className="text-white/60 text-[10px]">Learn More</span>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        
+                        {/* Reels-specific UI */}
+                        {currentPlacement.includes('reels') && (
+                          <>
+                            {/* Top Section - Profile */}
+                            <div className="absolute top-4 left-3 right-3 z-20 flex items-center justify-between">
+                              <span className="text-white text-sm font-semibold drop-shadow">Reels</span>
+                              <div className="flex items-center gap-3">
+                                <Camera className="w-5 h-5 text-white drop-shadow" />
+                                <Search className="w-5 h-5 text-white drop-shadow" />
+                              </div>
+                            </div>
+                            
+                            {/* Bottom Content Area */}
+                            <div className="absolute bottom-0 left-0 right-0 z-20">
+                              <div className="flex items-end">
+                                {/* Left side - Content info */}
+                                <div className="flex-1 p-4 pb-6">
+                                  {/* Profile info */}
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-8 h-8 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 rounded-full p-[2px]">
+                                      <div className="w-full h-full bg-black rounded-full p-[2px]">
+                                        <div className="w-full h-full bg-gray-400 rounded-full" />
+                                      </div>
+                                    </div>
+                                    <span className="text-white text-[12px] font-semibold drop-shadow">business_name</span>
+                                    <span className="text-white/60 text-[11px] drop-shadow">•</span>
+                                    <span className="text-white/60 text-[11px] drop-shadow">Sponsored</span>
+                                    <button className="ml-2 px-2 py-0.5 border border-white/80 rounded text-white text-[10px] font-medium">
+                                      Follow
+                                    </button>
                                   </div>
                                   
-                                  {/* Show replies if any */}
-                                  {comment.replies && comment.replies.length > 0 && (
-                                    <div className="ml-8 space-y-2 mt-2">
-                                      {comment.replies.slice(0, 2).map((reply: any, idx: number) => (
-                                        <div key={idx} className="flex gap-2">
-                                          <div className="h-6 w-6 rounded-full bg-gray-300 flex-shrink-0" />
-                                          <div className="bg-gray-50 rounded-xl px-2 py-1">
-                                            <span className="text-xs font-medium">{reply.from?.name || 'User'}: </span>
-                                            <span className="text-xs">{reply.message || reply.text}</span>
-                                          </div>
+                                  {/* Caption */}
+                                  {adBody && (
+                                    <p className="text-white text-[11px] leading-relaxed mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] line-clamp-2">
+                                      {adBody}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Audio info */}
+                                  <div className="flex items-center gap-1.5">
+                                    <Music className="w-3 h-3 text-white" />
+                                    <span className="text-white text-[11px]">Original audio</span>
+                                  </div>
+                                  
+                                  {/* CTA Button */}
+                                  <Button 
+                                    size="sm" 
+                                    className="mt-3 h-8 px-4 text-[11px] font-semibold bg-white/90 text-black hover:bg-white rounded"
+                                    onClick={handleCTAClick}
+                                  >
+                                    {formatCTAText(ctaText)}
+                                  </Button>
+                                </div>
+                                
+                                {/* Right side - Engagement buttons */}
+                                <div className="flex flex-col items-center gap-4 p-3 pb-6">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <div className="w-10 h-10 flex items-center justify-center">
+                                      <Heart className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                    </div>
+                                    <span className="text-white text-[11px] font-semibold drop-shadow">
+                                      {engagementMetrics.likes > 999 ? `${(engagementMetrics.likes/1000).toFixed(1)}K` : engagementMetrics.likes}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col items-center gap-1">
+                                    <div className="w-10 h-10 flex items-center justify-center">
+                                      <MessageCircle className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                    </div>
+                                    <span className="text-white text-[11px] font-semibold drop-shadow">
+                                      {engagementMetrics.comments > 999 ? `${(engagementMetrics.comments/1000).toFixed(1)}K` : engagementMetrics.comments}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col items-center gap-1">
+                                    <div className="w-10 h-10 flex items-center justify-center">
+                                      <Send className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] -rotate-12" />
+                                    </div>
+                                    <span className="text-white text-[11px] font-semibold drop-shadow">
+                                      {engagementMetrics.shares}
+                                    </span>
+                                  </div>
+                                  <div className="w-10 h-10 flex items-center justify-center">
+                                    <Bookmark className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                  </div>
+                                  <div className="w-10 h-10 flex items-center justify-center">
+                                    <MoreHorizontal className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                  </div>
+                                  <div className="w-8 h-8 bg-gray-400 rounded border-2 border-white shadow-lg" />
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        
+                        {/* Video Play Button Overlay */}
+                        {isVideo && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                            <div className="w-16 h-16 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                              <Play className="h-9 w-9 text-white ml-1" fill="white" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Feed/Video Feed Mockup - Complete Facebook Post */}
+                  {(currentPlacement === 'feed' || currentPlacement === 'video_feed' || currentPlacement.includes('feed')) && (
+                    <div className="w-full max-w-[500px] bg-white rounded-lg shadow-sm border">
+                      {/* Post Header */}
+                      <div className="p-3 border-b">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full" />
+                            <div>
+                              <div className="text-sm font-semibold">Your Business</div>
+                              <div className="text-xs text-muted-foreground">Sponsored • Just now</div>
+                            </div>
+                          </div>
+                          <button className="text-gray-400 hover:text-gray-600">
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Post Text */}
+                      {adBody && (
+                        <div className="p-3">
+                          <p className="text-sm text-gray-900">{adBody}</p>
+                        </div>
+                      )}
+                      
+                      {/* Image */}
+                      <div className="relative">
+                        {displayImageUrl ? (
+                          <>
+                            <img
+                              src={displayImageUrl}
+                              alt="Ad preview"
+                              className="w-full h-auto object-cover"
+                            />
+                            {isVideo && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
+                                <Play className="h-12 w-12 text-white drop-shadow-lg" />
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="w-full h-64 bg-gray-100 flex items-center justify-center">
+                            <div className="text-center">
+                              <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-500 text-sm">No image available</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Link Preview Card */}
+                      <div className="m-3 border rounded-lg overflow-hidden">
+                        <div className="p-3 bg-gray-50">
+                          <div className="text-xs text-gray-500 uppercase">
+                            {(() => {
+                              try {
+                                const url = linkUrl && linkUrl !== '#' ? linkUrl : 'https://example.com'
+                                return new URL(url).hostname
+                              } catch {
+                                return 'example.com'
+                              }
+                            })()}
+                          </div>
+                          <h4 className="text-sm font-semibold mt-1">{adTitle}</h4>
+                          <Button
+                            size="sm"
+                            className="w-full mt-2 h-8 text-xs font-medium"
+                            onClick={handleCTAClick}
+                          >
+                            {formatCTAText(ctaText)}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Engagement Bar */}
+                      <div className="px-3 py-2 border-t border-b flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <div className="flex -space-x-1">
+                            <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                              <ThumbsUp className="h-2.5 w-2.5 text-white" />
+                            </div>
+                            <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                              <Heart className="h-2.5 w-2.5 text-white" />
+                            </div>
+                          </div>
+                          <span>{engagementMetrics.likes.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span>{engagementMetrics.comments} comments</span>
+                          <span>{engagementMetrics.shares} shares</span>
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="px-3 py-1 flex items-center justify-around">
+                        <button className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-gray-100 rounded">
+                          <ThumbsUp className="h-4 w-4" />
+                          <span className="text-sm font-medium">Like</span>
+                        </button>
+                        <button className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-gray-100 rounded">
+                          <MessageCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Comment</span>
+                        </button>
+                        <button className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-gray-100 rounded">
+                          <Share2 className="h-4 w-4" />
+                          <span className="text-sm font-medium">Share</span>
+                        </button>
+                      </div>
+                      
+                      {/* Comments */}
+                      {comments.length > 0 && (
+                        <div className="border-t bg-gray-50">
+                          <div className="p-3 pb-16 space-y-2">
+                            {comments.slice(0, 3).map((comment: any) => (
+                              <div key={comment.id} className="space-y-2">
+                                <div className="flex gap-2">
+                                  <div className="w-8 h-8 bg-gray-300 rounded-full flex-shrink-0" />
+                                  <div className="flex-1 bg-white rounded-2xl px-3 py-2">
+                                    <div className="text-xs font-semibold">{comment.user}</div>
+                                    <div className="text-xs text-gray-700">{comment.text}</div>
+                                    {/* Like count and replies count */}
+                                    {(comment.likes > 0 || comment.replies?.length > 0) && (
+                                      <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-500">
+                                        {comment.likes > 0 && (
+                                          <span className="flex items-center gap-1">
+                                            <ThumbsUp className="h-2.5 w-2.5" />
+                                            {comment.likes}
+                                          </span>
+                                        )}
+                                        {comment.replies?.length > 0 && (
+                                          <span>{comment.replies.length} replies</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Show first reply if exists */}
+                                {comment.replies?.length > 0 && (
+                                  <div className="ml-6 flex gap-2">
+                                    <div className="w-6 h-6 bg-gray-200 rounded-full flex-shrink-0" />
+                                    <div className="flex-1 bg-gray-50 rounded-2xl px-3 py-2">
+                                      <div className="text-[10px] font-semibold">{comment.replies[0].from?.name || comment.replies[0].user_name || 'Reply'}</div>
+                                      <div className="text-[10px] text-gray-600">{comment.replies[0].message || comment.replies[0].text}</div>
+                                      {comment.replies[0].like_count > 0 && (
+                                        <div className="flex items-center gap-1 mt-1 text-[9px] text-gray-400">
+                                          <ThumbsUp className="h-2 w-2" />
+                                          {comment.replies[0].like_count}
                                         </div>
-                                      ))}
-                                      {comment.replies.length > 2 && (
-                                        <button className="text-xs text-blue-500 hover:underline ml-8">
-                                          View {comment.replies.length - 2} more replies
-                                        </button>
                                       )}
                                     </div>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
-                        </ScrollArea>
-                      ) : (
-                        <div className="bg-gray-50 rounded-lg p-8 text-center">
-                          <MessageCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-muted-foreground">
-                            Comments are not synced for this ad.
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            To view comments, visit the ad directly on {adCampaign?.provider === 'google' ? 'Google' : 'Facebook'}.
-                          </p>
                         </div>
                       )}
                     </div>
                   )}
+                  
+                  {/* Explore Grid Mockup */}
+                  {(currentPlacement === 'explore' || currentPlacement.includes('explore')) && (
+                    <div className="grid grid-cols-3 gap-0.5 w-full max-w-[380px] bg-white p-2 rounded-lg shadow-sm">
+                      <div className="col-span-2 row-span-2 relative">
+                        {displayImageUrl ? (
+                          <img
+                            src={displayImageUrl}
+                            alt="Ad preview"
+                            className="w-full h-full object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-100 rounded flex items-center justify-center min-h-[250px]">
+                            <div className="text-center">
+                              <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-500 text-sm">No image</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="absolute top-1 left-1 bg-white/90 px-1.5 py-0.5 rounded text-[8px] font-medium">
+                          Sponsored
+                        </div>
+                        {isVideo && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none rounded">
+                            <Play className="h-8 w-8 text-white drop-shadow-lg" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="bg-gray-200 rounded aspect-square" />
+                      <div className="bg-gray-200 rounded aspect-square" />
+                      <div className="bg-gray-200 rounded aspect-square" />
+                    </div>
+                  )}
                 </div>
-              </Card>
-              
-                  {/* Removed - moved to right column */}
-                  </div>
-                </ScrollArea>
               </div>
-              
-              {/* Right side - Targeting Information */}
-              <div className="w-1/2 overflow-hidden">
-                <ScrollArea className="h-full p-6">
-                  <div className="space-y-6">
-                    {/* Targeting Information */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-sm">Targeting Information</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                    {/* Demographics - Professional Design */}
-                    <div>
-                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                        <Users className="h-4 w-4 text-purple-600" />
-                        Audience Demographics
-                      </h4>
-                      
-                      {/* Age & Gender Grid */}
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        {/* Age Range Card */}
-                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200/50">
-                          <div className="flex items-start gap-2">
-                            <div className="p-1.5 bg-white rounded-md shadow-sm">
-                              <Calendar className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-[11px] font-medium text-muted-foreground mb-1">
-                                Age Range
-                              </div>
-                              <div className="text-lg font-semibold text-blue-900">
-                                {ageMin} - {ageMax}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
-                                years old
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Gender Card */}
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-200/50">
-                          <div className="flex items-start gap-2">
-                            <div className="p-1.5 bg-white rounded-md shadow-sm">
-                              <Users className="h-4 w-4 text-purple-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-[11px] font-medium text-muted-foreground mb-1">
-                                Gender
-                              </div>
-                              <div className="text-lg font-semibold text-purple-900">
-                                {genders.length === 2 ? 'All Genders' : 
-                                 genders.includes(1) ? 'Male' : 
-                                 genders.includes(2) ? 'Female' : 'Custom'}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
-                                {genders.length === 2 ? 'No restrictions' : 'Targeted'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Languages if specified */}
-                      {languages.length > 0 && (
-                        <div className="bg-gradient-to-r from-gray-50 to-white rounded-lg p-3 border">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50">
-                              <Languages className="h-4 w-4 text-green-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-xs font-medium mb-1.5">
-                                Languages
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {languages.map((lang: any, idx: number) => {
-                                  const langName = typeof lang === 'string' ? lang : lang?.name
-                                  return (
-                                    <div
-                                      key={langName || `lang-${idx}`}
-                                      className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-green-100 text-green-700 border border-green-200/50"
-                                    >
-                                      <Globe className="h-3 w-3 mr-1" />
-                                      {langName || 'Unknown'}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <Separator />
-                    
-                    {/* Locations - Professional Design */}
-                    <div>
-                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-red-600" />
-                        Geographic Targeting
-                      </h4>
-                      
-                      <div className="space-y-3">
-                        {/* Countries */}
-                        {geoLocations.countries && geoLocations.countries.length > 0 && (
-                          <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-3 border border-red-200/50">
-                            <div className="flex items-start gap-3">
-                              <div className="p-2 rounded-lg bg-white shadow-sm">
-                                <Globe className="h-4 w-4 text-red-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-xs font-medium">Countries</span>
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                    {geoLocations.countries.length} selected
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {geoLocations.countries.map((country: string) => (
-                                    <div
-                                      key={country}
-                                      className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-white border border-red-200"
-                                    >
-                                      {getCountryFlag(country)}
-                                      <span className="ml-1.5">{country}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Regions */}
-                        {geoLocations.regions && geoLocations.regions.length > 0 && (
-                          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-3 border border-blue-200/50">
-                            <div className="flex items-start gap-3">
-                              <div className="p-2 rounded-lg bg-white shadow-sm">
-                                <MapPin className="h-4 w-4 text-blue-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-xs font-medium">Regions</span>
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                    {geoLocations.regions.length} selected
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {geoLocations.regions.map((region: any, idx: number) => {
-                                    const regionName = typeof region === 'string' ? region : region?.name
-                                    return (
-                                      <div
-                                        key={regionName || `region-${idx}`}
-                                        className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-white border border-blue-200"
-                                      >
-                                        <div className="h-2 w-2 rounded-full bg-blue-500 mr-1.5" />
-                                        {regionName || 'Unknown'}
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Cities */}
-                        {geoLocations.cities && geoLocations.cities.length > 0 && (
-                          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-3 border border-purple-200/50">
-                            <div className="flex items-start gap-3">
-                              <div className="p-2 rounded-lg bg-white shadow-sm">
-                                <Building className="h-4 w-4 text-purple-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-xs font-medium">Cities</span>
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                    {geoLocations.cities.length} selected
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {geoLocations.cities.map((city: any, idx: number) => {
-                                    const cityName = typeof city === 'string' ? city : city?.name
-                                    return (
-                                      <div
-                                        key={cityName || `city-${idx}`}
-                                        className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-white border border-purple-200"
-                                      >
-                                        <div className="h-2 w-2 rounded-full bg-purple-500 mr-1.5" />
-                                        {cityName || 'Unknown'}
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Location Type */}
-                        {geoLocations.location_types && Array.isArray(geoLocations.location_types) && geoLocations.location_types.length > 0 && (
-                          <div className="bg-gradient-to-r from-gray-50 to-white rounded-lg p-2.5 border">
-                            <div className="flex items-center gap-2">
-                              <Target className="h-3.5 w-3.5 text-gray-600" />
-                              <span className="text-[11px] font-medium text-gray-600">Location Type:</span>
-                              <div className="flex gap-1">
-                                {geoLocations.location_types.filter((t: any) => typeof t === 'string').map((type: string) => (
-                                  <Badge key={type} variant="secondary" className="text-[10px] px-2 py-0.5">
-                                    {type}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Interests & Behaviors */}
-                    {(interests.length > 0 || behaviors.length > 0) && (
-                      <>
-                        <Separator />
-                        <div>
-                          <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                            <Target className="h-4 w-4" />
-                            Interests & Behaviors
-                          </h4>
-                          <div className="space-y-2 text-sm">
-                            {interests.length > 0 && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Interests:</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {interests.map((interest: any, idx: number) => (
-                                    <Badge key={interest?.id || `interest-${idx}`} variant="outline" className="text-xs">
-                                      {typeof interest === 'string' ? interest : interest?.name || JSON.stringify(interest)}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {behaviors.length > 0 && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Behaviors:</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {behaviors.map((behavior: any, idx: number) => (
-                                    <Badge key={behavior?.id || `behavior-${idx}`} variant="outline" className="text-xs">
-                                      {typeof behavior === 'string' ? behavior : behavior?.name || JSON.stringify(behavior)}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Custom Audiences */}
-                    {(customAudiences.length > 0 || excludedCustomAudiences.length > 0) && (
-                      <>
-                        <Separator />
-                        <div>
-                          <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                            <UserCheck className="h-4 w-4" />
-                            Custom Audiences
-                          </h4>
-                          <div className="space-y-2 text-sm">
-                            {customAudiences.length > 0 && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Included:</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {customAudiences.map((audience: any, idx: number) => (
-                                    <Badge key={audience?.id || `audience-${idx}`} variant="outline" className="text-xs">
-                                      {typeof audience === 'string' ? audience : audience?.name || audience?.id || JSON.stringify(audience)}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {excludedCustomAudiences.length > 0 && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Excluded:</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {excludedCustomAudiences.map((audience: any, idx: number) => (
-                                    <Badge key={audience?.id || `excluded-${idx}`} variant="destructive" className="text-xs">
-                                      {typeof audience === 'string' ? audience : audience?.name || audience?.id || JSON.stringify(audience)}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Placements & Devices - Professional Design */}
-                    <Separator />
-                    <div>
-                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                        <Smartphone className="h-4 w-4 text-blue-600" />
-                        Ad Placements & Distribution
-                      </h4>
-                      
-                      {/* Platform Placements Grid */}
-                      <div className="space-y-3">
-                        {publisherPlatformsTargeting.map((platform: string) => {
-                          const placements = getDetailedPlacements(platform, targeting)
-                          const platformIcon = getPlatformIcon(platform)
-                          const platformColor = getPlatformColor(platform)
-                          
-                          return (
-                            <div key={platform} className="bg-gradient-to-r from-gray-50 to-white rounded-lg p-3 border">
-                              <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${platformColor.bg}`}>
-                                  {platformIcon}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="font-medium text-sm capitalize">
-                                      {platform === 'audience_network' ? 'Audience Network' : platform}
-                                    </span>
-                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                      {placements.length} placements
-                                    </Badge>
-                                  </div>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {placements.map((placement: string) => (
-                                      <div
-                                        key={placement}
-                                        className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium ${platformColor.badge}`}
-                                      >
-                                        {getPlacementIcon(placement)}
-                                        <span className="ml-1">{placement}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      
-                      {/* Device Distribution */}
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        {devicePlatforms.map((device: string) => {
-                          const deviceDetails = getDeviceDetails(device, targeting)
-                          const deviceIcon = device === 'mobile' ? 
-                            <Smartphone className="h-4 w-4" /> : 
-                            <Monitor className="h-4 w-4" />
-                          const deviceColor = device === 'mobile' ? 
-                            'from-blue-50 to-blue-100/50 border-blue-200' : 
-                            'from-gray-50 to-gray-100/50 border-gray-200'
-                          
-                          return (
-                            <div
-                              key={device}
-                              className={`bg-gradient-to-br ${deviceColor} rounded-lg p-3 border`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <div className="p-1.5 bg-white rounded-md shadow-sm">
-                                  {deviceIcon}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="font-medium text-xs capitalize mb-0.5">
-                                    {device}
-                                  </div>
-                                  {deviceDetails && (
-                                    <div className="text-[10px] text-muted-foreground">
-                                      {deviceDetails}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      
-                      {/* Operating Systems if specified */}
-                      {targeting.user_os && targeting.user_os.length > 0 && (
-                        <div className="mt-3 p-2.5 bg-muted/30 rounded-lg">
-                          <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
-                            Operating Systems
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {targeting.user_os.map((os: string) => {
-                              const osIcon = getOSIcon(os)
-                              return (
-                                <div
-                                  key={os}
-                                  className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-md border text-[11px] font-medium"
-                                >
-                                  {osIcon}
-                                  <span>{os === 'ios' ? 'iOS' : os.charAt(0).toUpperCase() + os.slice(1)}</span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Advanced Positions if available */}
-                      {targeting.facebook_positions && targeting.facebook_positions.length > 0 && (
-                        <div className="mt-3 p-2.5 bg-muted/30 rounded-lg">
-                          <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
-                            Specific Positions
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {targeting.facebook_positions.map((position: string) => (
-                              <Badge key={position} variant="outline" className="text-[10px] py-0.5">
-                                {formatPosition(position)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                      </CardContent>
-                    </Card>
-                    
-                    {/* View Live Ad Button - Moved to bottom */}
-                    <Button 
-                      className="w-full" 
-                      size="lg"
-                      variant="outline"
-                      onClick={() => {
-                        const adId = ad.externalId
-                        if (!adId) return
-                        
-                        if (adCampaign?.provider?.toLowerCase() === 'google') {
-                          // For Google Ads - use Google Ads Transparency Center
-                          window.open(`https://adstransparency.google.com/`, '_blank')
-                        } else {
-                          // For Meta/Facebook Ads - use correct format
-                          window.open(`https://www.facebook.com/ads/library/?id=${adId}`, '_blank')
-                        }
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      View Live Ad in {adCampaign?.provider?.toLowerCase() === 'google' ? 'Google' : 'Meta'} Ads Library
-                    </Button>
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
-          </TabsContent>
+            </Card>
+          </div>
           
-          {/* Performance Tab */}
-          <TabsContent value="performance" className="flex-1 mt-4 overflow-hidden">
-            <ScrollArea className="h-full px-6">
-              <div className="space-y-6 pb-6">
-                {/* Performance Metrics Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-2xl font-bold">{engagementMetrics.impressions.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Impressions</p>
-                      <div className="flex items-center gap-1 mt-2">
-                        <Eye className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-green-600">+12%</span>
-                      </div>
-                    </CardContent>
+          {/* Right Side - Performance & Targeting Information */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            <Tabs defaultValue="performance" className="h-full">
+              <TabsList className="grid w-full grid-cols-4 h-8 mb-3">
+                <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
+                <TabsTrigger value="targeting" className="text-xs">Targeting</TabsTrigger>
+                <TabsTrigger value="placement" className="text-xs">Placement</TabsTrigger>
+                <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
+              </TabsList>
+              
+              {/* Performance Tab */}
+              <TabsContent value="performance" className="space-y-3 mt-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Card className="p-3 bg-gradient-to-br from-blue-50 to-white border-blue-200/50">
+                    <div className="flex items-center justify-between mb-1">
+                      <Eye className="h-3.5 w-3.5 text-blue-600" />
+                      <span className="text-[10px] text-muted-foreground">Reach</span>
+                    </div>
+                    <div className="text-xl font-bold text-blue-900">
+                      {engagementMetrics.impressions.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Impressions</div>
                   </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-2xl font-bold">{engagementMetrics.clicks.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Clicks</p>
-                      <div className="flex items-center gap-1 mt-2">
-                        <MousePointerClick className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-green-600">+8%</span>
-                      </div>
-                    </CardContent>
+                  
+                  <Card className="p-3 bg-gradient-to-br from-green-50 to-white border-green-200/50">
+                    <div className="flex items-center justify-between mb-1">
+                      <MousePointerClick className="h-3.5 w-3.5 text-green-600" />
+                      <span className="text-[10px] text-muted-foreground">Engagement</span>
+                    </div>
+                    <div className="text-xl font-bold text-green-900">
+                      {engagementMetrics.clicks.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Clicks</div>
                   </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-2xl font-bold">{currencySymbol}{engagementMetrics.spend.toFixed(2)}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Total Spend</p>
-                      <div className="flex items-center gap-1 mt-2">
-                        <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-orange-600">Budget: {currencySymbol}{adAdSet?.budgetAmount || 0}/day</span>
-                      </div>
-                    </CardContent>
+                  
+                  <Card className="p-3 bg-gradient-to-br from-purple-50 to-white border-purple-200/50">
+                    <div className="flex items-center justify-between mb-1">
+                      <TrendingUp className="h-3.5 w-3.5 text-purple-600" />
+                      <span className="text-[10px] text-muted-foreground">Rate</span>
+                    </div>
+                    <div className="text-xl font-bold text-purple-900">
+                      {engagementMetrics.ctr.toFixed(2)}%
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">CTR</div>
                   </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-2xl font-bold">{engagementMetrics.ctr.toFixed(2)}%</div>
-                      <p className="text-xs text-muted-foreground mt-1">Click-Through Rate</p>
-                      <div className="flex items-center gap-1 mt-2">
-                        <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-green-600">Above average</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-2xl font-bold">{currencySymbol}{engagementMetrics.cpc.toFixed(2)}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Cost Per Click</p>
-                      <div className="flex items-center gap-1 mt-2">
-                        <Target className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-green-600">-5%</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-2xl font-bold">{currencySymbol}{engagementMetrics.cpm.toFixed(2)}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Cost Per 1000 Impressions</p>
-                      <div className="flex items-center gap-1 mt-2">
-                        <Eye className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-green-600">Optimized</span>
-                      </div>
-                    </CardContent>
+                  
+                  <Card className="p-3 bg-gradient-to-br from-orange-50 to-white border-orange-200/50">
+                    <div className="flex items-center justify-between mb-1">
+                      <DollarSign className="h-3.5 w-3.5 text-orange-600" />
+                      <span className="text-[10px] text-muted-foreground">Investment</span>
+                    </div>
+                    <div className="text-xl font-bold text-orange-900">
+                      {currencySymbol}{engagementMetrics.spend.toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Total Spend</div>
                   </Card>
                 </div>
                 
+                {/* Cost Metrics */}
+                <Card className="p-3">
+                  <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+                    <BarChart3 className="h-3 w-3" />
+                    Cost Efficiency
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-muted-foreground">Cost per Click</div>
+                      <div className="text-lg font-semibold">{currencySymbol}{engagementMetrics.cpc.toFixed(2)}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-muted-foreground">Cost per 1000 Impressions</div>
+                      <div className="text-lg font-semibold">{currencySymbol}{engagementMetrics.cpm.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </Card>
+                
                 {/* Engagement Metrics */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Engagement Metrics</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Heart className="h-4 w-4 text-red-500" />
-                          <span className="text-sm">Reactions</span>
-                        </div>
-                        <span className="font-medium">{engagementMetrics.likes.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MessageCircle className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm">Comments</span>
-                        </div>
-                        <span className="font-medium">{engagementMetrics.comments.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Share2 className="h-4 w-4 text-green-500" />
-                          <span className="text-sm">Shares</span>
-                        </div>
-                        <span className="font-medium">{engagementMetrics.shares.toLocaleString()}</span>
-                      </div>
-                      {engagementMetrics.saves > 0 && (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Hash className="h-4 w-4 text-purple-500" />
-                            <span className="text-sm">Saves</span>
-                          </div>
-                          <span className="font-medium">{engagementMetrics.saves.toLocaleString()}</span>
-                        </div>
-                      )}
-                      {engagementMetrics.videoViews > 0 && (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Play className="h-4 w-4 text-orange-500" />
-                            <span className="text-sm">Video Views</span>
-                          </div>
-                          <span className="font-medium">{engagementMetrics.videoViews.toLocaleString()}</span>
-                        </div>
-                      )}
+                <Card className="p-3">
+                  <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+                    <Heart className="h-3 w-3" />
+                    Social Engagement
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <ThumbsUp className="h-3.5 w-3.5 mx-auto mb-1 text-blue-600" />
+                      <div className="text-sm font-semibold">{engagementMetrics.likes}</div>
+                      <div className="text-[9px] text-muted-foreground">Likes</div>
                     </div>
-                  </CardContent>
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <MessageCircle className="h-3.5 w-3.5 mx-auto mb-1 text-green-600" />
+                      <div className="text-sm font-semibold">{engagementMetrics.comments}</div>
+                      <div className="text-[9px] text-muted-foreground">Comments</div>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <Share2 className="h-3.5 w-3.5 mx-auto mb-1 text-purple-600" />
+                      <div className="text-sm font-semibold">{engagementMetrics.shares}</div>
+                      <div className="text-[9px] text-muted-foreground">Shares</div>
+                    </div>
+                  </div>
                 </Card>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-          
-          {/* Details Tab */}
-          <TabsContent value="details" className="flex-1 mt-4 overflow-hidden">
-            <ScrollArea className="h-full px-6">
-              <div className="space-y-6 pb-6">
-                {/* Ad Details */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Ad Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Ad ID:</span>
-                        <p className="font-mono text-xs mt-1">{ad.id}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">External ID:</span>
-                        <p className="font-mono text-xs mt-1">{ad.externalId}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Created:</span>
-                        <p className="text-xs mt-1">
-                          {ad.createdAt ? format(new Date(ad.createdAt), 'PPP') : 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Updated:</span>
-                        <p className="text-xs mt-1">
-                          {ad.updatedAt ? format(new Date(ad.updatedAt), 'PPP') : 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Budget:</span>
-                        <p className="font-medium mt-1">
-                          {currencySymbol}{adAdSet?.budgetAmount || 0} / day
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Objective:</span>
-                        <p className="font-medium mt-1">
-                          {adCampaign?.objective || 'N/A'}
-                        </p>
-                      </div>
+              </TabsContent>
+              
+              {/* Targeting Tab */}
+              <TabsContent value="targeting" className="space-y-3 mt-3">
+                {/* Demographics */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Card className="p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200/50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="h-3 w-3 text-blue-600" />
+                      <span className="text-[10px] font-medium text-muted-foreground">Age Range</span>
                     </div>
+                    <div className="text-lg font-bold text-blue-900">{ageMin} - {ageMax}</div>
+                  </Card>
+                  
+                  <Card className="p-3 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="h-3 w-3 text-purple-600" />
+                      <span className="text-[10px] font-medium text-muted-foreground">Gender</span>
+                    </div>
+                    <div className="text-lg font-bold text-purple-900">
+                      {genders.length === 2 ? 'All' : genders.includes(1) ? 'Male' : 'Female'}
+                    </div>
+                  </Card>
+                </div>
+                
+                {/* Locations */}
+                {(geoLocations.countries || geoLocations.regions || geoLocations.cities) && (
+                  <Card className="p-3 bg-gradient-to-r from-red-50 to-orange-50 border-red-200/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPin className="h-3 w-3 text-red-600" />
+                      <span className="text-xs font-medium">Locations</span>
+                    </div>
+                    <div className="space-y-2">
+                      {geoLocations.countries && (
+                        <div className="flex flex-wrap gap-1">
+                          {geoLocations.countries.map((country: string) => (
+                            <Badge key={country} variant="outline" className="text-[10px] py-0.5">
+                              {getCountryFlag(country)} {country}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {geoLocations.regions && (
+                        <div className="flex flex-wrap gap-1">
+                          {geoLocations.regions.map((region: any, idx: number) => (
+                            <Badge key={idx} variant="secondary" className="text-[10px] py-0.5">
+                              {typeof region === 'string' ? region : region?.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                )}
+                
+                {/* Interests */}
+                {interests.length > 0 && (
+                  <Card className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="h-3 w-3 text-green-600" />
+                      <span className="text-xs font-medium">Interests</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {interests.map((interest: any, idx: number) => (
+                        <Badge key={idx} variant="outline" className="text-[10px] py-0.5">
+                          {typeof interest === 'string' ? interest : interest?.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </TabsContent>
+              
+              {/* Placement Tab */}
+              <TabsContent value="placement" className="space-y-3 mt-3">
+                {publisherPlatformsTargeting.map((platform: string) => {
+                  const placements = getDetailedPlacements(platform, targeting)
+                  const platformColor = getPlatformColor(platform)
+                  
+                  return (
+                    <Card key={platform} className="p-3 border">
+                      <div className="flex items-center gap-2 mb-2">
+                        {getPlatformIcon(platform)}
+                        <span className="text-xs font-medium capitalize">
+                          {platform === 'audience_network' ? 'Audience Network' : platform}
+                        </span>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                          {placements.length} placements
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {placements.map((placement: string) => (
+                          <Badge
+                            key={placement}
+                            variant="outline"
+                            className="text-[10px] py-0.5"
+                          >
+                            {getPlacementIcon(placement)}
+                            <span className="ml-1">{placement}</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    </Card>
+                  )
+                })}
+                
+                {/* Devices */}
+                <div className="grid grid-cols-2 gap-2">
+                  {devicePlatforms.map((device: string) => {
+                    const deviceDetails = getDeviceDetails(device, targeting)
+                    return (
+                      <Card key={device} className="p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          {device === 'mobile' ? <Smartphone className="h-3 w-3" /> : <Monitor className="h-3 w-3" />}
+                          <span className="text-xs font-medium capitalize">{device}</span>
+                        </div>
+                        {deviceDetails && (
+                          <div className="text-[10px] text-muted-foreground">{deviceDetails}</div>
+                        )}
+                      </Card>
+                    )
+                  })}
+                </div>
+              </TabsContent>
+              
+              {/* Details Tab */}
+              <TabsContent value="details" className="space-y-3 mt-3">
+                <Card className="p-3">
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Ad ID:</span>
+                      <code className="font-mono text-[10px] bg-muted px-1 rounded">{ad.externalId}</code>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Created:</span>
+                      <span>{new Date(ad.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Budget:</span>
+                      <span>{currencySymbol}{adAdSet?.budgetAmount || 0}/day</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">CPC:</span>
+                      <span>{currencySymbol}{engagementMetrics.cpc.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">CPM:</span>
+                      <span>{currencySymbol}{engagementMetrics.cpm.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </Card>
+                
+                {/* Custom Audiences */}
+                {(customAudiences.length > 0 || excludedCustomAudiences.length > 0) && (
+                  <Card className="p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <UserCheck className="h-3 w-3" />
+                      <span className="text-xs font-medium">Custom Audiences</span>
+                    </div>
+                    <div className="space-y-2">
+                      {customAudiences.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {customAudiences.map((audience: any, idx: number) => (
+                            <Badge key={idx} variant="outline" className="text-[10px] py-0.5">
+                              ✓ {typeof audience === 'string' ? audience : audience?.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {excludedCustomAudiences.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {excludedCustomAudiences.map((audience: any, idx: number) => (
+                            <Badge key={idx} variant="destructive" className="text-[10px] py-0.5">
+                              ✗ {typeof audience === 'string' ? audience : audience?.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                )}
+                
+                {/* View Live Ad Button */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={() => {
+                    const adId = ad.externalId
+                    if (!adId) return
                     
-                    {/* Creative Details */}
-                    {creative && (
-                      <>
-                        <Separator />
-                        <div className="space-y-2">
-                          <h4 className="font-medium text-sm">Creative Details</h4>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex items-start gap-2">
-                              <span className="text-muted-foreground min-w-[80px]">Format:</span>
-                              <span className="capitalize">{creativeFormat}</span>
-                            </div>
-                            {creative.image_hash && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Image Hash:</span>
-                                <span className="font-mono text-xs">{creative.image_hash}</span>
-                              </div>
-                            )}
-                            {creative.video_id && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Video ID:</span>
-                                <span className="font-mono text-xs">{creative.video_id}</span>
-                              </div>
-                            )}
-                            {linkUrl && linkUrl !== '#' && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Link URL:</span>
-                                <a 
-                                  href={linkUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-blue-500 hover:underline truncate max-w-xs"
-                                >
-                                  {typeof linkUrl === 'string' ? linkUrl : 'View Link'}
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
+                    if (adCampaign?.provider?.toLowerCase() === 'google') {
+                      window.open(`https://adstransparency.google.com/`, '_blank')
+                    } else {
+                      window.open(`https://www.facebook.com/ads/library/?id=${adId}`, '_blank')
+                    }
+                  }}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  View in {adCampaign?.provider === 'google' ? 'Google' : 'Meta'} Ads Library
+                </Button>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

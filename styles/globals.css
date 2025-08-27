@@ -60,6 +60,16 @@
   [data-sidebar-footer] {
     @apply bg-white;
   }
+  
+  /* Stories progress bar animation */
+  @keyframes progress {
+    from {
+      width: 0;
+    }
+    to {
+      width: 66.666667%;
+    }
+  }
 }
 
 @layer base {

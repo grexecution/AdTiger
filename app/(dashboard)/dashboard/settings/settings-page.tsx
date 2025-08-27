@@ -90,13 +90,7 @@ const settingsCards = [
 
 export default function SettingsPage() {
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences
-        </p>
-      </div>
+    <div className="flex-1 space-y-4 pt-6">
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {settingsCards.map((card) => {
@@ -140,47 +134,6 @@ export default function SettingsPage() {
         })}
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>
-            Common tasks and shortcuts
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 md:grid-cols-2">
-            <Link href="/dashboard/settings/profile" className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors">
-              <div className="flex items-center gap-3">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Update Profile Information</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
-            <Link href="/dashboard/settings/connections" className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors">
-              <div className="flex items-center gap-3">
-                <Cable className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Connect Ad Accounts</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
-            <Link href="/dashboard/settings/account" className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors">
-              <div className="flex items-center gap-3">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Invite Team Members</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
-            <Link href="/dashboard/settings/profile#preferences" className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors">
-              <div className="flex items-center gap-3">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Change Language & Timezone</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
