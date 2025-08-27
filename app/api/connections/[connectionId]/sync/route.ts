@@ -944,13 +944,13 @@ export async function POST(
                   if (comments > 0 && insight.ad_id) {
                     try {
                       // Try to get the effective_object_story_id to fetch comments
-                      const adDetailsUrl = `https://graph.facebook.com/v18.0/${insight.ad_id}?fields=effective_object_story_id,creative&access_token=${credentials.accessToken}`
+                      const adDetailsUrl = `https://graph.facebook.com/v18.0/${insight.ad_id}?fields=effective_object_story_id,creative&access_token=${accessToken}`
                       const adDetailsResponse = await fetch(adDetailsUrl)
                       const adDetails = await adDetailsResponse.json()
                       
                       if (adDetails.effective_object_story_id) {
                         // Fetch comments for the post
-                        const commentsUrl = `https://graph.facebook.com/v18.0/${adDetails.effective_object_story_id}/comments?fields=id,message,from,created_time,like_count,comment_count,comments{id,message,from,created_time,like_count}&limit=25&access_token=${credentials.accessToken}`
+                        const commentsUrl = `https://graph.facebook.com/v18.0/${adDetails.effective_object_story_id}/comments?fields=id,message,from,created_time,like_count,comment_count,comments{id,message,from,created_time,like_count}&limit=25&access_token=${accessToken}`
                         const commentsResponse = await fetch(commentsUrl)
                         const commentsResult = await commentsResponse.json()
                         

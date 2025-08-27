@@ -47,6 +47,12 @@ import {
   Hash,
   Link2,
   FileText,
+  Layout,
+  Film,
+  PlayCircle,
+  Search,
+  Video,
+  ShoppingBag,
   Languages,
   UserCheck,
   Zap,
@@ -138,6 +144,299 @@ const getAdComments = (ad: any) => {
   }
   
   return []
+}
+
+// Helper function to get detailed placements for a platform
+const getDetailedPlacements = (platform: string, targeting: any): string[] => {
+  const placements = []
+  
+  // Check for specific placement settings in targeting
+  if (platform === 'instagram') {
+    const positions = targeting?.facebook_positions || []
+    if (positions.includes('instagram_feed') || positions.includes('feed')) placements.push('Feed')
+    if (positions.includes('instagram_stories') || positions.includes('story')) placements.push('Stories')
+    if (positions.includes('instagram_reels') || positions.includes('reels')) placements.push('Reels')
+    if (positions.includes('instagram_explore') || positions.includes('explore')) placements.push('Explore')
+    if (positions.includes('instagram_shop') || positions.includes('shop')) placements.push('Shop')
+    if (positions.includes('instagram_profile_feed')) placements.push('Profile Feed')
+    if (positions.includes('instagram_search')) placements.push('Search')
+    
+    // If no specific positions, check for automatic placements
+    if (placements.length === 0 && (!targeting?.facebook_positions || targeting?.facebook_positions?.length === 0)) {
+      placements.push('Feed', 'Stories', 'Reels', 'Explore')
+    }
+  } else if (platform === 'facebook') {
+    const positions = targeting?.facebook_positions || []
+    if (positions.includes('facebook_feed') || positions.includes('feed')) placements.push('Feed')
+    if (positions.includes('facebook_stories') || positions.includes('story')) placements.push('Stories')
+    if (positions.includes('facebook_reels') || positions.includes('reels')) placements.push('Reels')
+    if (positions.includes('facebook_right_hand_column')) placements.push('Right Column')
+    if (positions.includes('facebook_instant_article')) placements.push('Instant Articles')
+    if (positions.includes('facebook_instream_video')) placements.push('In-Stream Video')
+    if (positions.includes('facebook_marketplace')) placements.push('Marketplace')
+    if (positions.includes('facebook_video_feed')) placements.push('Video Feed')
+    if (positions.includes('facebook_search')) placements.push('Search')
+    
+    // If no specific positions, check for automatic placements
+    if (placements.length === 0 && (!targeting?.facebook_positions || targeting?.facebook_positions?.length === 0)) {
+      placements.push('Feed', 'Stories', 'Reels', 'Video Feed')
+    }
+  } else if (platform === 'messenger') {
+    placements.push('Inbox', 'Stories', 'Sponsored Messages')
+  } else if (platform === 'audience_network') {
+    placements.push('Native', 'Banner', 'Interstitial', 'Rewarded Video')
+  }
+  
+  return placements
+}
+
+// Helper function to get device details
+const getDeviceDetails = (device: string, targeting: any): string | null => {
+  if (device === 'mobile') {
+    const os = targeting?.user_os || []
+    const details = []
+    if (os.includes('iOS')) details.push('iOS')
+    if (os.includes('Android')) details.push('Android')
+    if (targeting?.user_device) {
+      const devices = Array.isArray(targeting.user_device) ? targeting.user_device : [targeting.user_device]
+      if (devices.includes('iPhone')) details.push('iPhone')
+      if (devices.includes('iPad')) details.push('iPad')
+    }
+    return details.length > 0 ? details.join(', ') : 'All mobile devices'
+  } else if (device === 'desktop') {
+    return 'Windows, Mac, Linux'
+  }
+  return null
+}
+
+// Helper function to format position strings
+const formatPosition = (position: string): string => {
+  return position
+    .replace(/_/g, ' ')
+    .replace(/facebook|instagram|messenger/gi, '')
+    .trim()
+    .split(' ')
+    .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
+// Get platform-specific icon
+const getPlatformIcon = (platform: string) => {
+  switch(platform.toLowerCase()) {
+    case 'instagram':
+      return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1 1 12.324 0 6.162 6.162 0 0 1-12.324 0zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm4.965-10.405a1.44 1.44 0 1 1 2.881.001 1.44 1.44 0 0 1-2.881-.001z"/>
+        </svg>
+      )
+    case 'facebook':
+      return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+        </svg>
+      )
+    case 'messenger':
+      return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.627 0-12 4.975-12 11.111 0 3.497 1.745 6.616 4.472 8.652v4.237l4.086-2.242c1.09.301 2.246.464 3.442.464 6.627 0 12-4.975 12-11.111S18.627 0 12 0zm1.193 14.963l-3.056-3.259-5.963 3.259L10.733 8l3.13 3.259L19.752 8l-6.559 6.963z"/>
+        </svg>
+      )
+    case 'audience_network':
+      return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2-13h4v6h-4zm0 8h4v2h-4z"/>
+        </svg>
+      )
+    default:
+      return <Zap className="h-4 w-4" />
+  }
+}
+
+// Get platform-specific colors
+const getPlatformColor = (platform: string) => {
+  switch(platform.toLowerCase()) {
+    case 'instagram':
+      return {
+        bg: 'bg-gradient-to-br from-purple-500/10 to-pink-500/10',
+        badge: 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border border-purple-200/50'
+      }
+    case 'facebook':
+      return {
+        bg: 'bg-blue-500/10',
+        badge: 'bg-blue-100 text-blue-700 border border-blue-200/50'
+      }
+    case 'messenger':
+      return {
+        bg: 'bg-gradient-to-br from-blue-500/10 to-purple-500/10',
+        badge: 'bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 border border-blue-200/50'
+      }
+    case 'audience_network':
+      return {
+        bg: 'bg-orange-500/10',
+        badge: 'bg-orange-100 text-orange-700 border border-orange-200/50'
+      }
+    default:
+      return {
+        bg: 'bg-gray-100',
+        badge: 'bg-gray-100 text-gray-700 border border-gray-200/50'
+      }
+  }
+}
+
+// Get placement-specific icon
+const getPlacementIcon = (placement: string) => {
+  const lowerPlacement = placement.toLowerCase()
+  if (lowerPlacement.includes('feed')) return <Layout className="h-3 w-3" />
+  if (lowerPlacement.includes('stories') || lowerPlacement.includes('story')) return <Film className="h-3 w-3" />
+  if (lowerPlacement.includes('reels')) return <PlayCircle className="h-3 w-3" />
+  if (lowerPlacement.includes('explore')) return <Search className="h-3 w-3" />
+  if (lowerPlacement.includes('video')) return <Video className="h-3 w-3" />
+  if (lowerPlacement.includes('marketplace')) return <ShoppingBag className="h-3 w-3" />
+  if (lowerPlacement.includes('message')) return <MessageCircle className="h-3 w-3" />
+  return null
+}
+
+// Get OS-specific icon
+const getOSIcon = (os: string) => {
+  const lowerOS = os.toLowerCase()
+  if (lowerOS === 'ios' || lowerOS === 'apple') {
+    return (
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+      </svg>
+    )
+  }
+  if (lowerOS === 'android') {
+    return (
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.6 11.48 19.44 8.3a.63.63 0 0 0-.47-.88.62.62 0 0 0-.67.15L15.9 10.1a10.45 10.45 0 0 0-7.76 0L5.71 7.57a.62.62 0 0 0-.67-.15.63.63 0 0 0-.47.88l1.84 3.18A11.07 11.07 0 0 0 .92 20h22.16a11.07 11.07 0 0 0-5.48-8.52ZM7 17.25A1.25 1.25 0 1 1 8.25 16 1.25 1.25 0 0 1 7 17.25Zm10 0A1.25 1.25 0 1 1 18.25 16 1.25 1.25 0 0 1 17 17.25Z"/>
+      </svg>
+    )
+  }
+  if (lowerOS === 'windows') {
+    return (
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+      </svg>
+    )
+  }
+  return <Monitor className="h-3 w-3" />
+}
+
+// Get country flag emoji
+const getCountryFlag = (country: string) => {
+  const countryFlags: { [key: string]: string } = {
+    'United States': '🇺🇸',
+    'USA': '🇺🇸',
+    'US': '🇺🇸',
+    'United Kingdom': '🇬🇧',
+    'UK': '🇬🇧',
+    'Germany': '🇩🇪',
+    'DE': '🇩🇪',
+    'France': '🇫🇷',
+    'FR': '🇫🇷',
+    'Spain': '🇪🇸',
+    'ES': '🇪🇸',
+    'Italy': '🇮🇹',
+    'IT': '🇮🇹',
+    'Netherlands': '🇳🇱',
+    'NL': '🇳🇱',
+    'Belgium': '🇧🇪',
+    'BE': '🇧🇪',
+    'Austria': '🇦🇹',
+    'AT': '🇦🇹',
+    'Switzerland': '🇨🇭',
+    'CH': '🇨🇭',
+    'Canada': '🇨🇦',
+    'CA': '🇨🇦',
+    'Australia': '🇦🇺',
+    'AU': '🇦🇺',
+    'Japan': '🇯🇵',
+    'JP': '🇯🇵',
+    'China': '🇨🇳',
+    'CN': '🇨🇳',
+    'India': '🇮🇳',
+    'IN': '🇮🇳',
+    'Brazil': '🇧🇷',
+    'BR': '🇧🇷',
+    'Mexico': '🇲🇽',
+    'MX': '🇲🇽',
+    'Poland': '🇵🇱',
+    'PL': '🇵🇱',
+    'Sweden': '🇸🇪',
+    'SE': '🇸🇪',
+    'Norway': '🇳🇴',
+    'NO': '🇳🇴',
+    'Denmark': '🇩🇰',
+    'DK': '🇩🇰',
+    'Finland': '🇫🇮',
+    'FI': '🇫🇮',
+    'Portugal': '🇵🇹',
+    'PT': '🇵🇹',
+    'Greece': '🇬🇷',
+    'GR': '🇬🇷',
+    'Ireland': '🇮🇪',
+    'IE': '🇮🇪',
+    'Czech Republic': '🇨🇿',
+    'CZ': '🇨🇿',
+    'Hungary': '🇭🇺',
+    'HU': '🇭🇺',
+    'Romania': '🇷🇴',
+    'RO': '🇷🇴',
+    'Bulgaria': '🇧🇬',
+    'BG': '🇧🇬',
+    'Croatia': '🇭🇷',
+    'HR': '🇭🇷',
+    'Slovakia': '🇸🇰',
+    'SK': '🇸🇰',
+    'Slovenia': '🇸🇮',
+    'SI': '🇸🇮',
+    'Luxembourg': '🇱🇺',
+    'LU': '🇱🇺',
+    'New Zealand': '🇳🇿',
+    'NZ': '🇳🇿',
+    'South Korea': '🇰🇷',
+    'KR': '🇰🇷',
+    'Singapore': '🇸🇬',
+    'SG': '🇸🇬',
+    'Thailand': '🇹🇭',
+    'TH': '🇹🇭',
+    'Indonesia': '🇮🇩',
+    'ID': '🇮🇩',
+    'Malaysia': '🇲🇾',
+    'MY': '🇲🇾',
+    'Philippines': '🇵🇭',
+    'PH': '🇵🇭',
+    'Vietnam': '🇻🇳',
+    'VN': '🇻🇳',
+    'Turkey': '🇹🇷',
+    'TR': '🇹🇷',
+    'Russia': '🇷🇺',
+    'RU': '🇷🇺',
+    'South Africa': '🇿🇦',
+    'ZA': '🇿🇦',
+    'Argentina': '🇦🇷',
+    'AR': '🇦🇷',
+    'Chile': '🇨🇱',
+    'CL': '🇨🇱',
+    'Colombia': '🇨🇴',
+    'CO': '🇨🇴',
+    'Peru': '🇵🇪',
+    'PE': '🇵🇪',
+    'Venezuela': '🇻🇪',
+    'VE': '🇻🇪',
+    'Egypt': '🇪🇬',
+    'EG': '🇪🇬',
+    'Israel': '🇮🇱',
+    'IL': '🇮🇱',
+    'Saudi Arabia': '🇸🇦',
+    'SA': '🇸🇦',
+    'UAE': '🇦🇪',
+    'AE': '🇦🇪',
+    'United Arab Emirates': '🇦🇪'
+  }
+  
+  return countryFlags[country] || '🌍'
 }
 
 interface AdDetailDialogEnhancedProps {
@@ -607,119 +906,215 @@ export function AdDetailDialogEnhanced({
               <div className="w-1/2 overflow-hidden">
                 <ScrollArea className="h-full p-6">
                   <div className="space-y-6">
-                    {/* View Live Ad Button */}
-                    <Button 
-                      className="w-full" 
-                      size="lg"
-                      onClick={() => {
-                        if (adCampaign?.provider?.toLowerCase() === 'google') {
-                          // For Google Ads - use Google Ads Transparency Center
-                          const googleAdId = ad.externalId
-                          if (googleAdId) {
-                            window.open(`https://adstransparency.google.com/`, '_blank')
-                          }
-                        } else {
-                          // For Meta/Facebook Ads
-                          const fbAdId = ad.externalId
-                          if (fbAdId) {
-                            window.open(`https://www.facebook.com/ads/library/?id=${fbAdId}`, '_blank')
-                          }
-                        }
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      View Live Ad in {adCampaign?.provider?.toLowerCase() === 'google' ? 'Google' : 'Meta'} Ads Library
-                    </Button>
-                    
                     {/* Targeting Information */}
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-sm">Targeting Information</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                    {/* Demographics */}
+                    {/* Demographics - Professional Design */}
                     <div>
-                      <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Demographics
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <Users className="h-4 w-4 text-purple-600" />
+                        Audience Demographics
                       </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-start gap-2">
-                          <span className="text-muted-foreground min-w-[80px]">Age:</span>
-                          <span>{ageMin}-{ageMax}</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-muted-foreground min-w-[80px]">Gender:</span>
-                          <span>
-                            {genders.length === 2 ? 'All' : 
-                             genders.includes(1) ? 'Male' : 
-                             genders.includes(2) ? 'Female' : 'Not specified'}
-                          </span>
-                        </div>
-                        {languages.length > 0 && (
+                      
+                      {/* Age & Gender Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {/* Age Range Card */}
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200/50">
                           <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground min-w-[80px]">Languages:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {languages.map((lang: any, idx: number) => (
-                                <Badge key={typeof lang === 'string' ? lang : `lang-${idx}`} variant="outline" className="text-xs">
-                                  {typeof lang === 'string' ? lang : lang?.name || JSON.stringify(lang)}
-                                </Badge>
-                              ))}
+                            <div className="p-1.5 bg-white rounded-md shadow-sm">
+                              <Calendar className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-[11px] font-medium text-muted-foreground mb-1">
+                                Age Range
+                              </div>
+                              <div className="text-lg font-semibold text-blue-900">
+                                {ageMin} - {ageMax}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                years old
+                              </div>
                             </div>
                           </div>
-                        )}
+                        </div>
+                        
+                        {/* Gender Card */}
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-200/50">
+                          <div className="flex items-start gap-2">
+                            <div className="p-1.5 bg-white rounded-md shadow-sm">
+                              <Users className="h-4 w-4 text-purple-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-[11px] font-medium text-muted-foreground mb-1">
+                                Gender
+                              </div>
+                              <div className="text-lg font-semibold text-purple-900">
+                                {genders.length === 2 ? 'All Genders' : 
+                                 genders.includes(1) ? 'Male' : 
+                                 genders.includes(2) ? 'Female' : 'Custom'}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                {genders.length === 2 ? 'No restrictions' : 'Targeted'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                      
+                      {/* Languages if specified */}
+                      {languages.length > 0 && (
+                        <div className="bg-gradient-to-r from-gray-50 to-white rounded-lg p-3 border">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50">
+                              <Languages className="h-4 w-4 text-green-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-xs font-medium mb-1.5">
+                                Languages
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {languages.map((lang: any, idx: number) => {
+                                  const langName = typeof lang === 'string' ? lang : lang?.name
+                                  return (
+                                    <div
+                                      key={langName || `lang-${idx}`}
+                                      className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-green-100 text-green-700 border border-green-200/50"
+                                    >
+                                      <Globe className="h-3 w-3 mr-1" />
+                                      {langName || 'Unknown'}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
                     <Separator />
                     
-                    {/* Locations */}
+                    {/* Locations - Professional Design */}
                     <div>
-                      <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Locations
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-red-600" />
+                        Geographic Targeting
                       </h4>
-                      <div className="space-y-2 text-sm">
-                        {geoLocations.countries && (
-                          <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground min-w-[80px]">Countries:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {geoLocations.countries.map((country: string) => (
-                                <Badge key={country} variant="outline" className="text-xs">
-                                  {country}
-                                </Badge>
-                              ))}
+                      
+                      <div className="space-y-3">
+                        {/* Countries */}
+                        {geoLocations.countries && geoLocations.countries.length > 0 && (
+                          <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-3 border border-red-200/50">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 rounded-lg bg-white shadow-sm">
+                                <Globe className="h-4 w-4 text-red-600" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-xs font-medium">Countries</span>
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {geoLocations.countries.length} selected
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {geoLocations.countries.map((country: string) => (
+                                    <div
+                                      key={country}
+                                      className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-white border border-red-200"
+                                    >
+                                      {getCountryFlag(country)}
+                                      <span className="ml-1.5">{country}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
-                        {geoLocations.regions && (
-                          <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground min-w-[80px]">Regions:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {geoLocations.regions.map((region: any, idx: number) => (
-                                <Badge key={region?.key || `region-${idx}`} variant="outline" className="text-xs">
-                                  {typeof region === 'string' ? region : region?.name || JSON.stringify(region)}
-                                </Badge>
-                              ))}
+                        
+                        {/* Regions */}
+                        {geoLocations.regions && geoLocations.regions.length > 0 && (
+                          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-3 border border-blue-200/50">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 rounded-lg bg-white shadow-sm">
+                                <MapPin className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-xs font-medium">Regions</span>
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {geoLocations.regions.length} selected
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {geoLocations.regions.map((region: any, idx: number) => {
+                                    const regionName = typeof region === 'string' ? region : region?.name
+                                    return (
+                                      <div
+                                        key={regionName || `region-${idx}`}
+                                        className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-white border border-blue-200"
+                                      >
+                                        <div className="h-2 w-2 rounded-full bg-blue-500 mr-1.5" />
+                                        {regionName || 'Unknown'}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
-                        {geoLocations.cities && (
-                          <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground min-w-[80px]">Cities:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {geoLocations.cities.map((city: any, idx: number) => (
-                                <Badge key={city?.key || `city-${idx}`} variant="outline" className="text-xs">
-                                  {typeof city === 'string' ? city : city?.name || JSON.stringify(city)}
-                                </Badge>
-                              ))}
+                        
+                        {/* Cities */}
+                        {geoLocations.cities && geoLocations.cities.length > 0 && (
+                          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-3 border border-purple-200/50">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 rounded-lg bg-white shadow-sm">
+                                <Building className="h-4 w-4 text-purple-600" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-xs font-medium">Cities</span>
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {geoLocations.cities.length} selected
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {geoLocations.cities.map((city: any, idx: number) => {
+                                    const cityName = typeof city === 'string' ? city : city?.name
+                                    return (
+                                      <div
+                                        key={cityName || `city-${idx}`}
+                                        className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-white border border-purple-200"
+                                      >
+                                        <div className="h-2 w-2 rounded-full bg-purple-500 mr-1.5" />
+                                        {cityName || 'Unknown'}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
-                        {geoLocations.location_types && Array.isArray(geoLocations.location_types) && (
-                          <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground min-w-[80px]">Location Type:</span>
-                            <span>{geoLocations.location_types.filter((t: any) => typeof t === 'string').join(', ')}</span>
+                        
+                        {/* Location Type */}
+                        {geoLocations.location_types && Array.isArray(geoLocations.location_types) && geoLocations.location_types.length > 0 && (
+                          <div className="bg-gradient-to-r from-gray-50 to-white rounded-lg p-2.5 border">
+                            <div className="flex items-center gap-2">
+                              <Target className="h-3.5 w-3.5 text-gray-600" />
+                              <span className="text-[11px] font-medium text-gray-600">Location Type:</span>
+                              <div className="flex gap-1">
+                                {geoLocations.location_types.filter((t: any) => typeof t === 'string').map((type: string) => (
+                                  <Badge key={type} variant="secondary" className="text-[10px] px-2 py-0.5">
+                                    {type}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -803,40 +1198,153 @@ export function AdDetailDialogEnhanced({
                       </>
                     )}
                     
-                    {/* Placements & Devices */}
+                    {/* Placements & Devices - Professional Design */}
                     <Separator />
                     <div>
-                      <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                        <Smartphone className="h-4 w-4" />
-                        Placements & Devices
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <Smartphone className="h-4 w-4 text-blue-600" />
+                        Ad Placements & Distribution
                       </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-start gap-2">
-                          <span className="text-muted-foreground min-w-[80px]">Platforms:</span>
-                          <div className="flex flex-wrap gap-1">
-                            {publisherPlatformsTargeting.map((platform: string) => (
-                              <Badge key={platform} variant="outline" className="text-xs">
-                                {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-muted-foreground min-w-[80px]">Devices:</span>
-                          <div className="flex flex-wrap gap-1">
-                            {devicePlatforms.map((device: string) => (
-                              <Badge key={device} variant="outline" className="text-xs">
-                                {device === 'mobile' && <Smartphone className="h-3 w-3 mr-1" />}
-                                {device === 'desktop' && <Monitor className="h-3 w-3 mr-1" />}
-                                {device.charAt(0).toUpperCase() + device.slice(1)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
+                      
+                      {/* Platform Placements Grid */}
+                      <div className="space-y-3">
+                        {publisherPlatformsTargeting.map((platform: string) => {
+                          const placements = getDetailedPlacements(platform, targeting)
+                          const platformIcon = getPlatformIcon(platform)
+                          const platformColor = getPlatformColor(platform)
+                          
+                          return (
+                            <div key={platform} className="bg-gradient-to-r from-gray-50 to-white rounded-lg p-3 border">
+                              <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-lg ${platformColor.bg}`}>
+                                  {platformIcon}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="font-medium text-sm capitalize">
+                                      {platform === 'audience_network' ? 'Audience Network' : platform}
+                                    </span>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                      {placements.length} placements
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {placements.map((placement: string) => (
+                                      <div
+                                        key={placement}
+                                        className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium ${platformColor.badge}`}
+                                      >
+                                        {getPlacementIcon(placement)}
+                                        <span className="ml-1">{placement}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
+                      
+                      {/* Device Distribution */}
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        {devicePlatforms.map((device: string) => {
+                          const deviceDetails = getDeviceDetails(device, targeting)
+                          const deviceIcon = device === 'mobile' ? 
+                            <Smartphone className="h-4 w-4" /> : 
+                            <Monitor className="h-4 w-4" />
+                          const deviceColor = device === 'mobile' ? 
+                            'from-blue-50 to-blue-100/50 border-blue-200' : 
+                            'from-gray-50 to-gray-100/50 border-gray-200'
+                          
+                          return (
+                            <div
+                              key={device}
+                              className={`bg-gradient-to-br ${deviceColor} rounded-lg p-3 border`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <div className="p-1.5 bg-white rounded-md shadow-sm">
+                                  {deviceIcon}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-xs capitalize mb-0.5">
+                                    {device}
+                                  </div>
+                                  {deviceDetails && (
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {deviceDetails}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* Operating Systems if specified */}
+                      {targeting.user_os && targeting.user_os.length > 0 && (
+                        <div className="mt-3 p-2.5 bg-muted/30 rounded-lg">
+                          <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                            Operating Systems
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {targeting.user_os.map((os: string) => {
+                              const osIcon = getOSIcon(os)
+                              return (
+                                <div
+                                  key={os}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-white rounded-md border text-[11px] font-medium"
+                                >
+                                  {osIcon}
+                                  <span>{os === 'ios' ? 'iOS' : os.charAt(0).toUpperCase() + os.slice(1)}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Advanced Positions if available */}
+                      {targeting.facebook_positions && targeting.facebook_positions.length > 0 && (
+                        <div className="mt-3 p-2.5 bg-muted/30 rounded-lg">
+                          <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                            Specific Positions
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {targeting.facebook_positions.map((position: string) => (
+                              <Badge key={position} variant="outline" className="text-[10px] py-0.5">
+                                {formatPosition(position)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                       </CardContent>
                     </Card>
+                    
+                    {/* View Live Ad Button - Moved to bottom */}
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      variant="outline"
+                      onClick={() => {
+                        const adId = ad.externalId
+                        if (!adId) return
+                        
+                        if (adCampaign?.provider?.toLowerCase() === 'google') {
+                          // For Google Ads - use Google Ads Transparency Center
+                          window.open(`https://adstransparency.google.com/`, '_blank')
+                        } else {
+                          // For Meta/Facebook Ads - use correct format
+                          window.open(`https://www.facebook.com/ads/library/?id=${adId}`, '_blank')
+                        }
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Live Ad in {adCampaign?.provider?.toLowerCase() === 'google' ? 'Google' : 'Meta'} Ads Library
+                    </Button>
                   </div>
                 </ScrollArea>
               </div>
