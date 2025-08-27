@@ -178,6 +178,66 @@ const formatCPC = (cpc: number | undefined, spend: number | undefined, clicks: n
   return '-'
 }
 
+// Helper function to extract conversions from rawActions
+const extractConversions = (adMetrics: any) => {
+  let totalConversions = 0
+  let conversionTypes: { [key: string]: number } = {}
+  const seenValues = new Set<string>() // Track what we've already counted
+  
+  // Check for rawActions array
+  if (adMetrics?.rawActions && Array.isArray(adMetrics.rawActions)) {
+    adMetrics.rawActions.forEach((action: any) => {
+      const actionType = action.action_type || ''
+      const value = parseInt(action.value || '0')
+      
+      // Priority list - only count the highest priority conversion type to avoid double counting
+      // For example, if we have both 'lead' and 'offsite_conversion.fb_pixel_lead', only count once
+      const conversionPriority = [
+        'lead', // This is the main conversion we want
+        'purchase',
+        'complete_registration',
+        'submit_application',
+        'schedule',
+        'contact',
+        'subscribe',
+        'donate'
+      ]
+      
+      // Check if this is a primary conversion type
+      for (const convType of conversionPriority) {
+        if (actionType === convType) {
+          if (!seenValues.has(convType)) {
+            totalConversions += value
+            conversionTypes[actionType] = value
+            seenValues.add(convType)
+          }
+          break
+        }
+      }
+      
+      // Only add pixel/offsite conversions if we haven't seen the main conversion
+      if (actionType.includes('offsite_conversion') || actionType.includes('onsite_')) {
+        const baseType = actionType.includes('lead') ? 'lead' : 
+                         actionType.includes('purchase') ? 'purchase' : 
+                         actionType.includes('complete_registration') ? 'complete_registration' : null
+        
+        if (baseType && !seenValues.has(baseType)) {
+          totalConversions += value
+          conversionTypes[actionType] = value
+          seenValues.add(baseType)
+        }
+      }
+    })
+  }
+  
+  // Fallback to conversions field if no rawActions
+  if (totalConversions === 0 && adMetrics?.conversions) {
+    totalConversions = adMetrics.conversions
+  }
+  
+  return { total: totalConversions, types: conversionTypes }
+}
+
 // Targeting info component
 const TargetingInfo = ({ adSet }: { adSet: any }) => {
   // Extract targeting data from adSet metadata
@@ -453,6 +513,7 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   
   // Use real engagement metrics from ad data
   const adMetrics = ad.metadata?.insights || {}
+  const conversions = extractConversions(adMetrics)
   
   // Debug logging for CPC issues
   if (typeof window !== 'undefined') {
@@ -672,7 +733,11 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
             <div>
               <p className="text-muted-foreground text-[10px]">Conv.</p>
               <p className="font-semibold">
-                {formatMetricNumber(adMetrics.conversions)}
+                {conversions.total > 0 ? (
+                  <span className="text-green-600 font-bold">{conversions.total}</span>
+                ) : (
+                  formatMetricNumber(0)
+                )}
               </p>
             </div>
           </div>
@@ -916,16 +981,31 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
       const aCpc = aMetrics.clicks > 0 ? (aMetrics.spend / aMetrics.clicks) : Number.MAX_VALUE
       const bCpc = bMetrics.clicks > 0 ? (bMetrics.spend / bMetrics.clicks) : Number.MAX_VALUE
       
+      // Get conversions using our extraction function
+      const aConversions = extractConversions(aMetrics).total
+      const bConversions = extractConversions(bMetrics).total
+      const aCostPerConversion = aConversions > 0 ? (aMetrics.spend || 0) / aConversions : Number.MAX_VALUE
+      const bCostPerConversion = bConversions > 0 ? (bMetrics.spend || 0) / bConversions : Number.MAX_VALUE
+      
       let comparison = 0
       
       switch (sortBy) {
         case 'performance':
-          // Multi-factor performance sorting: CPC (lower better) > CTR (higher better) > Clicks > Impressions
-          // First compare CPC (lower is better, so reversed)
-          if (aCpc !== bCpc) {
-            comparison = aCpc - bCpc // Lower CPC is better
+          // Multi-factor performance sorting - prioritizing conversions:
+          // 1. Conversions (higher is better) - most important
+          // 2. Cost per conversion (lower is better) - efficiency
+          // 3. CTR (higher is better) - engagement rate
+          // 4. CPC (lower is better) - cost efficiency
+          // 5. Clicks then Impressions as fallback
+          
+          if (aConversions !== bConversions) {
+            comparison = bConversions - aConversions // Higher conversions is better
+          } else if (aConversions > 0 && bConversions > 0 && aCostPerConversion !== bCostPerConversion) {
+            comparison = aCostPerConversion - bCostPerConversion // Lower cost per conversion is better
           } else if (aCtr !== bCtr) {
             comparison = bCtr - aCtr // Higher CTR is better
+          } else if (aCpc !== bCpc) {
+            comparison = aCpc - bCpc // Lower CPC is better
           } else if (aMetrics.clicks !== bMetrics.clicks) {
             comparison = (bMetrics.clicks || 0) - (aMetrics.clicks || 0) // Higher clicks is better
           } else {
@@ -954,7 +1034,7 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
           break
           
         case 'conversions':
-          comparison = (bMetrics.conversions || 0) - (aMetrics.conversions || 0)
+          comparison = bConversions - aConversions
           break
           
         case 'name':
@@ -987,11 +1067,12 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
   const filteredMetrics = useMemo(() => {
     return filteredAds.reduce((acc, ad) => {
       const adMetrics = ad.metadata?.insights || {}
+      const conversions = extractConversions(adMetrics)
       return {
         spend: acc.spend + (adMetrics.spend || 0),
         impressions: acc.impressions + (adMetrics.impressions || 0),
         clicks: acc.clicks + (adMetrics.clicks || 0),
-        conversions: acc.conversions + (adMetrics.conversions || 0),
+        conversions: acc.conversions + conversions.total,
         ctr: 0, // Will calculate after
         cpc: 0  // Will calculate after
       }

@@ -566,6 +566,7 @@ export function AdDetailDialogEnhanced({
   const [selectedPlacement, setSelectedPlacement] = useState<string>('') // Will be set based on available placements
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [showComments, setShowComments] = useState(false)
+  const [showSafeZones, setShowSafeZones] = useState(true) // Show safe zones by default
   
   if (!ad) return null
   
@@ -778,8 +779,104 @@ export function AdDetailDialogEnhanced({
   const ctaText = creative?.asset_feed_spec?.call_to_action_types?.[0] || creative?.call_to_action?.type || 'LEARN_MORE'
   const linkUrl = getLinkUrl()
   
+  // Helper function to extract conversions from rawActions
+  const extractConversionsDetailed = (adMetrics: any) => {
+    const conversionData: {
+      total: number
+      types: { [key: string]: number }
+      cost_per_conversion: number
+      formatted_types: Array<{ type: string, count: number, formatted_name: string }>
+    } = {
+      total: 0,
+      types: {},
+      cost_per_conversion: 0,
+      formatted_types: []
+    }
+    
+    // Check for rawActions array
+    if (adMetrics?.rawActions && Array.isArray(adMetrics.rawActions)) {
+      // First, identify all conversion actions and group them
+      const conversionGroups: { [key: string]: { value: number, types: string[] } } = {}
+      
+      adMetrics.rawActions.forEach((action: any) => {
+        const actionType = action.action_type || ''
+        const value = parseInt(action.value || '0')
+        
+        // Determine base type for grouping
+        let baseType = ''
+        if (actionType === 'lead' || actionType.includes('lead')) {
+          baseType = 'lead'
+        } else if (actionType === 'purchase' || actionType.includes('purchase')) {
+          baseType = 'purchase'
+        } else if (actionType.includes('complete_registration')) {
+          baseType = 'complete_registration'
+        } else if (actionType === 'submit_application') {
+          baseType = 'submit_application'
+        } else if (actionType === 'schedule') {
+          baseType = 'schedule'
+        } else if (actionType === 'contact') {
+          baseType = 'contact'
+        } else if (actionType === 'subscribe') {
+          baseType = 'subscribe'
+        } else if (actionType === 'donate') {
+          baseType = 'donate'
+        }
+        
+        // Only process if it's a conversion type
+        if (baseType) {
+          if (!conversionGroups[baseType]) {
+            conversionGroups[baseType] = { value: 0, types: [] }
+          }
+          // Use the maximum value for this base type (they should all be the same)
+          conversionGroups[baseType].value = Math.max(conversionGroups[baseType].value, value)
+          conversionGroups[baseType].types.push(actionType)
+        }
+      })
+      
+      // Now add each unique conversion type once
+      Object.entries(conversionGroups).forEach(([baseType, data]) => {
+        conversionData.total += data.value
+        
+        // Define display names
+        const displayNames: { [key: string]: string } = {
+          'lead': 'Leads',
+          'purchase': 'Purchases',
+          'complete_registration': 'Registrations',
+          'submit_application': 'Applications',
+          'schedule': 'Appointments',
+          'contact': 'Contacts',
+          'subscribe': 'Subscriptions',
+          'donate': 'Donations'
+        }
+        
+        // Add the main conversion type
+        conversionData.formatted_types.push({
+          type: baseType,
+          count: data.value,
+          formatted_name: displayNames[baseType] || baseType.replace(/_/g, ' ')
+        })
+        
+        // Store all action types for this conversion
+        data.types.forEach(actionType => {
+          conversionData.types[actionType] = data.value
+        })
+      })
+    }
+    
+    // Calculate cost per conversion
+    if (conversionData.total > 0 && adMetrics?.spend) {
+      conversionData.cost_per_conversion = adMetrics.spend / conversionData.total
+    }
+    
+    // Sort by count descending
+    conversionData.formatted_types.sort((a, b) => b.count - a.count)
+    
+    return conversionData
+  }
+  
   // Get metrics from ad data
   const adMetrics = ad.metadata?.insights || {}
+  const conversionsData = extractConversionsDetailed(adMetrics)
   const engagementMetrics = {
     impressions: adMetrics.impressions || 0,
     clicks: adMetrics.clicks || 0,
@@ -821,7 +918,7 @@ export function AdDetailDialogEnhanced({
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90vh] p-0 gap-0 overflow-hidden">
         {/* Compact Beautiful Header */}
         <DialogHeader className="px-4 pt-4 pb-2 bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b">
           <div className="flex items-center justify-between mb-2">
@@ -841,14 +938,16 @@ export function AdDetailDialogEnhanced({
             </div>
             <StatusBadge status={ad.status} />
           </div>
-          <div className="flex items-center gap-2 text-[11px]">
+          <div className="flex items-center gap-2 text-[12px]">
             <span className="text-muted-foreground">Campaign:</span>
             <span className="font-medium truncate max-w-[150px]">{adCampaign?.name}</span>
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
             <span className="text-muted-foreground">Ad Set:</span>
             <span className="font-medium truncate max-w-[150px]">{adAdSet?.name}</span>
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">Ad:</span>
+            <span className="font-medium truncate max-w-[150px]">{ad.name}</span>
           </div>
-          <div className="font-semibold text-sm mt-1">{ad.name}</div>
         </DialogHeader>
         
         {/* Main Content with Side-by-side Layout */}
@@ -860,7 +959,24 @@ export function AdDetailDialogEnhanced({
                 {/* Placement Selector */}
                 <div className="p-3 border-b">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Ad Preview</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium">Ad Preview</div>
+                      {/* Safe Zone Toggle for Stories/Reels */}
+                      {(currentPlacement.includes('stories') || currentPlacement.includes('reels')) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => setShowSafeZones(!showSafeZones)}
+                        >
+                          {showSafeZones ? (
+                            <><Eye className="w-3 h-3 mr-1" /> Hide Zones</>
+                          ) : (
+                            <><Eye className="w-3 h-3 mr-1" /> Show Zones</>
+                          )}
+                        </Button>
+                      )}
+                    </div>
                     {/* Placement Switcher - Show available placements */}
                     {availablePlacements.length > 0 && (
                       <div className="flex items-center gap-2">
@@ -960,6 +1076,36 @@ export function AdDetailDialogEnhanced({
                         {/* Stories-specific UI */}
                         {currentPlacement.includes('stories') && (
                           <>
+                            {/* Safe Zone Overlay - Toggle with button */}
+                            {showSafeZones && (
+                            <div className="absolute inset-0 pointer-events-none z-40">
+                              {/* Top safe zone (64px - progress bar + profile area) */}
+                              <div className="absolute top-0 left-0 right-0 h-16 border-b-2 border-dashed border-red-500/40">
+                                <div className="absolute top-1 left-2 bg-red-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  Profile Zone (64px)
+                                </div>
+                              </div>
+                              {/* Bottom safe zone (88px - CTA button area) */}
+                              <div className="absolute bottom-0 left-0 right-0 h-[88px] border-t-2 border-dashed border-red-500/40">
+                                <div className="absolute bottom-1 left-2 bg-red-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  CTA Zone (88px)
+                                </div>
+                              </div>
+                              {/* Right side engagement zone (60px wide) */}
+                              <div className="absolute top-0 right-0 w-[60px] h-full border-l-2 border-dashed border-blue-500/40">
+                                <div className="absolute top-1/2 -translate-y-1/2 -left-8 rotate-90 bg-blue-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  Actions (60px)
+                                </div>
+                              </div>
+                              {/* Safe content area indicator */}
+                              <div className="absolute top-16 bottom-[88px] left-4 right-[60px] border-2 border-dashed border-green-500/30">
+                                <div className="absolute top-1 left-1 bg-green-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  Safe Area
+                                </div>
+                              </div>
+                            </div>
+                            )}
+
                             {/* Story Progress Bar - At the very top */}
                             <div className="absolute top-3 left-3 right-3 z-20 flex gap-1">
                               <div className="flex-1 h-[2px] bg-white/30 rounded-full overflow-hidden">
@@ -989,43 +1135,51 @@ export function AdDetailDialogEnhanced({
                               <X className="w-5 h-5 text-white/80 drop-shadow" />
                             </div>
                             
-                            {/* Ad Text Content - Positioned in the lower third */}
+                            {/* Right Side Engagement Buttons - VERTICAL LAYOUT */}
+                            <div className="absolute right-2 bottom-[100px] z-20 flex flex-col items-center gap-3">
+                              <div className="flex flex-col items-center">
+                                <div className="w-10 h-10 flex items-center justify-center">
+                                  <Heart className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                </div>
+                                <span className="text-white text-[10px] font-semibold drop-shadow">
+                                  {engagementMetrics.likes > 999 ? `${(engagementMetrics.likes/1000).toFixed(1)}K` : engagementMetrics.likes}
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <div className="w-10 h-10 flex items-center justify-center">
+                                  <MessageCircle className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                </div>
+                                <span className="text-white text-[10px] font-semibold drop-shadow">
+                                  {engagementMetrics.comments}
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <div className="w-10 h-10 flex items-center justify-center">
+                                  <Send className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                                </div>
+                                <span className="text-white text-[10px] font-semibold drop-shadow">
+                                  {engagementMetrics.shares}
+                                </span>
+                              </div>
+                              <div className="w-10 h-10 flex items-center justify-center">
+                                <Bookmark className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                              </div>
+                              <div className="w-10 h-10 flex items-center justify-center">
+                                <MoreHorizontal className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                              </div>
+                            </div>
+                            
+                            {/* Ad Text Content - Positioned in safe area avoiding right buttons */}
                             {adBody && (
-                              <div className="absolute bottom-24 left-4 right-4 z-20">
-                                <p className="text-white text-[12px] leading-[1.3] font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] line-clamp-4">
+                              <div className="absolute bottom-24 left-4 right-[70px] z-20">
+                                <p className="text-white text-[12px] leading-[1.3] font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] line-clamp-3">
                                   {adBody}
                                 </p>
                               </div>
                             )}
                             
-                            {/* CTA Button and Engagement for Stories */}
+                            {/* CTA Button at bottom */}
                             <div className="absolute bottom-4 left-4 right-4 z-20">
-                              {/* Engagement metrics row */}
-                              <div className="flex items-center justify-between mb-3 px-1">
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-1">
-                                    <Heart className="w-4 h-4 text-white drop-shadow-lg" />
-                                    <span className="text-white text-[10px] font-medium drop-shadow">
-                                      {engagementMetrics.likes > 999 ? `${(engagementMetrics.likes/1000).toFixed(1)}K` : engagementMetrics.likes}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <MessageCircle className="w-4 h-4 text-white drop-shadow-lg" />
-                                    <span className="text-white text-[10px] font-medium drop-shadow">
-                                      {engagementMetrics.comments}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Send className="w-4 h-4 text-white drop-shadow-lg -rotate-12" />
-                                    <span className="text-white text-[10px] font-medium drop-shadow">
-                                      {engagementMetrics.shares}
-                                    </span>
-                                  </div>
-                                </div>
-                                <Bookmark className="w-5 h-5 text-white drop-shadow-lg" />
-                              </div>
-                              
-                              {/* CTA Button */}
                               <Button 
                                 size="sm" 
                                 className="w-full h-11 text-[13px] font-semibold bg-white text-black hover:bg-gray-100 rounded-md shadow-lg"
@@ -1045,6 +1199,36 @@ export function AdDetailDialogEnhanced({
                         {/* Reels-specific UI */}
                         {currentPlacement.includes('reels') && (
                           <>
+                            {/* Safe Zone Overlay for Reels */}
+                            {showSafeZones && (
+                            <div className="absolute inset-0 pointer-events-none z-40">
+                              {/* Top safe zone (48px - Reels header) */}
+                              <div className="absolute top-0 left-0 right-0 h-12 border-b-2 border-dashed border-red-500/40">
+                                <div className="absolute top-1 left-2 bg-red-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  Header (48px)
+                                </div>
+                              </div>
+                              {/* Bottom safe zone (variable - profile + caption + CTA) */}
+                              <div className="absolute bottom-0 left-0 right-0 h-[180px] border-t-2 border-dashed border-red-500/40">
+                                <div className="absolute bottom-1 left-2 bg-red-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  Content Zone (180px)
+                                </div>
+                              </div>
+                              {/* Right side engagement zone (56px wide) */}
+                              <div className="absolute top-12 bottom-0 right-0 w-14 border-l-2 border-dashed border-blue-500/40">
+                                <div className="absolute top-1/3 -translate-y-1/2 -left-8 rotate-90 bg-blue-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  Actions (56px)
+                                </div>
+                              </div>
+                              {/* Safe content area */}
+                              <div className="absolute top-12 bottom-[180px] left-4 right-14 border-2 border-dashed border-green-500/30">
+                                <div className="absolute top-1 left-1 bg-green-600 text-white text-[7px] px-1 py-0.5 rounded font-medium">
+                                  Safe Area
+                                </div>
+                              </div>
+                            </div>
+                            )}
+
                             {/* Top Section - Profile */}
                             <div className="absolute top-4 left-3 right-3 z-20 flex items-center justify-between">
                               <span className="text-white text-sm font-semibold drop-shadow">Reels</span>
@@ -1449,6 +1633,70 @@ export function AdDetailDialogEnhanced({
                     </div>
                   </div>
                 </Card>
+                
+                {/* Conversions Section */}
+                {conversionsData.total > 0 && (
+                  <Card className="p-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-orange-600" />
+                        <h4 className="text-sm font-semibold">Conversions</h4>
+                      </div>
+                      <Badge variant="default" className="bg-green-600">
+                        {conversionsData.total} Total
+                      </Badge>
+                    </div>
+                    
+                    {/* Conversion Types Breakdown */}
+                    <div className="space-y-2 mb-3">
+                      {conversionsData.formatted_types.map((conversion, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full" />
+                            <span className="text-xs font-medium">{conversion.formatted_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-[10px]">
+                              {conversion.count}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {((conversion.count / conversionsData.total) * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Cost per Conversion */}
+                    {conversionsData.cost_per_conversion > 0 && (
+                      <div className="pt-2 border-t">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Cost per Conversion</span>
+                          <span className="text-sm font-bold text-orange-600">
+                            {currencySymbol}{conversionsData.cost_per_conversion.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Other Available Actions */}
+                    {adMetrics.rawActions && (
+                      <details className="mt-3">
+                        <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
+                          View all actions ({adMetrics.rawActions.length})
+                        </summary>
+                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                          {adMetrics.rawActions.map((action: any, idx: number) => (
+                            <div key={idx} className="flex justify-between text-[10px] p-1 hover:bg-gray-50 rounded">
+                              <span className="text-muted-foreground">{action.action_type}:</span>
+                              <span className="font-medium">{action.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </Card>
+                )}
               </TabsContent>
               
               {/* Targeting Tab */}
@@ -1526,7 +1774,6 @@ export function AdDetailDialogEnhanced({
               <TabsContent value="placement" className="space-y-3 mt-3">
                 {publisherPlatformsTargeting.map((platform: string) => {
                   const placements = getDetailedPlacements(platform, targeting)
-                  const platformColor = getPlatformColor(platform)
                   
                   return (
                     <Card key={platform} className="p-3 border">
