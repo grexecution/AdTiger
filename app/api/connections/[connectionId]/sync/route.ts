@@ -861,45 +861,61 @@ export async function POST(
             access_token: accessToken,
             level: 'ad',
             fields: [
-              // Basic metrics
+              // Basic metrics - these are always available
               'ad_id', 'ad_name', 'impressions', 'clicks', 'spend', 'cpc', 'cpm', 'ctr',
-              // Engagement metrics
-              'actions', 'inline_link_clicks', 'inline_post_engagement', 'post_reactions',
-              // Conversion metrics
-              'conversions', 'purchase_roas', 'website_purchase_roas', 'cost_per_conversion',
-              // Video metrics
-              'video_play_actions', 'video_view_15s', 'video_30_sec_watched_actions',
+              // Engagement metrics - core fields only
+              'actions', 'inline_link_clicks', 'inline_post_engagement',
+              // Video metrics - commonly available
+              'video_play_actions', 'video_30_sec_watched_actions',
               'video_avg_time_watched_actions', 'video_p25_watched_actions',
               'video_p50_watched_actions', 'video_p75_watched_actions',
               'video_p95_watched_actions', 'video_p100_watched_actions',
-              'video_thruplay_watched_actions', 'video_continuous_2_sec_watched_actions',
-              'cost_per_thruplay',
               // Quality metrics
               'quality_ranking', 'engagement_rate_ranking', 'conversion_rate_ranking',
               // Click metrics
-              'outbound_clicks', 'unique_clicks', 'landing_page_views',
+              'outbound_clicks', 'unique_clicks',
               // Reach & Frequency metrics
-              'reach', 'frequency', 'unique_impressions', 'unique_outbound_clicks',
-              // Attribution metrics
-              'website_ctr', 'instant_experience_clicks', 'instant_experience_outbound_clicks',
-              // Ad recall metrics
-              'estimated_ad_recallers', 'estimated_ad_recall_rate',
-              // Social metrics
-              'social_spend', 'unique_social_clicks',
-              // Budget & delivery
-              'objective', 'optimization_goal', 'buying_type'
+              'reach', 'frequency'
             ].join(','),
             date_preset: 'last_30d',
             limit: '500'
           })
           
           while (adInsightsUrl) {
+            console.log(`  Fetching insights from: ${adInsightsUrl.split('?')[0]}...`)
             const insightsResponse = await fetch(adInsightsUrl)
+            
+            if (!insightsResponse.ok) {
+              console.error(`  ❌ Failed to fetch insights: ${insightsResponse.status} ${insightsResponse.statusText}`)
+              const errorText = await insightsResponse.text()
+              console.error(`  Response body:`, errorText)
+              break
+            }
+            
             const insightsData = await insightsResponse.json()
             
             if (insightsData.error) {
-              console.error(`Error fetching ad insights:`, insightsData.error)
+              console.error(`  ❌ Meta API error:`, insightsData.error)
+              // Log specific field errors if they exist
+              if (insightsData.error.error_subcode === 2108006) {
+                console.error(`  ⚠️ Some fields may not be available for this account. Trying with basic fields only...`)
+                // Retry with minimal fields
+                adInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
+                  access_token: accessToken,
+                  level: 'ad',
+                  fields: 'ad_id,ad_name,impressions,clicks,spend,cpc,cpm,ctr,actions',
+                  date_preset: 'last_30d',
+                  limit: '500'
+                })
+                continue
+              }
               break
+            }
+            
+            if (insightsData.data && insightsData.data.length > 0) {
+              console.log(`  ✅ Fetched insights for ${insightsData.data.length} ads`)
+            } else {
+              console.log(`  ⚠️ No insights data returned`)
             }
             
             if (insightsData.data) {
@@ -1016,10 +1032,8 @@ export async function POST(
                           videoViews,
                           inlineLinkClicks: parseInt(insight.inline_link_clicks || '0'),
                           inlinePostEngagement: parseInt(insight.inline_post_engagement || '0'),
-                          postReactions: parseInt(insight.post_reactions || '0'),
                           // Video metrics
                           video_play_actions: parseInt(insight.video_play_actions?.[0]?.value || '0'),
-                          video_view_15s: parseInt(insight.video_view_15s?.[0]?.value || '0'),
                           video_30_sec_watched_actions: parseInt(insight.video_30_sec_watched_actions?.[0]?.value || '0'),
                           video_avg_time_watched_actions: parseFloat(insight.video_avg_time_watched_actions?.[0]?.value || '0'),
                           video_p25_watched_actions: parseInt(insight.video_p25_watched_actions?.[0]?.value || '0'),
@@ -1027,9 +1041,6 @@ export async function POST(
                           video_p75_watched_actions: parseInt(insight.video_p75_watched_actions?.[0]?.value || '0'),
                           video_p95_watched_actions: parseInt(insight.video_p95_watched_actions?.[0]?.value || '0'),
                           video_p100_watched_actions: parseInt(insight.video_p100_watched_actions?.[0]?.value || '0'),
-                          video_thruplay_watched_actions: parseInt(insight.video_thruplay_watched_actions?.[0]?.value || '0'),
-                          video_continuous_2_sec_watched_actions: parseInt(insight.video_continuous_2_sec_watched_actions?.[0]?.value || '0'),
-                          cost_per_thruplay: parseFloat(insight.cost_per_thruplay?.[0]?.value || '0'),
                           // Quality metrics
                           quality_ranking: insight.quality_ranking || null,
                           engagement_rate_ranking: insight.engagement_rate_ranking || null,
@@ -1037,31 +1048,9 @@ export async function POST(
                           // Click metrics
                           outbound_clicks: parseInt(insight.outbound_clicks?.[0]?.value || '0'),
                           unique_clicks: parseInt(insight.unique_clicks || '0'),
-                          landing_page_views: parseInt(insight.landing_page_views?.[0]?.value || '0'),
                           // Reach & Frequency
                           reach: parseInt(insight.reach || '0'),
                           frequency: parseFloat(insight.frequency || '0'),
-                          unique_impressions: parseInt(insight.unique_impressions || '0'),
-                          unique_outbound_clicks: parseInt(insight.unique_outbound_clicks?.[0]?.value || '0'),
-                          // Attribution metrics
-                          website_ctr: parseFloat(insight.website_ctr?.[0]?.value || '0'),
-                          instant_experience_clicks: parseInt(insight.instant_experience_clicks || '0'),
-                          instant_experience_outbound_clicks: parseInt(insight.instant_experience_outbound_clicks || '0'),
-                          // Ad recall
-                          estimated_ad_recallers: parseInt(insight.estimated_ad_recallers || '0'),
-                          estimated_ad_recall_rate: parseFloat(insight.estimated_ad_recall_rate?.[0]?.value || '0'),
-                          // Social metrics
-                          social_spend: parseFloat(insight.social_spend || '0'),
-                          unique_social_clicks: parseInt(insight.unique_social_clicks || '0'),
-                          // Delivery settings
-                          objective: insight.objective,
-                          optimization_goal: insight.optimization_goal,
-                          buying_type: insight.buying_type,
-                          // Conversion metrics
-                          conversions: parseInt(insight.conversions || '0'),
-                          purchaseRoas,
-                          websitePurchaseRoas,
-                          costPerConversion: parseFloat(insight.cost_per_conversion || '0'),
                           // Raw data for reference
                           rawActions: insight.actions
                         },
@@ -1083,7 +1072,7 @@ export async function POST(
             const demographicInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
               access_token: accessToken,
               level: 'ad',
-              fields: 'ad_id,impressions,clicks,spend,conversions,video_play_actions',
+              fields: 'ad_id,impressions,clicks,spend,video_play_actions',
               breakdowns: 'age,gender',
               date_preset: 'last_30d',
               limit: '500'
@@ -1106,7 +1095,6 @@ export async function POST(
                   impressions: parseInt(demo.impressions || '0'),
                   clicks: parseInt(demo.clicks || '0'),
                   spend: parseFloat(demo.spend || '0'),
-                  conversions: parseInt(demo.conversions || '0'),
                   videoPlays: parseInt(demo.video_play_actions?.[0]?.value || '0')
                 })
               }
