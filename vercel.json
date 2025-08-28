@@ -16,8 +16,7 @@
   "crons": [
     {
       "path": "/api/cron/daily-insights",
-      "schedule": "0 2 * * *",
-      "description": "Daily insights sync for all Meta ads (2 AM UTC)"
+      "schedule": "0 2 * * *"
     }
   ]
 }
