@@ -165,6 +165,7 @@ async function fetchInsightsByLevel(
   const params = new URLSearchParams({
     level: level === 'adset' ? 'adset' : level,
     fields: [
+      // Basic metrics
       'impressions',
       'clicks',
       'spend',
@@ -177,6 +178,38 @@ async function fetchInsightsByLevel(
       'purchase_roas',
       'frequency',
       'reach',
+      // Engagement metrics
+      'actions',
+      'inline_link_clicks',
+      'inline_post_engagement',
+      'post_engagement',
+      'page_engagement',
+      'post_reactions',
+      // Video metrics
+      'video_play_actions',
+      'video_view_15s',
+      'video_30_sec_watched_actions',
+      'video_avg_time_watched_actions',
+      'video_p25_watched_actions',
+      'video_p50_watched_actions',
+      'video_p75_watched_actions',
+      'video_p95_watched_actions',
+      'video_p100_watched_actions',
+      'video_thruplay_watched_actions',
+      'video_continuous_2_sec_watched_actions',
+      'cost_per_thruplay',
+      // Quality metrics
+      'quality_ranking',
+      'engagement_rate_ranking',
+      'conversion_rate_ranking',
+      // Click metrics
+      'outbound_clicks',
+      'unique_clicks',
+      'unique_ctr',
+      'cost_per_unique_click',
+      'landing_page_views',
+      'cost_per_landing_page_view',
+      // IDs
       'account_id',
       'campaign_id',
       'adset_id',
@@ -252,6 +285,7 @@ async function fetchInsightsByLevel(
         adId,
         date: item.date_start,
         metrics: {
+          // Basic metrics
           impressions: parseInt(item.impressions || '0'),
           clicks: parseInt(item.clicks || '0'),
           spend: parseFloat(item.spend || '0'),
@@ -264,6 +298,41 @@ async function fetchInsightsByLevel(
           roas: parseFloat(item.purchase_roas?.[0]?.value || '0'),
           frequency: parseFloat(item.frequency || '0'),
           reach: parseInt(item.reach || '0'),
+          
+          // Engagement metrics
+          actions: item.actions || [],
+          inlineLinkClicks: parseInt(item.inline_link_clicks || '0'),
+          inlinePostEngagement: parseInt(item.inline_post_engagement || '0'),
+          postEngagement: parseInt(item.post_engagement || '0'),
+          pageEngagement: parseInt(item.page_engagement || '0'),
+          postReactions: parseInt(item.post_reactions || '0'),
+          
+          // Video metrics
+          videoPlayActions: parseInt(item.video_play_actions?.[0]?.value || '0'),
+          videoView15s: parseInt(item.video_view_15s?.[0]?.value || '0'),
+          video30SecWatchedActions: parseInt(item.video_30_sec_watched_actions?.[0]?.value || '0'),
+          videoAvgTimeWatchedActions: parseFloat(item.video_avg_time_watched_actions?.[0]?.value || '0'),
+          videoP25WatchedActions: parseInt(item.video_p25_watched_actions?.[0]?.value || '0'),
+          videoP50WatchedActions: parseInt(item.video_p50_watched_actions?.[0]?.value || '0'),
+          videoP75WatchedActions: parseInt(item.video_p75_watched_actions?.[0]?.value || '0'),
+          videoP95WatchedActions: parseInt(item.video_p95_watched_actions?.[0]?.value || '0'),
+          videoP100WatchedActions: parseInt(item.video_p100_watched_actions?.[0]?.value || '0'),
+          videoThruplayWatchedActions: parseInt(item.video_thruplay_watched_actions?.[0]?.value || '0'),
+          videoContinuous2SecWatchedActions: parseInt(item.video_continuous_2_sec_watched_actions?.[0]?.value || '0'),
+          costPerThruplay: parseFloat(item.cost_per_thruplay?.[0]?.value || '0'),
+          
+          // Quality metrics
+          qualityRanking: item.quality_ranking || null,
+          engagementRateRanking: item.engagement_rate_ranking || null,
+          conversionRateRanking: item.conversion_rate_ranking || null,
+          
+          // Click metrics
+          outboundClicks: parseInt(item.outbound_clicks?.[0]?.value || '0'),
+          uniqueClicks: parseInt(item.unique_clicks || '0'),
+          uniqueCtr: parseFloat(item.unique_ctr || '0'),
+          costPerUniqueClick: parseFloat(item.cost_per_unique_click || '0'),
+          landingPageViews: parseInt(item.landing_page_views?.[0]?.value || '0'),
+          costPerLandingPageView: parseFloat(item.cost_per_landing_page_view?.[0]?.value || '0'),
         },
       })
     }

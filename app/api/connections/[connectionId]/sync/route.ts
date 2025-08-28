@@ -860,7 +860,25 @@ export async function POST(
           let adInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
             access_token: accessToken,
             level: 'ad',
-            fields: 'ad_id,ad_name,impressions,clicks,spend,cpc,cpm,ctr,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas,cost_per_conversion',
+            fields: [
+              // Basic metrics
+              'ad_id', 'ad_name', 'impressions', 'clicks', 'spend', 'cpc', 'cpm', 'ctr',
+              // Engagement metrics
+              'actions', 'inline_link_clicks', 'inline_post_engagement', 'post_reactions',
+              // Conversion metrics
+              'conversions', 'purchase_roas', 'website_purchase_roas', 'cost_per_conversion',
+              // Video metrics
+              'video_play_actions', 'video_view_15s', 'video_30_sec_watched_actions',
+              'video_avg_time_watched_actions', 'video_p25_watched_actions',
+              'video_p50_watched_actions', 'video_p75_watched_actions',
+              'video_p95_watched_actions', 'video_p100_watched_actions',
+              'video_thruplay_watched_actions', 'video_continuous_2_sec_watched_actions',
+              'cost_per_thruplay',
+              // Quality metrics
+              'quality_ranking', 'engagement_rate_ranking', 'conversion_rate_ranking',
+              // Click metrics
+              'outbound_clicks', 'unique_clicks', 'landing_page_views'
+            ].join(','),
             date_preset: 'last_30d',
             limit: '500'
           })
@@ -988,6 +1006,28 @@ export async function POST(
                           videoViews,
                           inlineLinkClicks: parseInt(insight.inline_link_clicks || '0'),
                           inlinePostEngagement: parseInt(insight.inline_post_engagement || '0'),
+                          postReactions: parseInt(insight.post_reactions || '0'),
+                          // Video metrics
+                          video_play_actions: parseInt(insight.video_play_actions?.[0]?.value || '0'),
+                          video_view_15s: parseInt(insight.video_view_15s?.[0]?.value || '0'),
+                          video_30_sec_watched_actions: parseInt(insight.video_30_sec_watched_actions?.[0]?.value || '0'),
+                          video_avg_time_watched_actions: parseFloat(insight.video_avg_time_watched_actions?.[0]?.value || '0'),
+                          video_p25_watched_actions: parseInt(insight.video_p25_watched_actions?.[0]?.value || '0'),
+                          video_p50_watched_actions: parseInt(insight.video_p50_watched_actions?.[0]?.value || '0'),
+                          video_p75_watched_actions: parseInt(insight.video_p75_watched_actions?.[0]?.value || '0'),
+                          video_p95_watched_actions: parseInt(insight.video_p95_watched_actions?.[0]?.value || '0'),
+                          video_p100_watched_actions: parseInt(insight.video_p100_watched_actions?.[0]?.value || '0'),
+                          video_thruplay_watched_actions: parseInt(insight.video_thruplay_watched_actions?.[0]?.value || '0'),
+                          video_continuous_2_sec_watched_actions: parseInt(insight.video_continuous_2_sec_watched_actions?.[0]?.value || '0'),
+                          cost_per_thruplay: parseFloat(insight.cost_per_thruplay?.[0]?.value || '0'),
+                          // Quality metrics
+                          quality_ranking: insight.quality_ranking || null,
+                          engagement_rate_ranking: insight.engagement_rate_ranking || null,
+                          conversion_rate_ranking: insight.conversion_rate_ranking || null,
+                          // Click metrics
+                          outbound_clicks: parseInt(insight.outbound_clicks?.[0]?.value || '0'),
+                          unique_clicks: parseInt(insight.unique_clicks || '0'),
+                          landing_page_views: parseInt(insight.landing_page_views?.[0]?.value || '0'),
                           // Conversion metrics
                           conversions: parseInt(insight.conversions || '0'),
                           purchaseRoas,

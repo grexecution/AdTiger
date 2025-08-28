@@ -57,6 +57,7 @@ import {
   UserCheck,
   Zap,
   ChevronRight,
+  ChevronDown,
   BarChart3,
   Info,
   MessageSquare,
@@ -960,6 +961,8 @@ export function AdDetailDialogEnhanced({
     impressions: adMetrics.impressions || 0,
     clicks: adMetrics.clicks || 0,
     spend: adMetrics.spend || 0,
+    originalSpend: adMetrics.originalSpend || 0,
+    originalCurrency: adMetrics.originalCurrency || currency,
     cpc: adMetrics.cpc || 0,
     cpm: adMetrics.cpm || 0,
     ctr: adMetrics.ctr || 0,
@@ -967,7 +970,30 @@ export function AdDetailDialogEnhanced({
     comments: adMetrics.comments || 0,
     shares: adMetrics.shares || 0,
     saves: adMetrics.saves || 0,
-    videoViews: adMetrics.video_views || 0,
+    videoViews: adMetrics.video_views || adMetrics.videoViews || 0,
+    // New inline metrics
+    inlineLinkClicks: adMetrics.inlineLinkClicks || 0,
+    inlinePostEngagement: adMetrics.inlinePostEngagement || 0,
+    // Video metrics
+    video30SecWatched: adMetrics.video_30_sec_watched_actions || 0,
+    videoP25Watched: adMetrics.video_p25_watched_actions || 0,
+    videoP50Watched: adMetrics.video_p50_watched_actions || 0,
+    videoP75Watched: adMetrics.video_p75_watched_actions || 0,
+    videoP95Watched: adMetrics.video_p95_watched_actions || 0,
+    videoP100Watched: adMetrics.video_p100_watched_actions || 0,
+    videoAvgTimeWatched: adMetrics.video_avg_time_watched_actions || 0,
+    costPerThruplay: adMetrics.cost_per_thruplay || 0,
+    videoPlayActions: adMetrics.video_play_actions || 0,
+    video3SecWatched: adMetrics.video_continuous_2_sec_watched_actions || adMetrics.video_3_sec_watched_actions || 0,
+    videoThruplays: adMetrics.video_thruplay_watched_actions || 0,
+    videoContinuous2SecWatched: adMetrics.video_continuous_2_sec_watched_actions || 0,
+    // Quality rankings
+    qualityRanking: adMetrics.quality_ranking || null,
+    engagementRateRanking: adMetrics.engagement_rate_ranking || null,
+    conversionRateRanking: adMetrics.conversion_rate_ranking || null,
+    // Advanced metrics
+    outboundClicks: adMetrics.outbound_clicks || adMetrics.outboundClicks || 0,
+    landingPageViews: adMetrics.landing_page_views || adMetrics.landingPageViews || 0,
   }
   
   // Targeting already defined above, no need to redefine
@@ -1663,6 +1689,7 @@ export function AdDetailDialogEnhanced({
               
               {/* Performance Tab */}
               <TabsContent value="performance" className="space-y-3 mt-3">
+                {/* Primary Metrics */}
                 <div className="grid grid-cols-2 gap-2">
                   <Card className="p-3 bg-gradient-to-br from-blue-50 to-white border-blue-200/50">
                     <div className="flex items-center justify-between mb-1">
@@ -1678,23 +1705,27 @@ export function AdDetailDialogEnhanced({
                   <Card className="p-3 bg-gradient-to-br from-green-50 to-white border-green-200/50">
                     <div className="flex items-center justify-between mb-1">
                       <MousePointerClick className="h-3.5 w-3.5 text-green-600" />
-                      <span className="text-[10px] text-muted-foreground">Engagement</span>
+                      <span className="text-[10px] text-muted-foreground">Clicks</span>
                     </div>
                     <div className="text-xl font-bold text-green-900">
                       {engagementMetrics.clicks.toLocaleString()}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">Clicks</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {engagementMetrics.inlineLinkClicks > 0 && (
+                        <span className="text-green-600">{engagementMetrics.inlineLinkClicks} in-app</span>
+                      )}
+                    </div>
                   </Card>
                   
                   <Card className="p-3 bg-gradient-to-br from-purple-50 to-white border-purple-200/50">
                     <div className="flex items-center justify-between mb-1">
                       <TrendingUp className="h-3.5 w-3.5 text-purple-600" />
-                      <span className="text-[10px] text-muted-foreground">Rate</span>
+                      <span className="text-[10px] text-muted-foreground">Performance</span>
                     </div>
                     <div className="text-xl font-bold text-purple-900">
                       {engagementMetrics.ctr.toFixed(2)}%
                     </div>
-                    <div className="text-[10px] text-muted-foreground">CTR</div>
+                    <div className="text-[10px] text-muted-foreground">Click-through Rate</div>
                   </Card>
                   
                   <Card className="p-3 bg-gradient-to-br from-orange-50 to-white border-orange-200/50">
@@ -1705,35 +1736,24 @@ export function AdDetailDialogEnhanced({
                     <div className="text-xl font-bold text-orange-900">
                       {currencySymbol}{engagementMetrics.spend.toFixed(2)}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">Total Spend</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {engagementMetrics.originalCurrency !== currency && (
+                        <span className="text-orange-600">
+                          {engagementMetrics.originalCurrency} {engagementMetrics.originalSpend.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
                   </Card>
                 </div>
+
                 
-                {/* Cost Metrics */}
-                <Card className="p-3">
-                  <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
-                    <BarChart3 className="h-3 w-3" />
-                    Cost Efficiency
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <div className="text-[10px] text-muted-foreground">Cost per Click</div>
-                      <div className="text-lg font-semibold">{currencySymbol}{engagementMetrics.cpc.toFixed(2)}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-[10px] text-muted-foreground">Cost per 1000 Impressions</div>
-                      <div className="text-lg font-semibold">{currencySymbol}{engagementMetrics.cpm.toFixed(2)}</div>
-                    </div>
-                  </div>
-                </Card>
-                
-                {/* Engagement Metrics */}
+                {/* Enhanced Engagement Metrics */}
                 <Card className="p-3">
                   <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
                     <Heart className="h-3 w-3" />
                     Social Engagement
                   </h4>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <div className="text-center p-2 bg-gray-50 rounded">
                       <ThumbsUp className="h-3.5 w-3.5 mx-auto mb-1 text-blue-600" />
                       <div className="text-sm font-semibold">{engagementMetrics.likes}</div>
@@ -1749,8 +1769,311 @@ export function AdDetailDialogEnhanced({
                       <div className="text-sm font-semibold">{engagementMetrics.shares}</div>
                       <div className="text-[9px] text-muted-foreground">Shares</div>
                     </div>
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <Bookmark className="h-3.5 w-3.5 mx-auto mb-1 text-amber-600" />
+                      <div className="text-sm font-semibold">{engagementMetrics.saves}</div>
+                      <div className="text-[9px] text-muted-foreground">Saves</div>
+                    </div>
+                  </div>
+                  {engagementMetrics.inlinePostEngagement > 0 && (
+                    <div className="mt-2 pt-2 border-t text-center">
+                      <span className="text-xs text-muted-foreground">
+                        Total In-App Engagement: <span className="font-semibold text-foreground">{engagementMetrics.inlinePostEngagement}</span>
+                      </span>
+                    </div>
+                  )}
+                </Card>
+
+                {/* Video Performance - Only show for video ads */}
+                {isVideo && (engagementMetrics.videoViews > 0 || engagementMetrics.videoPlayActions > 0 || engagementMetrics.impressions > 0) && (
+                  <Card className="p-3">
+                    <h4 className="text-xs font-medium mb-3 flex items-center gap-1">
+                      <Video className="h-3 w-3" />
+                      Video Performance
+                    </h4>
+                    
+                    {/* Key Video Quality Metrics */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {/* Scroll Stop Rate (Hook Rate) */}
+                      {engagementMetrics.impressions > 0 && (
+                        <div className="p-2 bg-purple-50 rounded">
+                          <div className="text-lg font-bold text-purple-700">
+                            {((engagementMetrics.video3SecWatched || engagementMetrics.videoViews || 0) / engagementMetrics.impressions * 100).toFixed(1)}%
+                          </div>
+                          <div className="text-[9px] text-muted-foreground">Scroll Stop Rate</div>
+                          <div className="text-[8px] text-purple-600 mt-0.5">
+                            Hook Rate • 3s Views/Impressions
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Average Watch Time */}
+                      {engagementMetrics.videoAvgTimeWatched > 0 && (
+                        <div className="p-2 bg-indigo-50 rounded">
+                          <div className="text-lg font-bold text-indigo-700">
+                            {engagementMetrics.videoAvgTimeWatched}s
+                          </div>
+                          <div className="text-[9px] text-muted-foreground">Avg. Watch Time</div>
+                          <div className="text-[8px] text-indigo-600 mt-0.5">
+                            Hold Rate Indicator
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Video Views & Cost Summary */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="p-2 bg-blue-50 rounded text-center">
+                        <div className="text-base font-bold text-blue-700">
+                          {engagementMetrics.videoViews.toLocaleString()}
+                        </div>
+                        <div className="text-[8px] text-muted-foreground">Video Views</div>
+                      </div>
+                      
+                      {engagementMetrics.video30SecWatched > 0 && (
+                        <div className="p-2 bg-cyan-50 rounded text-center">
+                          <div className="text-base font-bold text-cyan-700">
+                            {engagementMetrics.video30SecWatched.toLocaleString()}
+                          </div>
+                          <div className="text-[8px] text-muted-foreground">30s Views</div>
+                        </div>
+                      )}
+                      
+                      {engagementMetrics.costPerThruplay > 0 && (
+                        <div className="p-2 bg-green-50 rounded text-center">
+                          <div className="text-base font-bold text-green-700">
+                            {currencySymbol}{engagementMetrics.costPerThruplay.toFixed(2)}
+                          </div>
+                          <div className="text-[8px] text-muted-foreground">Cost/ThruPlay</div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Video Retention Funnel */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-medium text-muted-foreground mb-1 flex items-center justify-between">
+                        <span>Viewer Retention Funnel</span>
+                        {engagementMetrics.videoViews > 0 && engagementMetrics.videoP100Watched > 0 && (
+                          <span className="text-[9px] text-purple-600 font-semibold">
+                            {((engagementMetrics.videoP100Watched / engagementMetrics.videoViews) * 100).toFixed(1)}% completion rate
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Start (Video Views) */}
+                      {engagementMetrics.videoViews > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Started</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full" style={{width: '100%'}}></div>
+                            </div>
+                            <span className="text-xs font-semibold min-w-[40px] text-right">{engagementMetrics.videoViews.toLocaleString()}</span>
+                            <span className="text-[9px] text-muted-foreground min-w-[35px] text-right">100%</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 25% Watched */}
+                      {engagementMetrics.videoP25Watched > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">25%</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full transition-all duration-300" 
+                                style={{width: engagementMetrics.videoViews > 0 ? `${(engagementMetrics.videoP25Watched / engagementMetrics.videoViews * 100)}%` : '0%'}}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-semibold min-w-[40px] text-right">{engagementMetrics.videoP25Watched.toLocaleString()}</span>
+                            <span className="text-[9px] text-muted-foreground min-w-[35px] text-right">
+                              {engagementMetrics.videoViews > 0 ? `${((engagementMetrics.videoP25Watched / engagementMetrics.videoViews) * 100).toFixed(0)}%` : '0%'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 50% Watched */}
+                      {engagementMetrics.videoP50Watched > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">50%</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300" 
+                                style={{width: engagementMetrics.videoViews > 0 ? `${(engagementMetrics.videoP50Watched / engagementMetrics.videoViews * 100)}%` : '0%'}}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-semibold min-w-[40px] text-right">{engagementMetrics.videoP50Watched.toLocaleString()}</span>
+                            <span className="text-[9px] text-muted-foreground min-w-[35px] text-right">
+                              {engagementMetrics.videoViews > 0 ? `${((engagementMetrics.videoP50Watched / engagementMetrics.videoViews) * 100).toFixed(0)}%` : '0%'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 75% Watched */}
+                      {engagementMetrics.videoP75Watched > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">75%</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-gradient-to-r from-amber-400 to-amber-600 h-2 rounded-full transition-all duration-300" 
+                                style={{width: engagementMetrics.videoViews > 0 ? `${(engagementMetrics.videoP75Watched / engagementMetrics.videoViews * 100)}%` : '0%'}}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-semibold min-w-[40px] text-right">{engagementMetrics.videoP75Watched.toLocaleString()}</span>
+                            <span className="text-[9px] text-muted-foreground min-w-[35px] text-right">
+                              {engagementMetrics.videoViews > 0 ? `${((engagementMetrics.videoP75Watched / engagementMetrics.videoViews) * 100).toFixed(0)}%` : '0%'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 95% Watched (if available) */}
+                      {engagementMetrics.videoP95Watched > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">95%</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-gradient-to-r from-purple-400 to-purple-600 h-2 rounded-full transition-all duration-300" 
+                                style={{width: engagementMetrics.videoViews > 0 ? `${(engagementMetrics.videoP95Watched / engagementMetrics.videoViews * 100)}%` : '0%'}}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-semibold min-w-[40px] text-right">{engagementMetrics.videoP95Watched.toLocaleString()}</span>
+                            <span className="text-[9px] text-muted-foreground min-w-[35px] text-right">
+                              {engagementMetrics.videoViews > 0 ? `${((engagementMetrics.videoP95Watched / engagementMetrics.videoViews) * 100).toFixed(0)}%` : '0%'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Completed */}
+                      {engagementMetrics.videoP100Watched > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">Completed</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-gradient-to-r from-purple-500 to-purple-700 h-2 rounded-full transition-all duration-300" 
+                                style={{width: engagementMetrics.videoViews > 0 ? `${(engagementMetrics.videoP100Watched / engagementMetrics.videoViews * 100)}%` : '0%'}}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-bold min-w-[40px] text-right text-purple-700">{engagementMetrics.videoP100Watched.toLocaleString()}</span>
+                            <span className="text-[9px] font-semibold text-purple-600 min-w-[35px] text-right">
+                              {engagementMetrics.videoViews > 0 ? `${((engagementMetrics.videoP100Watched / engagementMetrics.videoViews) * 100).toFixed(0)}%` : '0%'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Additional Video Metrics */}
+                    {(engagementMetrics.videoThruplays > 0 || engagementMetrics.videoContinuous2SecWatched > 0) && (
+                      <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-2">
+                        {engagementMetrics.videoThruplays > 0 && (
+                          <div className="p-2 bg-gray-50 rounded text-center">
+                            <div className="text-sm font-semibold">{engagementMetrics.videoThruplays.toLocaleString()}</div>
+                            <div className="text-[8px] text-muted-foreground">ThruPlays</div>
+                            <div className="text-[7px] text-gray-500">15s+ or Complete</div>
+                          </div>
+                        )}
+                        {engagementMetrics.videoContinuous2SecWatched > 0 && (
+                          <div className="p-2 bg-gray-50 rounded text-center">
+                            <div className="text-sm font-semibold">{engagementMetrics.videoContinuous2SecWatched.toLocaleString()}</div>
+                            <div className="text-[8px] text-muted-foreground">2s Continuous</div>
+                            <div className="text-[7px] text-gray-500">Views</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                )}
+
+                {/* Quality Rankings */}
+                {(engagementMetrics.qualityRanking || engagementMetrics.engagementRateRanking || engagementMetrics.conversionRateRanking) && (
+                  <Card className="p-3">
+                    <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+                      <Target className="h-3 w-3" />
+                      Quality Rankings
+                    </h4>
+                    <div className="space-y-2">
+                      {engagementMetrics.qualityRanking && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Quality</span>
+                          <Badge 
+                            variant={engagementMetrics.qualityRanking === 'below_average' ? 'destructive' : 'secondary'} 
+                            className={cn(
+                              "text-[10px]",
+                              engagementMetrics.qualityRanking === 'above_average' && "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                            )}
+                          >
+                            {engagementMetrics.qualityRanking.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      )}
+                      {engagementMetrics.engagementRateRanking && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Engagement Rate</span>
+                          <Badge 
+                            variant={engagementMetrics.engagementRateRanking === 'below_average' ? 'destructive' : 'secondary'}
+                            className={cn(
+                              "text-[10px]",
+                              engagementMetrics.engagementRateRanking === 'above_average' && "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                            )}
+                          >
+                            {engagementMetrics.engagementRateRanking.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      )}
+                      {engagementMetrics.conversionRateRanking && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Conversion Rate</span>
+                          <Badge 
+                            variant={engagementMetrics.conversionRateRanking === 'below_average' ? 'destructive' : 'secondary'}
+                            className={cn(
+                              "text-[10px]",
+                              engagementMetrics.conversionRateRanking === 'above_average' && "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                            )}
+                          >
+                            {engagementMetrics.conversionRateRanking.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                )}
+                
+                {/* Cost Efficiency */}
+                <Card className="p-3">
+                  <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+                    <BarChart3 className="h-3 w-3" />
+                    Cost Efficiency
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-muted-foreground">Cost per Click</div>
+                      <div className="text-lg font-semibold">{currencySymbol}{engagementMetrics.cpc.toFixed(2)}</div>
+                      {adMetrics.cpcOriginalCurrency && adMetrics.originalCurrency && adMetrics.originalCurrency !== currency && (
+                        <div className="text-[9px] text-muted-foreground">
+                          {adMetrics.originalCurrency} {adMetrics.cpcOriginalCurrency.toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-muted-foreground">Cost per 1000 Impressions</div>
+                      <div className="text-lg font-semibold">{currencySymbol}{engagementMetrics.cpm.toFixed(2)}</div>
+                      {adMetrics.cpmOriginalCurrency && adMetrics.originalCurrency && adMetrics.originalCurrency !== currency && (
+                        <div className="text-[9px] text-muted-foreground">
+                          {adMetrics.originalCurrency} {adMetrics.cpmOriginalCurrency.toFixed(2)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </Card>
+
                 
                 {/* Conversions Section */}
                 {conversionsData.total > 0 && (
@@ -1798,18 +2121,49 @@ export function AdDetailDialogEnhanced({
                     )}
                     
                     {/* Other Available Actions */}
-                    {adMetrics.rawActions && (
+                    {adMetrics.rawActions && adMetrics.rawActions.length > 0 && (
                       <details className="mt-3">
-                        <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
-                          View all actions ({adMetrics.rawActions.length})
+                        <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                          <span className="inline-flex items-center gap-1">
+                            View all tracked actions ({adMetrics.rawActions.length})
+                            <ChevronDown className="h-3 w-3 inline-block" />
+                          </span>
                         </summary>
-                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                          {adMetrics.rawActions.map((action: any, idx: number) => (
-                            <div key={idx} className="flex justify-between text-[10px] p-1 hover:bg-gray-50 rounded">
-                              <span className="text-muted-foreground">{action.action_type}:</span>
-                              <span className="font-medium">{action.value}</span>
-                            </div>
-                          ))}
+                        <div className="mt-2 space-y-1 max-h-48 overflow-y-auto border rounded p-2">
+                          {adMetrics.rawActions
+                            .sort((a: any, b: any) => parseInt(b.value) - parseInt(a.value))
+                            .map((action: any, idx: number) => {
+                              const actionName = action.action_type
+                                .replace(/_/g, ' ')
+                                .replace(/\b\w/g, (l: string) => l.toUpperCase())
+                              const isImportant = [
+                                'purchase', 'add_to_cart', 'lead', 'complete_registration',
+                                'initiate_checkout', 'add_payment_info', 'search'
+                              ].some(key => action.action_type.toLowerCase().includes(key))
+                              
+                              return (
+                                <div 
+                                  key={idx} 
+                                  className={cn(
+                                    "flex justify-between text-[10px] p-1.5 rounded",
+                                    isImportant ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-gray-50"
+                                  )}
+                                >
+                                  <span className={cn(
+                                    "text-muted-foreground",
+                                    isImportant && "text-amber-700 font-medium"
+                                  )}>
+                                    {actionName}:
+                                  </span>
+                                  <span className={cn(
+                                    "font-medium",
+                                    isImportant && "text-amber-900"
+                                  )}>
+                                    {parseInt(action.value).toLocaleString()}
+                                  </span>
+                                </div>
+                              )
+                            })}
                         </div>
                       </details>
                     )}
