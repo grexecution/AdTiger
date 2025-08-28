@@ -1696,7 +1696,7 @@ export function AdDetailDialogEnhanced({
             <Tabs defaultValue="performance" className="h-full">
               <TabsList className="grid w-full grid-cols-5 h-8 mb-3">
                 <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
-                <TabsTrigger value="trends" className="text-xs">Trends</TabsTrigger>
+                <TabsTrigger value="trends" className="text-xs">Performance</TabsTrigger>
                 <TabsTrigger value="targeting" className="text-xs">Targeting</TabsTrigger>
                 <TabsTrigger value="placement" className="text-xs">Placement</TabsTrigger>
                 <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
@@ -2186,9 +2186,9 @@ export function AdDetailDialogEnhanced({
                 )}
               </TabsContent>
               
-              {/* Trends Tab - Historical Performance Charts */}
+              {/* Performance Tab - Historical Performance Charts */}
               <TabsContent value="trends" className="space-y-3 mt-3">
-                <PerformanceTrends ad={ad} currency={currency} />
+                <PerformanceHistory ad={ad} currency={currency} />
               </TabsContent>
               
               {/* Targeting Tab */}
@@ -2397,8 +2397,8 @@ export function AdDetailDialogEnhanced({
     </Dialog>
   )
 }
-// Performance Trends Component
-function PerformanceTrends({ ad, currency }: { ad: any, currency: string }) {
+// Performance History Component
+function PerformanceHistory({ ad, currency }: { ad: any, currency: string }) {
   const [chartData, setChartData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [selectedMetric, setSelectedMetric] = useState('impressions')
@@ -2676,25 +2676,25 @@ function PerformanceTrends({ ad, currency }: { ad: any, currency: string }) {
       </div>
 
       {/* Summary Stats */}
-      {chartData.summary && (
+      {chartData?.summary && (
         <Card className="p-3">
           <h4 className="text-xs font-medium mb-2">Period Summary</h4>
           <div className="grid grid-cols-4 gap-2 text-xs">
             <div>
               <span className="text-muted-foreground">Total Spend</span>
-              <div className="font-semibold">{currencySymbol}{chartData.summary.totalSpend.toFixed(2)}</div>
+              <div className="font-semibold">{currencySymbol}{(chartData.summary.totalSpend ?? 0).toFixed(2)}</div>
             </div>
             <div>
               <span className="text-muted-foreground">Total Clicks</span>
-              <div className="font-semibold">{chartData.summary.totalClicks.toLocaleString()}</div>
+              <div className="font-semibold">{(chartData.summary.totalClicks ?? 0).toLocaleString()}</div>
             </div>
             <div>
               <span className="text-muted-foreground">Avg. CTR</span>
-              <div className="font-semibold">{chartData.summary.avgCtr.toFixed(2)}%</div>
+              <div className="font-semibold">{(chartData.summary.avgCtr ?? 0).toFixed(2)}%</div>
             </div>
             <div>
               <span className="text-muted-foreground">Avg. CPC</span>
-              <div className="font-semibold">{currencySymbol}{chartData.summary.avgCpc.toFixed(2)}</div>
+              <div className="font-semibold">{currencySymbol}{(chartData.summary.avgCpc ?? 0).toFixed(2)}</div>
             </div>
           </div>
         </Card>
