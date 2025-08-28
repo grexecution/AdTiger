@@ -861,11 +861,11 @@ export async function POST(
             access_token: accessToken,
             level: 'ad',
             fields: [
-              // Basic metrics - these are always available
+              // Basic metrics
               'ad_id', 'ad_name', 'impressions', 'clicks', 'spend', 'cpc', 'cpm', 'ctr',
-              // Engagement metrics - core fields only
+              // Engagement metrics
               'actions', 'inline_link_clicks', 'inline_post_engagement',
-              // Video metrics - commonly available
+              // Video metrics
               'video_play_actions', 'video_30_sec_watched_actions',
               'video_avg_time_watched_actions', 'video_p25_watched_actions',
               'video_p50_watched_actions', 'video_p75_watched_actions',
@@ -873,49 +873,19 @@ export async function POST(
               // Quality metrics
               'quality_ranking', 'engagement_rate_ranking', 'conversion_rate_ranking',
               // Click metrics
-              'outbound_clicks', 'unique_clicks',
-              // Reach & Frequency metrics
-              'reach', 'frequency'
+              'outbound_clicks', 'unique_clicks'
             ].join(','),
             date_preset: 'last_30d',
             limit: '500'
           })
           
           while (adInsightsUrl) {
-            console.log(`  Fetching insights from: ${adInsightsUrl.split('?')[0]}...`)
             const insightsResponse = await fetch(adInsightsUrl)
-            
-            if (!insightsResponse.ok) {
-              console.error(`  ❌ Failed to fetch insights: ${insightsResponse.status} ${insightsResponse.statusText}`)
-              const errorText = await insightsResponse.text()
-              console.error(`  Response body:`, errorText)
-              break
-            }
-            
             const insightsData = await insightsResponse.json()
             
             if (insightsData.error) {
-              console.error(`  ❌ Meta API error:`, insightsData.error)
-              // Log specific field errors if they exist
-              if (insightsData.error.error_subcode === 2108006) {
-                console.error(`  ⚠️ Some fields may not be available for this account. Trying with basic fields only...`)
-                // Retry with minimal fields
-                adInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
-                  access_token: accessToken,
-                  level: 'ad',
-                  fields: 'ad_id,ad_name,impressions,clicks,spend,cpc,cpm,ctr,actions',
-                  date_preset: 'last_30d',
-                  limit: '500'
-                })
-                continue
-              }
+              console.error(`Error fetching ad insights:`, insightsData.error)
               break
-            }
-            
-            if (insightsData.data && insightsData.data.length > 0) {
-              console.log(`  ✅ Fetched insights for ${insightsData.data.length} ads`)
-            } else {
-              console.log(`  ⚠️ No insights data returned`)
             }
             
             if (insightsData.data) {
@@ -1065,9 +1035,9 @@ export async function POST(
             adInsightsUrl = insightsData.paging?.next || null
           }
           
-          // Fetch demographic breakdowns for top performing ads
-          console.log(`  Fetching demographic breakdowns for insights...`)
-          try {
+          // Skip demographic breakdowns for now - may be causing issues
+          // console.log(`  Fetching demographic breakdowns for insights...`)
+          if (false) { // Disabled temporarily
             // Get age and gender breakdown
             const demographicInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
               access_token: accessToken,
