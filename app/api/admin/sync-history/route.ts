@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const stats = {
       totalSyncs: history.length,
       successRate: history.length > 0 
-        ? (history.filter(h => h.status === 'COMPLETED').length / history.length) * 100 
+        ? (history.filter(h => h.status === 'SUCCESS').length / history.length) * 100 
         : 0,
       avgDuration: history.length > 0
         ? history.reduce((sum, h) => sum + (h.duration || 0), 0) / history.length

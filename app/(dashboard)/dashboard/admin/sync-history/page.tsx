@@ -123,13 +123,11 @@ export default function SyncHistoryPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'COMPLETED':
+      case 'SUCCESS':
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case 'FAILED':
         return <XCircle className="h-4 w-4 text-red-500" />
-      case 'IN_PROGRESS':
-        return <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />
-      case 'PARTIAL':
+      case 'CANCELLED':
         return <AlertCircle className="h-4 w-4 text-yellow-500" />
       default:
         return <Clock className="h-4 w-4 text-gray-500" />
@@ -138,10 +136,9 @@ export default function SyncHistoryPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      COMPLETED: "default",
+      SUCCESS: "default",
       FAILED: "destructive",
-      IN_PROGRESS: "secondary",
-      PARTIAL: "outline"
+      CANCELLED: "secondary"
     }
     
     return (
@@ -259,10 +256,9 @@ export default function SyncHistoryPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="SUCCESS">Success</SelectItem>
                 <SelectItem value="FAILED">Failed</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="PARTIAL">Partial</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
               </SelectContent>
             </Select>
 
