@@ -8,29 +8,29 @@ datasource db {
 }
 
 model Account {
-  id                   String                @id @default(cuid())
-  name                 String
-  subscriptionTier     SubscriptionTier      @default(FREE)
-  subscriptionStatus   SubscriptionStatus    @default(ACTIVE)
+  id                    String                @id @default(cuid())
+  name                  String
+  subscriptionTier      SubscriptionTier      @default(FREE)
+  subscriptionStatus    SubscriptionStatus    @default(ACTIVE)
   subscriptionExpiresAt DateTime?
-  billingEmail         String?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  currency             String                @default("USD")
-  ads                  Ad[]
-  adAccounts           AdAccount[]
-  adGroups             AdGroup[]
-  campaigns            Campaign[]
-  changeHistory        ChangeHistory[]
-  connections          Connection[]
-  feedbacks            Feedback[]
-  insights             Insight[]
-  performanceSnapshots PerformanceSnapshot[]
-  performanceTrends    PerformanceTrend[]
-  providerConnections  ProviderConnection[]
-  recommendations      Recommendation[]
-  syncHistory          SyncHistory[]
-  users                User[]
+  billingEmail          String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  currency              String                @default("USD")
+  ads                   Ad[]
+  adAccounts            AdAccount[]
+  adGroups              AdGroup[]
+  campaigns             Campaign[]
+  changeHistory         ChangeHistory[]
+  connections           Connection[]
+  feedbacks             Feedback[]
+  insights              Insight[]
+  performanceSnapshots  PerformanceSnapshot[]
+  performanceTrends     PerformanceTrend[]
+  providerConnections   ProviderConnection[]
+  recommendations       Recommendation[]
+  syncHistory           SyncHistory[]
+  users                 User[]
 
   @@index([subscriptionTier])
   @@index([subscriptionStatus])
@@ -130,7 +130,7 @@ model Campaign {
   accountId      String
   adAccountId    String
   provider       String
-  channel        String?         // e.g., "facebook", "instagram", "google_search", "youtube"
+  channel        String? // e.g., "facebook", "instagram", "google_search", "youtube"
   externalId     String
   name           String
   status         String?
@@ -158,7 +158,7 @@ model AdGroup {
   accountId      String
   campaignId     String
   provider       String
-  channel        String?         // inherited from campaign
+  channel        String? // inherited from campaign
   externalId     String
   name           String
   status         String?
@@ -185,7 +185,7 @@ model Ad {
   accountId     String
   adGroupId     String
   provider      String
-  channel       String?         // inherited from campaign
+  channel       String? // inherited from campaign
   externalId    String
   name          String
   status        String?

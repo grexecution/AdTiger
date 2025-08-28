@@ -877,7 +877,17 @@ export async function POST(
               // Quality metrics
               'quality_ranking', 'engagement_rate_ranking', 'conversion_rate_ranking',
               // Click metrics
-              'outbound_clicks', 'unique_clicks', 'landing_page_views'
+              'outbound_clicks', 'unique_clicks', 'landing_page_views',
+              // Reach & Frequency metrics
+              'reach', 'frequency', 'unique_impressions', 'unique_outbound_clicks',
+              // Attribution metrics
+              'website_ctr', 'instant_experience_clicks', 'instant_experience_outbound_clicks',
+              // Ad recall metrics
+              'estimated_ad_recallers', 'estimated_ad_recall_rate',
+              // Social metrics
+              'social_spend', 'unique_social_clicks',
+              // Budget & delivery
+              'objective', 'optimization_goal', 'buying_type'
             ].join(','),
             date_preset: 'last_30d',
             limit: '500'
@@ -1028,6 +1038,25 @@ export async function POST(
                           outbound_clicks: parseInt(insight.outbound_clicks?.[0]?.value || '0'),
                           unique_clicks: parseInt(insight.unique_clicks || '0'),
                           landing_page_views: parseInt(insight.landing_page_views?.[0]?.value || '0'),
+                          // Reach & Frequency
+                          reach: parseInt(insight.reach || '0'),
+                          frequency: parseFloat(insight.frequency || '0'),
+                          unique_impressions: parseInt(insight.unique_impressions || '0'),
+                          unique_outbound_clicks: parseInt(insight.unique_outbound_clicks?.[0]?.value || '0'),
+                          // Attribution metrics
+                          website_ctr: parseFloat(insight.website_ctr?.[0]?.value || '0'),
+                          instant_experience_clicks: parseInt(insight.instant_experience_clicks || '0'),
+                          instant_experience_outbound_clicks: parseInt(insight.instant_experience_outbound_clicks || '0'),
+                          // Ad recall
+                          estimated_ad_recallers: parseInt(insight.estimated_ad_recallers || '0'),
+                          estimated_ad_recall_rate: parseFloat(insight.estimated_ad_recall_rate?.[0]?.value || '0'),
+                          // Social metrics
+                          social_spend: parseFloat(insight.social_spend || '0'),
+                          unique_social_clicks: parseInt(insight.unique_social_clicks || '0'),
+                          // Delivery settings
+                          objective: insight.objective,
+                          optimization_goal: insight.optimization_goal,
+                          buying_type: insight.buying_type,
                           // Conversion metrics
                           conversions: parseInt(insight.conversions || '0'),
                           purchaseRoas,
@@ -1045,6 +1074,71 @@ export async function POST(
             }
             
             adInsightsUrl = insightsData.paging?.next || null
+          }
+          
+          // Fetch demographic breakdowns for top performing ads
+          console.log(`  Fetching demographic breakdowns for insights...`)
+          try {
+            // Get age and gender breakdown
+            const demographicInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
+              access_token: accessToken,
+              level: 'ad',
+              fields: 'ad_id,impressions,clicks,spend,conversions,video_play_actions',
+              breakdowns: 'age,gender',
+              date_preset: 'last_30d',
+              limit: '500'
+            })
+            
+            const demoResponse = await fetch(demographicInsightsUrl)
+            const demoData = await demoResponse.json()
+            
+            if (demoData.data) {
+              // Store demographic data in metadata
+              const demographicsByAd: Record<string, any> = {}
+              
+              for (const demo of demoData.data) {
+                if (!demographicsByAd[demo.ad_id]) {
+                  demographicsByAd[demo.ad_id] = []
+                }
+                demographicsByAd[demo.ad_id].push({
+                  age: demo.age,
+                  gender: demo.gender,
+                  impressions: parseInt(demo.impressions || '0'),
+                  clicks: parseInt(demo.clicks || '0'),
+                  spend: parseFloat(demo.spend || '0'),
+                  conversions: parseInt(demo.conversions || '0'),
+                  videoPlays: parseInt(demo.video_play_actions?.[0]?.value || '0')
+                })
+              }
+              
+              // Update ads with demographic data
+              for (const [adId, demographics] of Object.entries(demographicsByAd)) {
+                const existingAd = await prisma.ad.findFirst({
+                  where: {
+                    accountId: user.accountId || "no-match",
+                    provider: "meta",
+                    externalId: adId
+                  }
+                })
+                
+                if (existingAd) {
+                  const metadata = existingAd.metadata as any || {}
+                  await prisma.ad.update({
+                    where: { id: existingAd.id },
+                    data: {
+                      metadata: {
+                        ...metadata,
+                        demographicBreakdown: demographics
+                      }
+                    }
+                  })
+                }
+              }
+              
+              console.log(`  Stored demographic data for ${Object.keys(demographicsByAd).length} ads`)
+            }
+          } catch (demoError) {
+            console.error('Error fetching demographic breakdowns:', demoError)
           }
         }
       } catch (accountError) {

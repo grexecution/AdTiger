@@ -68,7 +68,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls } from "@/lib/utils/creative-utils"
-import { AdDetailDialog } from "@/components/campaigns/ad-detail-dialog"
+import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
 
 // Platform icons component
 const PlatformIcon = ({ platform }: { platform: string }) => {
@@ -890,9 +890,10 @@ export default function FacebookTableView({
           </TabsContent>
         </Tabs>
         
-        {/* Ad Preview Popup - using shared AdDetailDialog */}
-        <AdDetailDialog 
+        {/* Ad Preview Popup - using enhanced AdDetailDialog with Trends */}
+        <AdDetailDialogEnhanced 
           ad={selectedAdForPreview}
+          campaign={selectedAdForPreview?.campaign}
           open={!!selectedAdForPreview}
           onClose={() => setSelectedAdForPreview(null)}
         />

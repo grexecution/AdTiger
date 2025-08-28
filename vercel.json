@@ -1,0 +1,23 @@
+{
+  "functions": {
+    "app/api/sync/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/connections/[connectionId]/sync/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/*/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/ads/[adId]/historical/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/daily-insights",
+      "schedule": "0 2 * * *",
+      "description": "Daily insights sync for all Meta ads (2 AM UTC)"
+    }
+  ]
+}

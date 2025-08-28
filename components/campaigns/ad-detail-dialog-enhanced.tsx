@@ -2,6 +2,20 @@
 
 import { useState, useEffect } from "react"
 import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts"
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -1680,8 +1694,9 @@ export function AdDetailDialogEnhanced({
           {/* Right Side - Performance & Targeting Information */}
           <div className="flex-1 p-4 overflow-y-auto">
             <Tabs defaultValue="performance" className="h-full">
-              <TabsList className="grid w-full grid-cols-4 h-8 mb-3">
+              <TabsList className="grid w-full grid-cols-5 h-8 mb-3">
                 <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
+                <TabsTrigger value="trends" className="text-xs">Trends</TabsTrigger>
                 <TabsTrigger value="targeting" className="text-xs">Targeting</TabsTrigger>
                 <TabsTrigger value="placement" className="text-xs">Placement</TabsTrigger>
                 <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
@@ -2171,6 +2186,11 @@ export function AdDetailDialogEnhanced({
                 )}
               </TabsContent>
               
+              {/* Trends Tab - Historical Performance Charts */}
+              <TabsContent value="trends" className="space-y-3 mt-3">
+                <PerformanceTrends ad={ad} currency={currency} />
+              </TabsContent>
+              
               {/* Targeting Tab */}
               <TabsContent value="targeting" className="space-y-3 mt-3">
                 {/* Demographics */}
@@ -2375,5 +2395,310 @@ export function AdDetailDialogEnhanced({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+// Performance Trends Component
+function PerformanceTrends({ ad, currency }: { ad: any, currency: string }) {
+  const [chartData, setChartData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [selectedMetric, setSelectedMetric] = useState('impressions')
+  const [dateRange, setDateRange] = useState(30)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchHistoricalData()
+  }, [ad.id, dateRange])
+
+  const fetchHistoricalData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch(`/api/ads/${ad.id}/historical?days=${dateRange}`)
+      if (!response.ok) throw new Error('Failed to fetch data')
+      const data = await response.json()
+      
+      // Format data for charts
+      const formattedData = data.dates.map((date: string, index: number) => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        rawDate: date,
+        impressions: data.metrics.impressions[index],
+        clicks: data.metrics.clicks[index],
+        spend: data.metrics.spend[index],
+        conversions: data.metrics.conversions[index],
+        ctr: data.metrics.ctr[index],
+        cpc: data.metrics.cpc[index],
+        cpm: data.metrics.cpm[index],
+        reach: data.metrics.reach[index],
+        frequency: data.metrics.frequency[index],
+        videoViews: data.metrics.videoViews[index],
+        engagement: data.metrics.engagement[index]
+      }))
+      
+      setChartData({
+        data: formattedData,
+        summary: data.summary
+      })
+    } catch (err) {
+      console.error('Error fetching historical data:', err)
+      setError('Unable to load historical data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getCurrencySymbol = (curr: string) => {
+    const symbols: Record<string, string> = {
+      USD: '$', EUR: '€', GBP: '£', JPY: '¥', CHF: 'CHF'
+    }
+    return symbols[curr] || curr + ' '
+  }
+
+  const currencySymbol = getCurrencySymbol(currency)
+
+  const metricConfigs = {
+    impressions: { label: 'Impressions', color: '#3B82F6', format: (v: number) => v.toLocaleString() },
+    clicks: { label: 'Clicks', color: '#10B981', format: (v: number) => v.toLocaleString() },
+    conversions: { label: 'Conversions', color: '#F59E0B', format: (v: number) => v.toLocaleString() },
+    spend: { label: 'Spend', color: '#EF4444', format: (v: number) => `${currencySymbol}${v.toFixed(2)}` },
+    ctr: { label: 'CTR %', color: '#8B5CF6', format: (v: number) => `${v.toFixed(2)}%` },
+    cpc: { label: 'CPC', color: '#EC4899', format: (v: number) => `${currencySymbol}${v.toFixed(2)}` },
+    cpm: { label: 'CPM', color: '#14B8A6', format: (v: number) => `${currencySymbol}${v.toFixed(2)}` },
+    reach: { label: 'Reach', color: '#F97316', format: (v: number) => v.toLocaleString() },
+    frequency: { label: 'Frequency', color: '#84CC16', format: (v: number) => v.toFixed(2) },
+    videoViews: { label: 'Video Views', color: '#06B6D4', format: (v: number) => v.toLocaleString() },
+    engagement: { label: 'Engagement', color: '#A855F7', format: (v: number) => v.toLocaleString() }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-2 text-sm text-muted-foreground">Loading historical data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !chartData) {
+    return (
+      <Card className="p-4">
+        <div className="text-center text-sm text-muted-foreground">
+          {error || 'No historical data available'}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-2"
+            onClick={() => fetchHistoricalData()}
+          >
+            Retry
+          </Button>
+        </div>
+      </Card>
+    )
+  }
+
+  const config = metricConfigs[selectedMetric as keyof typeof metricConfigs]
+
+  return (
+    <div className="space-y-3">
+      {/* Controls */}
+      <div className="flex items-center justify-between gap-2">
+        <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+          <SelectTrigger className="w-[180px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(metricConfigs).map(([key, conf]) => (
+              <SelectItem key={key} value={key} className="text-xs">
+                {conf.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        <div className="flex gap-1">
+          {[7, 14, 30, 60, 90].map(days => (
+            <Button
+              key={days}
+              variant={dateRange === days ? "default" : "outline"}
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={() => setDateRange(days)}
+            >
+              {days}d
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Chart */}
+      <Card className="p-4">
+        <h4 className="text-sm font-medium mb-3 flex items-center justify-between">
+          {config.label} Trend
+          <span className="text-xs text-muted-foreground">
+            Last {dateRange} days
+          </span>
+        </h4>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={chartData.data}>
+            <defs>
+              <linearGradient id={`color${selectedMetric}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={config.color} stopOpacity={0.3}/>
+                <stop offset="95%" stopColor={config.color} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis 
+              dataKey="date" 
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+            />
+            <YAxis 
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              tickFormatter={config.format}
+            />
+            <Tooltip
+              formatter={config.format}
+              labelStyle={{ fontSize: 11 }}
+              contentStyle={{ fontSize: 11 }}
+            />
+            <Area
+              type="monotone"
+              dataKey={selectedMetric}
+              stroke={config.color}
+              strokeWidth={2}
+              fill={`url(#color${selectedMetric})`}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Key Metrics Comparison */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="p-3">
+          <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+            <TrendingUp className="h-3 w-3" />
+            Performance
+          </h4>
+          <ResponsiveContainer width="100%" height={120}>
+            <LineChart data={chartData.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="date" hide />
+              <YAxis hide />
+              <Tooltip
+                labelStyle={{ fontSize: 10 }}
+                contentStyle={{ fontSize: 10 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="clicks" 
+                stroke="#10B981" 
+                strokeWidth={1.5}
+                dot={false}
+                name="Clicks"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="conversions" 
+                stroke="#F59E0B" 
+                strokeWidth={1.5}
+                dot={false}
+                name="Conversions"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card className="p-3">
+          <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+            <DollarSign className="h-3 w-3" />
+            Cost Efficiency
+          </h4>
+          <ResponsiveContainer width="100%" height={120}>
+            <LineChart data={chartData.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="date" hide />
+              <YAxis hide />
+              <Tooltip
+                formatter={(value: any) => `${currencySymbol}${value.toFixed(2)}`}
+                labelStyle={{ fontSize: 10 }}
+                contentStyle={{ fontSize: 10 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="cpc" 
+                stroke="#EC4899" 
+                strokeWidth={1.5}
+                dot={false}
+                name="CPC"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="cpm" 
+                stroke="#14B8A6" 
+                strokeWidth={1.5}
+                dot={false}
+                name="CPM"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card className="p-3">
+          <h4 className="text-xs font-medium mb-2 flex items-center gap-1">
+            <MousePointerClick className="h-3 w-3" />
+            Engagement Rate
+          </h4>
+          <ResponsiveContainer width="100%" height={120}>
+            <AreaChart data={chartData.data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="date" hide />
+              <YAxis hide />
+              <Tooltip
+                formatter={(value: any) => `${value.toFixed(2)}%`}
+                labelStyle={{ fontSize: 10 }}
+                contentStyle={{ fontSize: 10 }}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="ctr" 
+                stroke="#8B5CF6" 
+                strokeWidth={1.5}
+                fill="#8B5CF6"
+                fillOpacity={0.2}
+                name="CTR"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Summary Stats */}
+      {chartData.summary && (
+        <Card className="p-3">
+          <h4 className="text-xs font-medium mb-2">Period Summary</h4>
+          <div className="grid grid-cols-4 gap-2 text-xs">
+            <div>
+              <span className="text-muted-foreground">Total Spend</span>
+              <div className="font-semibold">{currencySymbol}{chartData.summary.totalSpend.toFixed(2)}</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Total Clicks</span>
+              <div className="font-semibold">{chartData.summary.totalClicks.toLocaleString()}</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Avg. CTR</span>
+              <div className="font-semibold">{chartData.summary.avgCtr.toFixed(2)}%</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Avg. CPC</span>
+              <div className="font-semibold">{currencySymbol}{chartData.summary.avgCpc.toFixed(2)}</div>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
   )
 }

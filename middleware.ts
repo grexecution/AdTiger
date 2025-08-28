@@ -8,6 +8,7 @@ const publicRoutes = [
   "/auth/error",
   "/auth/verify",
   "/api/auth",
+  "/api/cron", // Allow cron jobs with their own auth
 ]
 
 export default async function middleware(request: NextRequest) {
