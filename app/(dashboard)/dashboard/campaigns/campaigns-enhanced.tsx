@@ -519,19 +519,38 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
     return false
   }
   
+  // Helper to improve Facebook CDN image quality
+  const improveImageQuality = (url: string): string => {
+    if (!url || !url.includes('fbcdn.net')) return url
+    
+    // Remove size restrictions from Facebook CDN URLs
+    let improvedUrl = url
+    
+    // Remove stp parameter that limits size (e.g., stp=dst-jpg_s160x160_tt6)
+    improvedUrl = improvedUrl.replace(/[?&]stp=dst-jpg_s\d+x\d+[^&]*/g, '')
+    
+    // Remove any s160x160 or similar size specifications in the URL
+    improvedUrl = improvedUrl.replace(/_s\d+x\d+/, '')
+    
+    // Clean up any double ampersands or question marks
+    improvedUrl = improvedUrl.replace(/\?&/, '?').replace(/&&/, '&')
+    
+    return improvedUrl
+  }
+  
   // For video ads, prioritize video thumbnails
   const getVideoThumbnail = (creative: any): string => {
     if (!creative) return ''
     
     // Check for video thumbnail in various locations (skip auth-required URLs)
     if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
-      return creative.thumbnail_url
+      return improveImageQuality(creative.thumbnail_url)
     }
     if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url && !isAuthRequiredUrl(creative.asset_feed_spec.videos[0].thumbnail_url)) {
-      return creative.asset_feed_spec.videos[0].thumbnail_url
+      return improveImageQuality(creative.asset_feed_spec.videos[0].thumbnail_url)
     }
     if (creative.object_story_spec?.video_data?.thumbnail_url && !isAuthRequiredUrl(creative.object_story_spec.video_data.thumbnail_url)) {
-      return creative.object_story_spec.video_data.thumbnail_url
+      return improveImageQuality(creative.object_story_spec.video_data.thumbnail_url)
     }
     
     // Check if video_data has an image_hash we can use (request large size for better quality)
@@ -542,10 +561,10 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
     // Skip video_data.image_url as it's often an Ads API URL
     // Look for fallback images instead
     if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
-      return creative.image_url
+      return improveImageQuality(creative.image_url)
     }
     if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
-      return creative.asset_feed_spec.images[0].url
+      return improveImageQuality(creative.asset_feed_spec.images[0].url)
     }
     
     // Try hash with Graph API /picture endpoint (request large size for better quality)

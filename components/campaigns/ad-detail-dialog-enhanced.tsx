@@ -81,6 +81,25 @@ const isAuthRequiredUrl = (url: string): boolean => {
   return false
 }
 
+// Helper to improve Facebook CDN image quality
+const improveImageQuality = (url: string): string => {
+  if (!url || !url.includes('fbcdn.net')) return url
+  
+  // Remove size restrictions from Facebook CDN URLs
+  let improvedUrl = url
+  
+  // Remove stp parameter that limits size (e.g., stp=dst-jpg_s160x160_tt6)
+  improvedUrl = improvedUrl.replace(/[?&]stp=dst-jpg_s\d+x\d+[^&]*/g, '')
+  
+  // Remove any s160x160 or similar size specifications in the URL
+  improvedUrl = improvedUrl.replace(/_s\d+x\d+/, '')
+  
+  // Clean up any double ampersands or question marks
+  improvedUrl = improvedUrl.replace(/\?&/, '?').replace(/&&/, '&')
+  
+  return improvedUrl
+}
+
 // Creative helper functions
 const getCreativeImageUrl = (creative: any): string => {
   if (!creative) return ''
@@ -89,13 +108,13 @@ const getCreativeImageUrl = (creative: any): string => {
   if (creative.video_id || creative.asset_feed_spec?.videos?.length > 0 || creative.object_story_spec?.video_data) {
     // Check for video thumbnail in various locations (skip auth-required URLs)
     if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
-      return creative.thumbnail_url
+      return improveImageQuality(creative.thumbnail_url)
     }
     if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url && !isAuthRequiredUrl(creative.asset_feed_spec.videos[0].thumbnail_url)) {
-      return creative.asset_feed_spec.videos[0].thumbnail_url
+      return improveImageQuality(creative.asset_feed_spec.videos[0].thumbnail_url)
     }
     if (creative.object_story_spec?.video_data?.thumbnail_url && !isAuthRequiredUrl(creative.object_story_spec.video_data.thumbnail_url)) {
-      return creative.object_story_spec.video_data.thumbnail_url
+      return improveImageQuality(creative.object_story_spec.video_data.thumbnail_url)
     }
     
     // Check if video_data has an image_hash we can use (request large size for better quality)
@@ -106,10 +125,10 @@ const getCreativeImageUrl = (creative: any): string => {
     // Skip video_data.image_url as it's often an Ads API URL
     // Instead, look for fallback images
     if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
-      return creative.image_url
+      return improveImageQuality(creative.image_url)
     }
     if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
-      return creative.asset_feed_spec.images[0].url
+      return improveImageQuality(creative.asset_feed_spec.images[0].url)
     }
     
     // Try to use hash with Graph API /picture endpoint (request large size for better quality)
@@ -120,19 +139,19 @@ const getCreativeImageUrl = (creative: any): string => {
   
   // Check regular image locations (skip auth-required URLs)
   if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
-    return creative.image_url
+    return improveImageQuality(creative.image_url)
   }
   if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
-    return creative.thumbnail_url
+    return improveImageQuality(creative.thumbnail_url)
   }
   if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
-    return creative.asset_feed_spec.images[0].url
+    return improveImageQuality(creative.asset_feed_spec.images[0].url)
   }
   if (creative.asset_feed_spec?.images?.[0]?.hash) {
     return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture?width=1200&height=1200`
   }
   if (creative.object_story_spec?.link_data?.picture && !isAuthRequiredUrl(creative.object_story_spec.link_data.picture)) {
-    return creative.object_story_spec.link_data.picture
+    return improveImageQuality(creative.object_story_spec.link_data.picture)
   }
   
   return ''
