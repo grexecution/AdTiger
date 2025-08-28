@@ -1036,8 +1036,10 @@ export async function POST(
           }
           
           // Skip demographic breakdowns for now - may be causing issues
-          // console.log(`  Fetching demographic breakdowns for insights...`)
-          if (false) { // Disabled temporarily
+          // Commented out temporarily to avoid field errors
+          /*
+          console.log(`  Fetching demographic breakdowns for insights...`)
+          try {
             // Get age and gender breakdown
             const demographicInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
               access_token: accessToken,
@@ -1098,6 +1100,7 @@ export async function POST(
           } catch (demoError) {
             console.error('Error fetching demographic breakdowns:', demoError)
           }
+          */
         }
       } catch (accountError) {
         console.error(`Error syncing account ${adAccountExternalId}:`, accountError)
