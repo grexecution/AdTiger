@@ -112,7 +112,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Hash
+  Hash,
+  Video
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -507,8 +508,58 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   const creativeFormat = getCreativeFormat(creative)
   const isVideo = isVideoCreative(creative)
   const isCarousel = isCarouselCreative(creative)
-  // For grid view, prefer 1:1 ratio images
-  const mainImageUrl = getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative)
+  
+  // Helper to check if URL needs authentication
+  const isAuthRequiredUrl = (url: string): boolean => {
+    if (!url) return false
+    // Facebook Ads API URLs require authentication
+    if (url.includes('facebook.com/ads/image')) return true
+    // Graph API URLs without /picture endpoint need auth
+    if (url.includes('graph.facebook.com') && !url.includes('/picture')) return true
+    return false
+  }
+  
+  // For video ads, prioritize video thumbnails
+  const getVideoThumbnail = (creative: any): string => {
+    if (!creative) return ''
+    
+    // Check for video thumbnail in various locations (skip auth-required URLs)
+    if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
+      return creative.thumbnail_url
+    }
+    if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url && !isAuthRequiredUrl(creative.asset_feed_spec.videos[0].thumbnail_url)) {
+      return creative.asset_feed_spec.videos[0].thumbnail_url
+    }
+    if (creative.object_story_spec?.video_data?.thumbnail_url && !isAuthRequiredUrl(creative.object_story_spec.video_data.thumbnail_url)) {
+      return creative.object_story_spec.video_data.thumbnail_url
+    }
+    
+    // Check if video_data has an image_hash we can use (request large size for better quality)
+    if (creative.object_story_spec?.video_data?.image_hash) {
+      return `https://graph.facebook.com/v18.0/${creative.object_story_spec.video_data.image_hash}/picture?width=1200&height=1200`
+    }
+    
+    // Skip video_data.image_url as it's often an Ads API URL
+    // Look for fallback images instead
+    if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
+      return creative.image_url
+    }
+    if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
+      return creative.asset_feed_spec.images[0].url
+    }
+    
+    // Try hash with Graph API /picture endpoint (request large size for better quality)
+    if (creative.asset_feed_spec?.images?.[0]?.hash) {
+      return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture?width=1200&height=1200`
+    }
+    
+    return ''
+  }
+  
+  // For grid view, use video thumbnail for videos, otherwise prefer 1:1 ratio images
+  const mainImageUrl = isVideo 
+    ? (getVideoThumbnail(creative) || getCreativeImageUrl(creative))
+    : (getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative))
   const allImageUrls = getAllCreativeImageUrls(creative)
   
   // Use real engagement metrics from ad data
@@ -553,16 +604,11 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
                 src={mainImageUrl} 
                 alt={ad.name}
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://picsum.photos/400/400?random=${ad.id}`
-                }}
               />
             ) : (
-              <img 
-                src={`https://picsum.photos/400/400?random=${ad.id}`} 
-                alt={ad.name}
-                className="w-full h-full object-cover"
-              />
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <Video className="h-12 w-12 text-gray-400" />
+              </div>
             )}
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
               <div className="rounded-full bg-white/90 p-3 shadow-lg">
@@ -576,14 +622,17 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
         ) : isCarousel ? (
           <div className="relative w-full h-full">
             {/* For carousel, show first image with indicator */}
-            <img 
-              src={mainImageUrl || `https://picsum.photos/400/400?random=${ad.id}`} 
-              alt={ad.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = `https://picsum.photos/400/400?random=${ad.id}`
-              }}
-            />
+            {mainImageUrl ? (
+              <img 
+                src={mainImageUrl} 
+                alt={ad.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <Layers className="h-12 w-12 text-gray-400" />
+              </div>
+            )}
             {/* Carousel indicator - only show for actual carousels */}
             <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
               <Layers className="h-3 w-3" />
@@ -596,16 +645,11 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
               src={mainImageUrl} 
               alt={ad.name}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = `https://picsum.photos/400/300?random=${ad.id}`
-              }}
             />
           ) : (
-            <img 
-              src={`https://picsum.photos/400/300?random=${ad.id}`} 
-              alt={ad.name}
-              className="w-full h-full object-cover"
-            />
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              <ImageIcon className="h-12 w-12 text-gray-400" />
+            </div>
           )
         )}
         

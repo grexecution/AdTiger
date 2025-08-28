@@ -71,19 +71,69 @@ import {
 import { cn } from "@/lib/utils"
 import { getCurrencySymbol } from "@/lib/currency"
 
+// Helper to check if URL needs authentication
+const isAuthRequiredUrl = (url: string): boolean => {
+  if (!url) return false
+  // Facebook Ads API URLs require authentication
+  if (url.includes('facebook.com/ads/image')) return true
+  // Graph API URLs without /picture endpoint need auth
+  if (url.includes('graph.facebook.com') && !url.includes('/picture')) return true
+  return false
+}
+
 // Creative helper functions
 const getCreativeImageUrl = (creative: any): string => {
   if (!creative) return ''
   
-  // Check various possible image locations
-  if (creative.image_url) return creative.image_url
-  if (creative.thumbnail_url) return creative.thumbnail_url
-  if (creative.asset_feed_spec?.images?.[0]?.url) return creative.asset_feed_spec.images[0].url
-  if (creative.asset_feed_spec?.images?.[0]?.hash) {
-    return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture`
+  // For video creatives, prioritize video thumbnails
+  if (creative.video_id || creative.asset_feed_spec?.videos?.length > 0 || creative.object_story_spec?.video_data) {
+    // Check for video thumbnail in various locations (skip auth-required URLs)
+    if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
+      return creative.thumbnail_url
+    }
+    if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url && !isAuthRequiredUrl(creative.asset_feed_spec.videos[0].thumbnail_url)) {
+      return creative.asset_feed_spec.videos[0].thumbnail_url
+    }
+    if (creative.object_story_spec?.video_data?.thumbnail_url && !isAuthRequiredUrl(creative.object_story_spec.video_data.thumbnail_url)) {
+      return creative.object_story_spec.video_data.thumbnail_url
+    }
+    
+    // Check if video_data has an image_hash we can use (request large size for better quality)
+    if (creative.object_story_spec?.video_data?.image_hash) {
+      return `https://graph.facebook.com/v18.0/${creative.object_story_spec.video_data.image_hash}/picture?width=1200&height=1200`
+    }
+    
+    // Skip video_data.image_url as it's often an Ads API URL
+    // Instead, look for fallback images
+    if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
+      return creative.image_url
+    }
+    if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
+      return creative.asset_feed_spec.images[0].url
+    }
+    
+    // Try to use hash with Graph API /picture endpoint (request large size for better quality)
+    if (creative.asset_feed_spec?.images?.[0]?.hash) {
+      return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture?width=1200&height=1200`
+    }
   }
-  if (creative.object_story_spec?.link_data?.picture) return creative.object_story_spec.link_data.picture
-  if (creative.object_story_spec?.video_data?.image_url) return creative.object_story_spec.video_data.image_url
+  
+  // Check regular image locations (skip auth-required URLs)
+  if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
+    return creative.image_url
+  }
+  if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
+    return creative.thumbnail_url
+  }
+  if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
+    return creative.asset_feed_spec.images[0].url
+  }
+  if (creative.asset_feed_spec?.images?.[0]?.hash) {
+    return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture?width=1200&height=1200`
+  }
+  if (creative.object_story_spec?.link_data?.picture && !isAuthRequiredUrl(creative.object_story_spec.link_data.picture)) {
+    return creative.object_story_spec.link_data.picture
+  }
   
   return ''
 }
@@ -104,6 +154,16 @@ const isVideoCreative = (creative: any): boolean => {
 
 const isCarouselCreative = (creative: any): boolean => {
   return getCreativeFormat(creative) === 'carousel'
+}
+
+const getVideoIdForExternalView = (creative: any): string | null => {
+  if (!creative) return null
+  
+  const videoId = creative.video_id || 
+                  creative.asset_feed_spec?.videos?.[0]?.video_id || 
+                  creative.object_story_spec?.video_data?.video_id
+  
+  return videoId
 }
 
 const getAllCreativeImageUrls = (creative: any): string[] => {
@@ -660,7 +720,7 @@ export function AdDetailDialogEnhanced({
       if (videos.length > 0) {
         const video = videos[0]
         if (video.thumbnail_url) return video.thumbnail_url
-        if (video.video_id) return `https://graph.facebook.com/v18.0/${video.video_id}/thumbnails`
+        // Don't use Graph API for thumbnails as it requires auth
       }
       
       // Look for 9:16 vertical images
@@ -1052,13 +1112,34 @@ export function AdDetailDialogEnhanced({
                   {(currentPlacement === 'stories' || currentPlacement === 'reels' || currentPlacement.includes('stories') || currentPlacement.includes('reels')) && (
                     <div className="relative w-[280px] h-[497px] bg-black rounded-[40px] p-3 shadow-2xl">
                       <div className="relative w-full h-full bg-black rounded-[35px] overflow-hidden">
-                        {/* Background Image or Placeholder */}
+                        {/* Background Image/Video or Placeholder */}
                         {displayImageUrl ? (
-                          <img
-                            src={displayImageUrl}
-                            alt="Ad preview"
-                            className="w-full h-full object-cover"
-                          />
+                          <>
+                            <img
+                              src={displayImageUrl}
+                              alt="Ad preview"
+                              className="w-full h-full object-cover"
+                            />
+                            {isVideo && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const videoId = getVideoIdForExternalView(creative)
+                                  if (videoId) {
+                                    window.open(`https://www.facebook.com/video.php?v=${videoId}`, '_blank')
+                                  } else {
+                                    alert('Video preview not available. Video ID not found.')
+                                  }
+                                }}
+                                className="absolute inset-0 flex items-center justify-center bg-black/10 hover:bg-black/20 transition-colors cursor-pointer group z-30"
+                                title="View video on Facebook"
+                              >
+                                <div className="bg-white/90 group-hover:bg-white rounded-full p-4 shadow-lg transition-all group-hover:scale-110">
+                                  <Play className="h-8 w-8 text-gray-800 fill-current" />
+                                </div>
+                              </button>
+                            )}
+                          </>
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
                             <div className="text-center">
@@ -1360,7 +1441,7 @@ export function AdDetailDialogEnhanced({
                         </div>
                       )}
                       
-                      {/* Image */}
+                      {/* Image/Video */}
                       <div className="relative">
                         {displayImageUrl ? (
                           <>
@@ -1370,9 +1451,27 @@ export function AdDetailDialogEnhanced({
                               className="w-full h-auto object-cover"
                             />
                             {isVideo && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-                                <Play className="h-12 w-12 text-white drop-shadow-lg" />
-                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation() // Prevent dialog from closing
+                                  // Facebook videos can only be viewed on Facebook
+                                  const videoId = getVideoIdForExternalView(creative)
+                                  if (videoId) {
+                                    window.open(`https://www.facebook.com/video.php?v=${videoId}`, '_blank')
+                                  } else {
+                                    alert('Video preview not available. Video ID not found.')
+                                  }
+                                }}
+                                className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors cursor-pointer group"
+                                title="View video on Facebook"
+                              >
+                                <div className="bg-white/90 group-hover:bg-white rounded-full p-4 shadow-lg transition-all group-hover:scale-110">
+                                  <Play className="h-8 w-8 text-gray-800 fill-current" />
+                                </div>
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                  View on Facebook <ExternalLink className="inline h-3 w-3 ml-1" />
+                                </div>
+                              </button>
                             )}
                           </>
                         ) : (
