@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 
 // Dynamically import table view to avoid SSR issues
-const FacebookTableView = dynamic(() => import('./facebook-table-view'), { 
+const FacebookTableView = dynamic(() => import('./facebook-table-proper'), { 
   ssr: false,
   loading: () => <div className="p-8 text-center">Loading table view...</div>
 })
