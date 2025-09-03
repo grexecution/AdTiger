@@ -111,6 +111,12 @@ const adminItems = [
     badge: undefined as string | undefined,
   },
   {
+    title: "Sync History",
+    url: "/dashboard/admin/sync-history",
+    icon: Activity,
+    badge: undefined as string | undefined,
+  },
+  {
     title: "User Management",
     url: "/dashboard/admin/users",
     icon: Users,

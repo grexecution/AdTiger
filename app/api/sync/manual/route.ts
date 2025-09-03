@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { addManualSyncJob, isAccountSyncing, getAccountSyncStatus } from '@/lib/queue'
 import { z } from 'zod'
 import { ensureValidMetaToken } from '@/lib/utils/token-refresh'
+import { MetaSyncService } from '@/services/sync/meta-sync-service'
 
 export const dynamic = 'force-dynamic'
 // Validation schema
@@ -103,16 +104,63 @@ export async function POST(request: NextRequest) {
     const connectionId = connection.id
     
     // Ensure token is valid and refresh if needed for Meta
+    let accessToken: string | undefined
     if (provider === 'meta') {
       try {
-        await ensureValidMetaToken(connectionId)
+        accessToken = await ensureValidMetaToken(connectionId)
       } catch (error) {
         console.error('Token validation/refresh failed:', error)
-        // Don't fail here, let the sync worker handle it
+        return NextResponse.json(
+          { 
+            error: 'Token validation failed',
+            message: 'Failed to validate or refresh access token. Please reconnect your account.'
+          },
+          { status: 401 }
+        )
       }
     }
 
-    // Add manual sync job to queue
+    // Instead of queuing, directly run the sync since we're not running workers
+    // This is a temporary solution until queue workers are set up
+    if (provider === 'meta' && accessToken) {
+      const syncService = new MetaSyncService(prisma)
+      
+      try {
+        // Run sync directly with proper history tracking
+        const result = await syncService.syncAccount(
+          user.accountId || "no-match",
+          connectionId,
+          accessToken,
+          'MANUAL'
+        )
+        
+        return NextResponse.json({
+          success: result.success,
+          message: result.success 
+            ? `Successfully synced ${result.campaigns} campaigns, ${result.ads} ads, and ${result.insights} insights`
+            : 'Sync completed with errors',
+          stats: {
+            campaigns: result.campaigns,
+            adSets: result.adSets,
+            ads: result.ads,
+            insights: result.insights,
+            errors: result.errors.length,
+            errorDetails: result.errors
+          }
+        })
+      } catch (error) {
+        console.error('Direct sync failed:', error)
+        return NextResponse.json(
+          { 
+            error: 'Sync failed',
+            message: error instanceof Error ? error.message : 'Unknown error occurred during sync'
+          },
+          { status: 500 }
+        )
+      }
+    }
+
+    // Fallback to queue for other providers (not implemented yet)
     const job = await addManualSyncJob({
       accountId: user.accountId || "no-match",
       userId: session.user.id,
@@ -125,14 +173,10 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Get updated sync status
-    const syncStatus = await getAccountSyncStatus(user.accountId, provider)
-
     return NextResponse.json({
       success: true,
       message: `${provider} sync job queued successfully`,
       jobId: job.id,
-      syncStatus,
     })
 
   } catch (error) {

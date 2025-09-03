@@ -119,6 +119,15 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
   const [currentSyncJob, setCurrentSyncJob] = useState<string | null>(null)
   const { toast } = useToast()
 
+  // Safely access nested properties with defaults
+  const stats = syncStatus?.stats || {}
+  const canSyncManually = stats.canSyncManually !== undefined ? stats.canSyncManually : true
+  const maxManualSyncsPerDay = stats.maxManualSyncsPerDay || 3
+  const manualSyncsToday = stats.manualSyncsToday || 0
+  
+  const canSync = canSyncManually && !isSyncing
+  const remainingManualSyncs = Math.max(0, maxManualSyncsPerDay - manualSyncsToday)
+
   const fetchSyncStatus = async () => {
     try {
       setIsLoading(true)
@@ -151,10 +160,13 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
 
   const handleSync = async (provider: string) => {
     try {
-      if (!syncStatus?.stats.canSyncManually) {
+      // Use the already computed canSync value instead of accessing nested properties
+      if (!canSync) {
         toast({
-          title: "Rate limit exceeded",
-          description: `You have reached the daily limit of ${syncStatus?.stats.maxManualSyncsPerDay} manual syncs`,
+          title: "Sync unavailable",
+          description: isSyncing 
+            ? "A sync is already in progress" 
+            : `You have reached the daily limit of ${maxManualSyncsPerDay} manual syncs`,
           variant: "destructive"
         })
         return
@@ -235,9 +247,6 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
     }
   }
 
-  const canSync = syncStatus?.stats.canSyncManually && !isSyncing
-  const remainingManualSyncs = Math.max(0, (syncStatus?.stats.maxManualSyncsPerDay || 3) - (syncStatus?.stats.manualSyncsToday || 0))
-
   return (
     <div className="flex items-center gap-2">
       {/* Quick Status Indicator */}
@@ -245,8 +254,8 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
         <Tooltip>
           <TooltipTrigger>
             <div className="flex items-center gap-1">
-              {syncStatus?.stats.lastSuccessfulSync ? (
-                getStatusIcon(syncStatus.stats.lastSuccessfulSync.status)
+              {syncStatus?.lastSync || syncStatus?.stats?.lastSuccessfulSync ? (
+                getStatusIcon(syncStatus?.lastSync?.status || syncStatus?.stats?.lastSuccessfulSync?.status)
               ) : (
                 <Clock className="h-4 w-4 text-muted-foreground" />
               )}
@@ -254,10 +263,10 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
           </TooltipTrigger>
           <TooltipContent>
             <div className="text-sm">
-              {syncStatus?.stats.lastSuccessfulSync ? (
+              {syncStatus?.lastSync || syncStatus?.stats?.lastSuccessfulSync ? (
                 <>
-                  <p className="font-medium">Last sync: {syncStatus.stats.lastSuccessfulSync.status}</p>
-                  <p>{formatRelativeTime(syncStatus.stats.lastSuccessfulSync.startedAt)}</p>
+                  <p className="font-medium">Last sync: {syncStatus?.lastSync?.status || syncStatus?.stats?.lastSuccessfulSync?.status}</p>
+                  <p>{formatRelativeTime(syncStatus?.lastSync?.completedAt || syncStatus?.stats?.lastSuccessfulSync?.startedAt)}</p>
                 </>
               ) : (
                 <p>No recent syncs</p>
@@ -326,17 +335,17 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
                     <CardTitle className="text-sm font-medium">Last Sync</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {syncStatus.stats.lastSuccessfulSync ? (
+                    {syncStatus?.lastSync || syncStatus?.stats?.lastSuccessfulSync ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          {getStatusBadge(syncStatus.stats.lastSuccessfulSync.status)}
+                          {getStatusBadge(syncStatus?.lastSync?.status || syncStatus?.stats?.lastSuccessfulSync?.status)}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {formatRelativeTime(syncStatus.stats.lastSuccessfulSync.startedAt)}
+                          {formatRelativeTime(syncStatus?.lastSync?.completedAt || syncStatus?.stats?.lastSuccessfulSync?.startedAt)}
                         </p>
-                        {syncStatus.stats.lastSuccessfulSync.duration && (
+                        {(syncStatus?.lastSync?.duration || syncStatus?.stats?.lastSuccessfulSync?.duration) && (
                           <p className="text-xs text-muted-foreground">
-                            Duration: {Math.round(syncStatus.stats.lastSuccessfulSync.duration / 1000)}s
+                            Duration: {Math.round((syncStatus?.lastSync?.duration || syncStatus?.stats?.lastSuccessfulSync?.duration || 0) / 1000)}s
                           </p>
                         )}
                       </div>
@@ -356,10 +365,10 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
                   <CardContent>
                     <div className="space-y-1">
                       <p className="font-mono text-sm">
-                        {format(new Date(syncStatus.stats.nextScheduledSync), 'HH:mm')}
+                        {format(new Date(syncStatus?.nextSync?.scheduledAt || syncStatus?.stats?.nextScheduledSync), 'HH:mm')}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatRelativeTime(syncStatus.stats.nextScheduledSync)}
+                        {formatRelativeTime(syncStatus?.nextSync?.scheduledAt || syncStatus?.stats?.nextScheduledSync)}
                       </p>
                     </div>
                   </CardContent>
@@ -377,11 +386,11 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
                       <div className="flex items-center justify-between">
                         <span className="text-sm">Today</span>
                         <Badge variant={remainingManualSyncs > 0 ? "secondary" : "destructive"}>
-                          {syncStatus.stats.manualSyncsToday}/{syncStatus.stats.maxManualSyncsPerDay}
+                          {manualSyncsToday}/{maxManualSyncsPerDay}
                         </Badge>
                       </div>
                       <Progress 
-                        value={(syncStatus.stats.manualSyncsToday / syncStatus.stats.maxManualSyncsPerDay) * 100}
+                        value={(manualSyncsToday / maxManualSyncsPerDay) * 100}
                         className="h-2"
                       />
                       <p className="text-xs text-muted-foreground">
@@ -405,8 +414,8 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
                     <div>
                       <p className="text-muted-foreground">Success Rate</p>
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold">{syncStatus.stats.successRate}</p>
-                        {parseFloat(syncStatus.stats.successRate) >= 90 ? (
+                        <p className="font-semibold">{syncStatus?.stats?.successRate || '0%'}</p>
+                        {parseFloat(syncStatus?.stats?.successRate || '0') >= 90 ? (
                           <TrendingUp className="h-3 w-3 text-green-500" />
                         ) : (
                           <TrendingDown className="h-3 w-3 text-red-500" />
@@ -415,15 +424,15 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
                     </div>
                     <div>
                       <p className="text-muted-foreground">Avg Duration</p>
-                      <p className="font-semibold">{syncStatus.stats.avgDurationFormatted}</p>
+                      <p className="font-semibold">{syncStatus?.stats?.avgDurationFormatted || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Total Syncs</p>
-                      <p className="font-semibold">{syncStatus.stats.totalSyncs}</p>
+                      <p className="font-semibold">{syncStatus?.stats?.totalSyncs || 0}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Failed Syncs</p>
-                      <p className="font-semibold text-red-500">{syncStatus.stats.failedSyncs}</p>
+                      <p className="font-semibold text-red-500">{syncStatus?.stats?.failedSyncs || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -467,7 +476,7 @@ export function SyncStatusPanel({ onSync, isSyncing }: SyncStatusPanelProps) {
               )}
 
               {/* Recent Syncs */}
-              {syncStatus.recentSyncs && syncStatus.recentSyncs.length > 0 && (
+              {syncStatus?.recentSyncs && syncStatus.recentSyncs.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm font-medium">Recent Sync History</CardTitle>

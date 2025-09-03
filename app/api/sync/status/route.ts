@@ -144,27 +144,55 @@ export async function GET(request: NextRequest) {
       getQueueStats('insights-sync'),
     ])
 
+    // Simplified response for the sync status indicator
+    const isRunning = providerStatuses.some(p => p.queue.isActive || p.queue.isWaiting)
+    const currentProvider = providerStatuses.find(p => p.queue.isActive)?.provider
+    
+    // Get the last successful sync
+    const lastSuccessfulSync = recentSyncs.find(s => s.status === 'SUCCESS')
+    
     return NextResponse.json({
-      success: true,
-      accountId: user.accountId || "no-match",
-      providers: providerStatuses,
-      recentSyncs,
-      stats: {
-        ...stats,
-        avgDurationMs: Math.round(stats.avgDuration),
-        avgDurationFormatted: stats.avgDuration > 0 
-          ? `${(stats.avgDuration / 1000).toFixed(1)}s`
-          : 'N/A',
-        successRate: stats.totalSyncs > 0 
-          ? `${((stats.successfulSyncs / stats.totalSyncs) * 100).toFixed(1)}%`
-          : '0%',
+      isRunning,
+      currentProvider,
+      progress: isRunning ? 50 : undefined, // Simple progress estimate
+      message: isRunning ? `Syncing ${currentProvider || 'data'}...` : undefined,
+      lastSync: lastSuccessfulSync ? {
+        provider: lastSuccessfulSync.provider.toLowerCase(),
+        status: lastSuccessfulSync.status,
+        completedAt: lastSuccessfulSync.completedAt,
+        duration: lastSuccessfulSync.duration || 0,
+        campaignsSync: lastSuccessfulSync.campaignsSync,
+        adsSync: lastSuccessfulSync.adsSync,
+        insightsSync: lastSuccessfulSync.insightsSync
+      } : null,
+      nextSync: {
+        provider: 'meta',
+        scheduledAt: stats.nextScheduledSync
       },
-      queues: {
-        'campaign-sync': queueStats[0],
-        'ad-sync': queueStats[1],
-        'insights-sync': queueStats[2],
-      },
-      timestamp: new Date().toISOString(),
+      queueStatus: queueStats[0], // Campaign sync queue
+      recentErrors: stats.failedSyncs,
+      // Additional data for detailed views
+      fullStats: {
+        accountId: user.accountId || "no-match",
+        providers: providerStatuses,
+        recentSyncs,
+        stats: {
+          ...stats,
+          avgDurationMs: Math.round(stats.avgDuration),
+          avgDurationFormatted: stats.avgDuration > 0 
+            ? `${(stats.avgDuration / 1000).toFixed(1)}s`
+            : 'N/A',
+          successRate: stats.totalSyncs > 0 
+            ? `${((stats.successfulSyncs / stats.totalSyncs) * 100).toFixed(1)}%`
+            : '0%',
+        },
+        queues: {
+          'campaign-sync': queueStats[0],
+          'ad-sync': queueStats[1],
+          'insights-sync': queueStats[2],
+        },
+        timestamp: new Date().toISOString(),
+      }
     })
 
   } catch (error) {

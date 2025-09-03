@@ -9,6 +9,7 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card"
+import { SyncStatusIndicator } from "@/components/sync-status-indicator"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -194,6 +195,9 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* Sync Status */}
+      <SyncStatusIndicator />
 
       {/* Key Metrics - Compact */}
       <div className="space-y-4">

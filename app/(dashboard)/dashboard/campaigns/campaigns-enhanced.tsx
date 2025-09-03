@@ -509,76 +509,9 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   const isVideo = isVideoCreative(creative)
   const isCarousel = isCarouselCreative(creative)
   
-  // Helper to check if URL needs authentication
-  const isAuthRequiredUrl = (url: string): boolean => {
-    if (!url) return false
-    // Facebook Ads API URLs require authentication
-    if (url.includes('facebook.com/ads/image')) return true
-    // Graph API URLs without /picture endpoint need auth
-    if (url.includes('graph.facebook.com') && !url.includes('/picture')) return true
-    return false
-  }
-  
-  // Helper to improve Facebook CDN image quality
-  const improveImageQuality = (url: string): string => {
-    if (!url || !url.includes('fbcdn.net')) return url
-    
-    // Remove size restrictions from Facebook CDN URLs
-    let improvedUrl = url
-    
-    // Remove stp parameter that limits size (e.g., stp=dst-jpg_s160x160_tt6)
-    improvedUrl = improvedUrl.replace(/[?&]stp=dst-jpg_s\d+x\d+[^&]*/g, '')
-    
-    // Remove any s160x160 or similar size specifications in the URL
-    improvedUrl = improvedUrl.replace(/_s\d+x\d+/, '')
-    
-    // Clean up any double ampersands or question marks
-    improvedUrl = improvedUrl.replace(/\?&/, '?').replace(/&&/, '&')
-    
-    return improvedUrl
-  }
-  
-  // For video ads, prioritize video thumbnails
-  const getVideoThumbnail = (creative: any): string => {
-    if (!creative) return ''
-    
-    // Check for video thumbnail in various locations (skip auth-required URLs)
-    if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
-      return improveImageQuality(creative.thumbnail_url)
-    }
-    if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url && !isAuthRequiredUrl(creative.asset_feed_spec.videos[0].thumbnail_url)) {
-      return improveImageQuality(creative.asset_feed_spec.videos[0].thumbnail_url)
-    }
-    if (creative.object_story_spec?.video_data?.thumbnail_url && !isAuthRequiredUrl(creative.object_story_spec.video_data.thumbnail_url)) {
-      return improveImageQuality(creative.object_story_spec.video_data.thumbnail_url)
-    }
-    
-    // Check if video_data has an image_hash we can use (request large size for better quality)
-    if (creative.object_story_spec?.video_data?.image_hash) {
-      return `https://graph.facebook.com/v18.0/${creative.object_story_spec.video_data.image_hash}/picture?width=1200&height=1200`
-    }
-    
-    // Skip video_data.image_url as it's often an Ads API URL
-    // Look for fallback images instead
-    if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
-      return improveImageQuality(creative.image_url)
-    }
-    if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
-      return improveImageQuality(creative.asset_feed_spec.images[0].url)
-    }
-    
-    // Try hash with Graph API /picture endpoint (request large size for better quality)
-    if (creative.asset_feed_spec?.images?.[0]?.hash) {
-      return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture?width=1200&height=1200`
-    }
-    
-    return ''
-  }
-  
-  // For grid view, use video thumbnail for videos, otherwise prefer 1:1 ratio images
-  const mainImageUrl = isVideo 
-    ? (getVideoThumbnail(creative) || getCreativeImageUrl(creative))
-    : (getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative))
+  // For grid view, prefer 1:1 ratio images for better display
+  // The utility functions now handle all URL conversion and authentication issues
+  const mainImageUrl = getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || ''
   const allImageUrls = getAllCreativeImageUrls(creative)
   
   // Use real engagement metrics from ad data
@@ -811,7 +744,7 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
 }
 
 // Main enhanced campaigns component
-export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { activeTab?: string, setActiveTab?: (value: string) => void }) {
+export default function EnhancedCampaignsView() {
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [adAccounts, setAdAccounts] = useState<any[]>([])
   const [selectedAdAccounts, setSelectedAdAccounts] = useState<string[]>([])
@@ -1194,24 +1127,8 @@ export default function EnhancedCampaignsView({ activeTab, setActiveTab }: { act
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          {/* Tab switcher */}
-          <Tabs defaultValue="campaigns">
-            <TabsList>
-              <TabsTrigger value="campaigns" onClick={() => setActiveTab?.("campaigns")} className="flex items-center gap-2">
-                <LayoutGrid className="h-4 w-4" />
-                Campaigns
-              </TabsTrigger>
-              <TabsTrigger value="changes" onClick={() => setActiveTab?.("changes")} className="flex items-center gap-2">
-                <History className="h-4 w-4" />
-                Change History
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
           {/* Sync panel */}
-          <div className="flex items-center gap-2">
-            <SyncStatusPanel onSync={handleSync} isSyncing={isSyncing} />
-          </div>
+          <SyncStatusPanel onSync={handleSync} isSyncing={isSyncing} />
         </div>
       </div>
       

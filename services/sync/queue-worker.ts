@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq'
 import IORedis from 'ioredis'
 import { PrismaClient } from '@prisma/client'
 import { CampaignSyncJobData, SyncJobData } from '@/lib/queue'
-// import { MetaRealSyncService } from './meta-sync-real'
+import { MetaSyncService } from './meta-sync-service'
 import { rateLimit } from '@/lib/redis'
 
 const prisma = new PrismaClient()
@@ -150,7 +150,7 @@ async function processCampaignSync(job: Job<CampaignSyncJobData>) {
     let syncResult
     
     if (provider === 'meta') {
-      // const metaSync = new MetaRealSyncService(prisma)
+      const metaSync = new MetaSyncService(prisma)
       const accessToken = (connection.metadata as any)?.accessToken
       if (!accessToken) {
         throw new SyncError(
@@ -159,8 +159,7 @@ async function processCampaignSync(job: Job<CampaignSyncJobData>) {
           false
         )
       }
-      // syncResult = await metaSync.syncAccount(accountId, accessToken)
-      syncResult = { success: false, message: "Meta sync not implemented" }
+      syncResult = await metaSync.syncAccount(accountId, connection.id, accessToken, syncType.toUpperCase() as any)
       
       await job.updateProgress(80)
       
@@ -191,39 +190,23 @@ async function processCampaignSync(job: Job<CampaignSyncJobData>) {
     
     await job.updateProgress(90)
     
-    // Update sync history
-    await prisma.syncHistory.create({
-      data: {
-        accountId,
-        provider: provider.toUpperCase() as any,
-        syncType: syncType.toUpperCase() as any,
-        status: 'SUCCESS',
-        startedAt: new Date(job.timestamp),
-        completedAt: new Date(),
-        campaignsSync: (syncResult as any).campaigns?.length || 0,
-        adGroupsSync: (syncResult as any).adSets?.length || 0,
-        adsSync: (syncResult as any).ads?.length || 0,
-        metadata: {
-          jobId: job.id,
-          priority: job.opts.priority,
-          attempts: job.attemptsMade,
-        },
-      },
-    })
+    // Sync history is already created by MetaSyncService, no need to duplicate
     
     await job.updateProgress(100)
     
     console.log(`✅ Sync completed for account ${accountId} (${provider}):`, {
-      campaigns: (syncResult as any).campaigns?.length || 0,
-      adSets: (syncResult as any).adSets?.length || 0,
-      ads: (syncResult as any).ads?.length || 0,
+      campaigns: (syncResult as any).campaigns || 0,
+      adSets: (syncResult as any).adSets || 0,
+      ads: (syncResult as any).ads || 0,
+      insights: (syncResult as any).insights || 0,
     })
     
     return {
       success: true,
-      campaigns: (syncResult as any).campaigns?.length || 0,
-      adSets: (syncResult as any).adSets?.length || 0,
-      ads: (syncResult as any).ads?.length || 0,
+      campaigns: (syncResult as any).campaigns || 0,
+      adSets: (syncResult as any).adSets || 0,
+      ads: (syncResult as any).ads || 0,
+      insights: (syncResult as any).insights || 0,
       syncType,
       timestamp: new Date(),
     }
@@ -238,25 +221,7 @@ async function processCampaignSync(job: Job<CampaignSyncJobData>) {
       attempt: job.attemptsMade + 1,
     })
     
-    // Log sync failure
-    await prisma.syncHistory.create({
-      data: {
-        accountId,
-        provider: provider.toUpperCase() as any,
-        syncType: syncType.toUpperCase() as any,
-        status: 'FAILED',
-        startedAt: new Date(job.timestamp),
-        completedAt: new Date(),
-        errorMessage: syncError.message,
-        metadata: {
-          jobId: job.id,
-          errorCategory: syncError.category,
-          retryable: syncError.retryable,
-          attempt: job.attemptsMade + 1,
-          originalError: syncError.originalError?.message,
-        },
-      },
-    })
+    // Sync history is already created by MetaSyncService, just log the error
     
     // Update connection with error info if it's an API error
     if (syncError.category === 'API_ERROR' && connection) {

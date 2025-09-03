@@ -52,11 +52,14 @@ export function getCreativeImagesWithDimensions(creative: AdCreative | null | un
   // Extract from asset_feed_spec with dimensions
   if (creative.asset_feed_spec?.images) {
     creative.asset_feed_spec.images.forEach((image) => {
-      if (image.url) {
+      const publicUrl = convertToPublicUrl(image.url, image.hash)
+      const finalUrl = publicUrl || (image.hash ? `https://graph.facebook.com/v21.0/${image.hash}/picture?width=1200&height=1200` : null)
+      
+      if (finalUrl) {
         const width = image.width
         const height = image.height
         const aspectRatio = width && height ? width / height : undefined
-        images.push({ url: image.url, width, height, aspectRatio })
+        images.push({ url: finalUrl, width, height, aspectRatio })
       }
     })
   }
@@ -100,43 +103,91 @@ export function getBestCreativeImageUrl(creative: AdCreative | null | undefined,
 }
 
 /**
+ * Convert Facebook business URLs to CDN URLs that don't require authentication
+ */
+function convertToPublicUrl(url: string | undefined, hash?: string): string | null {
+  if (!url) return null
+  
+  // Skip URLs that require authentication (business.facebook.com, internal APIs)
+  if (url.includes('business.facebook.com') || 
+      url.includes('/ads/image/') || 
+      url.includes('graph.facebook.com') && !url.includes('/picture')) {
+    // If we have a hash, use the Graph API picture endpoint
+    if (hash) {
+      return `https://graph.facebook.com/v21.0/${hash}/picture?width=1200&height=1200`
+    }
+    return null // Skip auth-required URLs without a hash
+  }
+  
+  // URLs from scontent CDN are public
+  if (url.includes('scontent') || url.includes('fbcdn.net')) {
+    return url
+  }
+  
+  // If it's a Graph API picture URL, ensure it has size parameters
+  if (url.includes('graph.facebook.com') && url.includes('/picture')) {
+    if (!url.includes('width=') && !url.includes('height=')) {
+      const separator = url.includes('?') ? '&' : '?'
+      return `${url}${separator}width=1200&height=1200`
+    }
+    return url
+  }
+  
+  return url
+}
+
+/**
  * Extract the best available image URL from ad creative data
- * Priority: asset_feed_spec.images[0].url > permalink_url > image_url > thumbnail_url (parsed for original URL)
+ * Priority: asset_feed_spec.images[0] > object_story_spec > image_hash > image_url > thumbnail_url
  */
 export function getCreativeImageUrl(creative: AdCreative | null | undefined): string | null {
   if (!creative) return null
 
-  // First priority: asset_feed_spec images (Meta's new format)
+  // First priority: asset_feed_spec images with hash fallback
   if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 0) {
     const firstImage = creative.asset_feed_spec.images[0]
-    if (firstImage.url) {
-      return firstImage.url
+    const publicUrl = convertToPublicUrl(firstImage.url, firstImage.hash)
+    if (publicUrl) return publicUrl
+    // Try hash directly if URL conversion failed
+    if (firstImage.hash) {
+      return `https://graph.facebook.com/v21.0/${firstImage.hash}/picture?width=1200&height=1200`
     }
   }
 
-  // Second priority: permalink_url (most reliable)
-  if (creative.permalink_url) {
-    return creative.permalink_url
+  // Second priority: object_story_spec link_data
+  if (creative.object_story_spec?.link_data?.picture) {
+    const publicUrl = convertToPublicUrl(creative.object_story_spec.link_data.picture)
+    if (publicUrl) return publicUrl
+  }
+  
+  // Third priority: image_hash (use Graph API picture endpoint)
+  if (creative.image_hash) {
+    return `https://graph.facebook.com/v21.0/${creative.image_hash}/picture?width=1200&height=1200`
   }
 
-  // Third priority: direct image_url
+  // Fourth priority: direct image_url (check if it's public)
   if (creative.image_url) {
-    return creative.image_url
+    const publicUrl = convertToPublicUrl(creative.image_url, creative.image_hash)
+    if (publicUrl) return publicUrl
   }
 
-  // Fourth priority: extract from thumbnail_url
+  // Fifth priority: extract from thumbnail_url
   if (creative.thumbnail_url) {
+    // First try to convert the thumbnail URL directly
+    const publicThumb = convertToPublicUrl(creative.thumbnail_url)
+    if (publicThumb) return publicThumb
+    
+    // Try to extract original URL from thumbnail wrapper
     try {
       const url = new URL(creative.thumbnail_url)
       const originalUrl = url.searchParams.get('url')
       if (originalUrl) {
-        return decodeURIComponent(originalUrl)
+        const decodedUrl = decodeURIComponent(originalUrl)
+        const publicUrl = convertToPublicUrl(decodedUrl)
+        if (publicUrl) return publicUrl
       }
-      // Fallback to thumbnail URL itself
-      return creative.thumbnail_url
     } catch (error) {
-      // If URL parsing fails, return the thumbnail URL as is
-      return creative.thumbnail_url
+      // URL parsing failed, skip
     }
   }
 
@@ -155,8 +206,12 @@ export function getAllCreativeImageUrls(creative: AdCreative | null | undefined)
   // Priority 1: Extract all images from asset_feed_spec (Meta's new format)
   if (creative.asset_feed_spec?.images) {
     creative.asset_feed_spec.images.forEach((image) => {
-      if (image.url) {
-        urls.push(image.url)
+      const publicUrl = convertToPublicUrl(image.url, image.hash)
+      if (publicUrl) {
+        urls.push(publicUrl)
+      } else if (image.hash) {
+        // Fall back to Graph API picture endpoint if URL conversion failed
+        urls.push(`https://graph.facebook.com/v21.0/${image.hash}/picture?width=1200&height=1200`)
       }
     })
   }
@@ -164,12 +219,12 @@ export function getAllCreativeImageUrls(creative: AdCreative | null | undefined)
   // Priority 2: Check object_story_spec for carousel images
   if (creative.object_story_spec?.link_data?.child_attachments) {
     creative.object_story_spec.link_data.child_attachments.forEach((attachment: any) => {
-      if (attachment.image_url) {
-        urls.push(attachment.image_url)
-      }
-      if (attachment.image_hash) {
-        // Note: For carousel images, we'd need to fetch permalink URLs separately
-        // For now, we'll include what we have
+      const publicUrl = convertToPublicUrl(attachment.image_url, attachment.image_hash)
+      if (publicUrl) {
+        urls.push(publicUrl)
+      } else if (attachment.image_hash) {
+        // Use Graph API picture endpoint for carousel images
+        urls.push(`https://graph.facebook.com/v21.0/${attachment.image_hash}/picture?width=1200&height=1200`)
       }
     })
   }

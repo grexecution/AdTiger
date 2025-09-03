@@ -18,6 +18,8 @@
     "db:migrate": "npx dotenv -e .env.local -- prisma migrate deploy",
     "db:migrate:dev": "npx dotenv -e .env.local -- prisma migrate dev",
     "db:migrate:reset": "npx dotenv -e .env.local -- prisma migrate reset",
+    "worker": "tsx scripts/start-worker.ts",
+    "worker:dev": "tsx watch scripts/start-worker.ts",
     "db:push": "npx dotenv -e .env.local -- prisma db push",
     "db:seed": "npx dotenv -e .env.local -- tsx prisma/seed.ts",
     "db:studio": "npx dotenv -e .env.local -- prisma studio",
