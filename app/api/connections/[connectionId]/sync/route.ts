@@ -1158,7 +1158,7 @@ export async function POST(
       where: { id: params.connectionId },
       data: {
         metadata: {
-          ...(connection.metadata as any),
+          ...(connection?.metadata as any || {}),
           lastSyncAt: new Date().toISOString(),
           lastSyncStats: {
             campaigns: totalCampaigns,
