@@ -256,6 +256,11 @@ export function getCreativeFormat(creative: AdCreative | null | undefined): 'ima
   if (creative.video_id) {
     return 'video'
   }
+  
+  // Check for video in object_story_spec
+  if (creative.object_story_spec?.video_data?.video_id) {
+    return 'video'
+  }
 
   // Check for carousel in object_story_spec (actual carousel format)
   if (creative.object_story_spec?.link_data?.child_attachments && Array.isArray(creative.object_story_spec.link_data.child_attachments) && creative.object_story_spec.link_data.child_attachments.length > 1) {
@@ -306,12 +311,24 @@ export function isVideoCreative(creative: AdCreative | null | undefined): boolea
  * Get video thumbnail URL for video creatives
  */
 export function getVideoThumbnailUrl(creative: AdCreative | null | undefined): string | null {
-  if (!creative || !creative.video_id) return null
-
-  // Meta provides video thumbnails through the video_id
-  // Format: https://external.xx.fbcdn.net/safe_image.php?d={video_thumbnail_url}
+  if (!creative) return null
   
-  // For now, return the main image URL as fallback
+  // Check if it's actually a video
+  if (!isVideoCreative(creative)) return null
+
+  // Try to get thumbnail from object_story_spec
+  if (creative.object_story_spec?.video_data?.image_url) {
+    const publicUrl = convertToPublicUrl(creative.object_story_spec.video_data.image_url)
+    if (publicUrl) return publicUrl
+  }
+  
+  // Try to get thumbnail from asset_feed_spec videos
+  if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url) {
+    const publicUrl = convertToPublicUrl(creative.asset_feed_spec.videos[0].thumbnail_url)
+    if (publicUrl) return publicUrl
+  }
+  
+  // Fall back to main image URL
   return getCreativeImageUrl(creative)
 }
 

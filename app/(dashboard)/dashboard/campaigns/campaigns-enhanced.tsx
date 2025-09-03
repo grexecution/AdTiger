@@ -120,7 +120,7 @@ import { cn } from "@/lib/utils"
 import { GoogleAdPreview } from "@/components/ads/google-ad-preview"
 import { SyncStatusPanel } from "@/components/dashboard/sync-status-panel"
 import { SafeImage } from "@/components/ui/safe-image"
-import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl } from "@/lib/utils/creative-utils"
+import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl, getVideoThumbnailUrl } from "@/lib/utils/creative-utils"
 import { getCurrencySymbol } from "@/lib/currency"
 import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
 
@@ -511,8 +511,10 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   const isCarousel = isCarouselCreative(creative)
   
   // For grid view, prefer 1:1 ratio images for better display
-  // The utility functions now handle all URL conversion and authentication issues
-  const mainImageUrl = getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || ''
+  // For videos, get the thumbnail URL specifically
+  const mainImageUrl = isVideo 
+    ? (getVideoThumbnailUrl(creative) || getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || '')
+    : (getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || '')
   const allImageUrls = getAllCreativeImageUrls(creative)
   
   // Use real engagement metrics from ad data
