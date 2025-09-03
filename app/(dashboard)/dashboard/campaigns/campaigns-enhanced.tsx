@@ -119,8 +119,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { GoogleAdPreview } from "@/components/ads/google-ad-preview"
 import { SyncStatusPanel } from "@/components/dashboard/sync-status-panel"
-import { SafeImage } from "@/components/ui/safe-image"
-import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl, getVideoThumbnailUrl } from "@/lib/utils/creative-utils"
+import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl } from "@/lib/utils/creative-utils"
 import { getCurrencySymbol } from "@/lib/currency"
 import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
 
@@ -511,10 +510,8 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   const isCarousel = isCarouselCreative(creative)
   
   // For grid view, prefer 1:1 ratio images for better display
-  // For videos, get the thumbnail URL specifically
-  const mainImageUrl = isVideo 
-    ? (getVideoThumbnailUrl(creative) || getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || '')
-    : (getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || '')
+  // The utility functions now handle all URL conversion and authentication issues
+  const mainImageUrl = getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || ''
   const allImageUrls = getAllCreativeImageUrls(creative)
   
   // Use real engagement metrics from ad data
@@ -554,13 +551,17 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
       <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200">
         {isVideo ? (
           <div className="relative w-full h-full">
-            <SafeImage 
-              src={mainImageUrl} 
-              alt={ad.name}
-              className="w-full h-full object-cover"
-              fallback={`https://picsum.photos/800/800?random=${ad.id}_video`}
-              placeholderClassName="bg-gray-200"
-            />
+            {mainImageUrl ? (
+              <img 
+                src={mainImageUrl} 
+                alt={ad.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <Video className="h-12 w-12 text-gray-400" />
+              </div>
+            )}
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
               <div className="rounded-full bg-white/90 p-3 shadow-lg">
                 <Play className="h-6 w-6 text-gray-900" fill="currentColor" />
@@ -573,13 +574,17 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
         ) : isCarousel ? (
           <div className="relative w-full h-full">
             {/* For carousel, show first image with indicator */}
-            <SafeImage 
-              src={mainImageUrl} 
-              alt={ad.name}
-              className="w-full h-full object-cover"
-              fallback={`https://picsum.photos/800/800?random=${ad.id}_carousel`}
-              placeholderClassName="bg-gray-200"
-            />
+            {mainImageUrl ? (
+              <img 
+                src={mainImageUrl} 
+                alt={ad.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <Layers className="h-12 w-12 text-gray-400" />
+              </div>
+            )}
             {/* Carousel indicator - only show for actual carousels */}
             <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
               <Layers className="h-3 w-3" />
@@ -587,13 +592,17 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
             </div>
           </div>
         ) : (
-          <SafeImage 
-            src={mainImageUrl} 
-            alt={ad.name}
-            className="w-full h-full object-cover"
-            fallback={`https://picsum.photos/800/800?random=${ad.id}`}
-            placeholderClassName="bg-gray-200"
-          />
+          mainImageUrl ? (
+            <img 
+              src={mainImageUrl} 
+              alt={ad.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              <ImageIcon className="h-12 w-12 text-gray-400" />
+            </div>
+          )
         )}
         
         {/* Provider icon - show Meta or Google */}

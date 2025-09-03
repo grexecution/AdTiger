@@ -22,7 +22,6 @@ import {
   ArrowUpDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SafeImage } from "@/components/ui/safe-image"
 import { getCreativeImageUrl, getCreativeFormat } from "@/lib/utils/creative-utils"
 import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
 
@@ -456,13 +455,17 @@ export default function FacebookTableView({
                     >
                       <td className="p-4 align-middle">
                         <div className="relative w-12 h-12 rounded overflow-hidden bg-muted">
-                          <SafeImage 
-                            src={getCreativeImageUrl(ad.creative)} 
-                            alt={ad.name}
-                            className="w-full h-full object-cover"
-                            fallback={`https://picsum.photos/100/100?random=${ad.id}`}
-                            placeholderClassName="bg-muted"
-                          />
+                          {getCreativeImageUrl(ad.creative) ? (
+                            <img 
+                              src={getCreativeImageUrl(ad.creative) || ''} 
+                              alt={ad.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <FormatIcon className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="p-4 align-middle font-medium">
