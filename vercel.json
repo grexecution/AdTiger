@@ -16,7 +16,7 @@
   "crons": [
     {
       "path": "/api/cron/sync-hourly",
-      "schedule": "0 * * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/daily-insights",
