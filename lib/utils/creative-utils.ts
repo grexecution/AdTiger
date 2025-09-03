@@ -323,8 +323,9 @@ export function getVideoThumbnailUrl(creative: AdCreative | null | undefined): s
   }
   
   // Try to get thumbnail from asset_feed_spec videos
-  if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url) {
-    const publicUrl = convertToPublicUrl(creative.asset_feed_spec.videos[0].thumbnail_url)
+  const firstVideo = creative.asset_feed_spec?.videos?.[0] as any
+  if (firstVideo?.thumbnail_url) {
+    const publicUrl = convertToPublicUrl(firstVideo.thumbnail_url)
     if (publicUrl) return publicUrl
   }
   
