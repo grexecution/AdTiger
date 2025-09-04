@@ -38,6 +38,7 @@ async function migrateConnections() {
               expiresAt: creds?.expiresAt ? new Date(creds.expiresAt) : null,
               metadata: {
                 ...meta,
+                accessToken: creds?.accessToken || meta?.accessToken,
                 enabledAccounts: [externalId],
                 connectionId: conn.id
               },
@@ -58,6 +59,7 @@ async function migrateConnections() {
               expiresAt: creds?.expiresAt ? new Date(creds.expiresAt) : null,
               metadata: {
                 ...meta,
+                accessToken: creds?.accessToken || meta?.accessToken,
                 enabledAccounts: [externalId],
                 connectionId: conn.id
               },

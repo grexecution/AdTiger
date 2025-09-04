@@ -33,8 +33,14 @@ async function triggerSync() {
     const error = await response.text()
     console.error('Sync failed:', error)
   } else {
-    const result = await response.json()
-    console.log('Sync triggered successfully:', result)
+    const contentType = response.headers.get('content-type')
+    if (contentType?.includes('application/json')) {
+      const result = await response.json()
+      console.log('Sync triggered successfully:', result)
+    } else {
+      const text = await response.text()
+      console.log('Response:', text.substring(0, 200))
+    }
   }
   
   await prisma.$disconnect()

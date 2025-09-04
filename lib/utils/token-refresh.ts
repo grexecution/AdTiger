@@ -48,6 +48,28 @@ export async function ensureValidMetaToken(connectionId: string): Promise<string
         }
       })
       
+      // Also update ProviderConnection entries with new token
+      const selectedAccountIds = credentials?.selectedAccountIds || []
+      if (selectedAccountIds.length > 0) {
+        await prisma.providerConnection.updateMany({
+          where: {
+            accountId: connection.accountId,
+            provider: 'meta',
+            externalAccountId: { in: selectedAccountIds }
+          },
+          data: {
+            accessToken: newToken,
+            expiresAt: newExpiresAt,
+            metadata: {
+              ...metadata,
+              accessToken: newToken,
+              expiresAt: newExpiresAt.toISOString(),
+              lastRefreshed: new Date().toISOString(),
+            }
+          }
+        })
+      }
+      
       console.log(`Token refreshed successfully, expires in ${newExpiresIn / 86400} days`)
       return newToken
     } catch (error) {

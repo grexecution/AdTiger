@@ -107,6 +107,65 @@ export async function POST(
     })
     }
 
+    // Create or update ProviderConnection entries for selected accounts
+    const credentials = connection.credentials as any
+    const metadata = connection.metadata as any
+    const accessToken = credentials?.accessToken || metadata?.accessToken
+    const expiresAt = credentials?.expiresAt || metadata?.expiresAt
+    
+    // Create/update ProviderConnection for each selected account
+    for (const accountId of accountIds) {
+      try {
+        const existing = await prisma.providerConnection.findFirst({
+          where: {
+            accountId: user.accountId || "system",
+            provider: "meta",
+            externalAccountId: accountId
+          }
+        })
+        
+        if (existing) {
+          await prisma.providerConnection.update({
+            where: { id: existing.id },
+            data: {
+              accessToken: accessToken,
+              expiresAt: expiresAt ? new Date(expiresAt) : null,
+              metadata: {
+                ...metadata,
+                accessToken: accessToken,
+                enabledAccounts: [accountId],
+                connectionId: connection.id
+              },
+              isActive: true,
+              lastSyncAt: metadata?.lastSyncAt ? new Date(metadata.lastSyncAt) : null,
+              status: 'CONNECTED'
+            }
+          })
+        } else {
+          await prisma.providerConnection.create({
+            data: {
+              accountId: user.accountId || "system",
+              provider: "meta",
+              externalAccountId: accountId,
+              accessToken: accessToken,
+              expiresAt: expiresAt ? new Date(expiresAt) : null,
+              metadata: {
+                ...metadata,
+                accessToken: accessToken,
+                enabledAccounts: [accountId],
+                connectionId: connection.id
+              },
+              isActive: true,
+              lastSyncAt: metadata?.lastSyncAt ? new Date(metadata.lastSyncAt) : null,
+              status: 'CONNECTED'
+            }
+          })
+        }
+      } catch (error) {
+        console.error(`Failed to create/update ProviderConnection for ${accountId}:`, error)
+      }
+    }
+
     return NextResponse.json({ 
       success: true,
       selectedCount: accountIds.length
