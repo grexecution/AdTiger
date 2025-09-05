@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { MetaSyncService } from "@/services/sync/meta-sync-service"
+import { ensureValidMetaToken } from "@/lib/utils/token-refresh"
 
 export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
@@ -30,36 +32,72 @@ export async function GET(request: NextRequest) {
     for (const connection of activeConnections) {
       try {
         const credentials = connection.credentials as any
-        const accessToken = credentials?.accessToken
-        const selectedAccounts = credentials?.selectedAccounts || credentials?.accountIds || []
+        const metadata = connection.metadata as any
+        
+        // Get access token from credentials or metadata (for compatibility)
+        const accessToken = credentials?.accessToken || metadata?.accessToken
+        
+        // Handle different formats: selectedAccountIds (OAuth), selectedAccounts (manual), accountIds (legacy)
+        let selectedAccounts: string[] = []
+        
+        if (credentials?.selectedAccountIds) {
+          // OAuth format - array of IDs
+          selectedAccounts = credentials.selectedAccountIds
+        } else if (credentials?.selectedAccounts) {
+          // Manual format - array of objects or IDs
+          selectedAccounts = credentials.selectedAccounts.map((acc: any) => 
+            typeof acc === 'string' ? acc : acc.id
+          )
+        } else if (credentials?.accountIds) {
+          // Legacy format
+          selectedAccounts = credentials.accountIds
+        }
 
         if (!accessToken || selectedAccounts.length === 0) {
-          console.log(`Skipping connection ${connection.id}: No token or accounts`)
+          console.log(`Skipping connection ${connection.id}: No token or accounts (has token: ${!!accessToken}, accounts: ${selectedAccounts.length})`)
           continue
         }
 
-        // Trigger sync for this connection
-        const syncUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3333'}/api/connections/${connection.id}/sync`
-        const syncResponse = await fetch(syncUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Add internal auth token if needed
-          }
-        })
+        console.log(`Processing connection ${connection.id} with ${selectedAccounts.length} accounts`)
 
-        if (syncResponse.ok) {
-          const syncData = await syncResponse.json()
+        // Ensure token is valid and refresh if needed
+        let validToken = accessToken
+        try {
+          validToken = await ensureValidMetaToken(connection.id)
+        } catch (error) {
+          console.error(`Failed to refresh token for connection ${connection.id}:`, error)
+        }
+
+        // Use MetaSyncService directly instead of HTTP request
+        const syncService = new MetaSyncService(prisma)
+        
+        try {
+          const syncResult = await syncService.syncAccount(
+            connection.accountId,
+            connection.id,
+            validToken,
+            'INCREMENTAL'
+          )
+          
           results.push({
             connectionId: connection.id,
-            success: true,
-            stats: syncData.stats
+            success: syncResult.success,
+            stats: {
+              campaigns: syncResult.campaigns,
+              adSets: syncResult.adSets,
+              ads: syncResult.ads,
+              insights: syncResult.insights,
+              errors: syncResult.errors.length
+            }
           })
-        } else {
+          
+          console.log(`Sync completed for ${connection.id}:`, syncResult)
+        } catch (syncError) {
+          console.error(`Sync failed for connection ${connection.id}:`, syncError)
           results.push({
             connectionId: connection.id,
             success: false,
-            error: `Sync failed with status ${syncResponse.status}`
+            error: syncError instanceof Error ? syncError.message : 'Unknown sync error'
           })
         }
 
