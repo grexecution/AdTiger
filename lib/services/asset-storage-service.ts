@@ -44,48 +44,57 @@ export class AssetStorageService {
       
       let response: Response
       
-      // For Facebook CDN URLs, try to use Graph API if we have a hash and token
-      if ((imageUrl.includes('scontent') || imageUrl.includes('fbcdn.net')) && hash && accessToken) {
-        // Try using the Graph API picture endpoint instead
-        // Get the ad account ID from the first ad account in credentials
-        const connection = await this.prisma.connection.findFirst({
-          where: { accountId, provider }
-        })
-        const creds = connection?.credentials as any
-        const adAccountId = creds?.selectedAccountIds?.[0] || 'act_4133193336958647'
-        const graphUrl = `https://graph.facebook.com/v21.0/${adAccountId}/adimages?hashes=${JSON.stringify([hash])}&access_token=${accessToken}`
-        console.log('Trying Graph API for image hash:', hash)
-        
-        const graphResponse = await fetch(graphUrl)
-        const graphData = await graphResponse.json()
-        
-        console.log('Graph API response:', JSON.stringify(graphData, null, 2))
-        
-        if (graphData.data?.[0]?.url) {
-          // Use the URL from Graph API
-          const betterUrl = graphData.data[0].url
-          console.log('Got URL from Graph API:', betterUrl.substring(0, 100) + '...')
-          response = await fetch(betterUrl, { headers })
-        } else if (graphData.error) {
-          console.error('Graph API error:', graphData.error)
-          // Fall back to original URL
-          response = await fetch(imageUrl, { headers })
-        } else {
-          console.log('No URL in Graph API response, falling back to original')
-          // Fall back to original URL
-          response = await fetch(imageUrl, { headers })
+      // Convert Facebook auth URLs to CDN URLs if needed
+      let finalUrl = imageUrl
+      
+      // Handle Facebook auth URLs (d.facebook.com)
+      if (imageUrl.includes('d.facebook.com') && imageUrl.includes('/ads/api/creative_retrieval')) {
+        // Extract the actual CDN URL from the auth URL
+        const match = imageUrl.match(/picture=([^&]+)/)
+        if (match) {
+          try {
+            const decodedUrl = decodeURIComponent(match[1])
+            console.log('Converted auth URL to CDN URL:', decodedUrl.substring(0, 100) + '...')
+            finalUrl = decodedUrl
+          } catch (e) {
+            console.error('Failed to decode URL:', e)
+          }
         }
-      } else if (imageUrl.includes('graph.facebook.com') && accessToken) {
-        const separator = imageUrl.includes('?') ? '&' : '?'
-        const urlWithToken = `${imageUrl}${separator}access_token=${accessToken}`
-        response = await fetch(urlWithToken, { headers })
+      }
+      
+      // For Facebook Graph API URLs, add access token
+      if (finalUrl.includes('graph.facebook.com') && accessToken) {
+        const separator = finalUrl.includes('?') ? '&' : '?'
+        finalUrl = `${finalUrl}${separator}access_token=${accessToken}`
+        console.log('Added access token to Graph API URL')
+        response = await fetch(finalUrl, { headers })
+      } else if ((finalUrl.includes('scontent') || finalUrl.includes('fbcdn.net')) && accessToken) {
+        // For CDN URLs, try with and without token
+        console.log('Trying CDN URL directly:', finalUrl.substring(0, 100) + '...')
+        response = await fetch(finalUrl, { headers })
+        
+        // If it fails, try adding token as query param (sometimes works)
+        if (!response.ok) {
+          console.log('CDN direct failed, trying with token...')
+          const separator = finalUrl.includes('?') ? '&' : '?'
+          const urlWithToken = `${finalUrl}${separator}access_token=${accessToken}`
+          response = await fetch(urlWithToken, { headers })
+        }
       } else {
-        response = await fetch(imageUrl, { headers })
+        // Default fallback
+        response = await fetch(finalUrl, { headers })
       }
 
       if (!response.ok) {
         console.error(`Failed to download image: ${response.status} ${response.statusText}`)
-        throw new Error(`Failed to download image: ${response.status}`)
+        console.log('Will rely on fallback to CDN URL in API route')
+        // Don't throw error, just return without storing
+        // The API route will fallback to redirecting to the CDN URL
+        return { 
+          assetId: 'fallback-cdn', 
+          changed: false,
+          previousHash: undefined
+        }
       }
 
       // Get image data

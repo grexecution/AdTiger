@@ -54,7 +54,7 @@ export async function GET(
         }
       })
       
-      if (asset) {
+      if (asset && asset.data && asset.data.length > 0) {
         return new NextResponse(asset.data, {
           status: 200,
           headers: {
@@ -65,6 +65,28 @@ export async function GET(
             'X-Asset-Change-Count': asset.changeCount.toString()
           }
         })
+      }
+      
+      // If no stored asset, try to proxy from the ad's creative URL
+      try {
+        const ad = await prisma.ad.findUnique({
+          where: { id: params.entityId },
+          select: { creative: true }
+        })
+        
+        if (ad?.creative) {
+          const creative = ad.creative as any
+          const imageUrl = creative?.asset_feed_spec?.images?.[0]?.url || 
+                          creative?.image_url ||
+                          creative?.object_story_spec?.link_data?.picture
+          
+          if (imageUrl && typeof imageUrl === 'string' && (imageUrl.includes('scontent') || imageUrl.includes('fbcdn'))) {
+            // Return a redirect to the CDN URL - browser will handle CORS
+            return NextResponse.redirect(imageUrl)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching ad for fallback:', error)
       }
     }
     
@@ -88,12 +110,36 @@ export async function GET(
         }
       })
       
-      if (!asset) {
-        // Return a 404 with a placeholder image
+      if (!asset || !asset.data || asset.data.length === 0) {
+        // Try to proxy from the ad's creative URL
+        try {
+          const ad = await prisma.ad.findFirst({
+            where: { 
+              id: params.entityId,
+              accountId: accountId
+            },
+            select: { creative: true }
+          })
+          
+          if (ad?.creative) {
+            const creative = ad.creative as any
+            const imageUrl = creative?.asset_feed_spec?.images?.[0]?.url || 
+                            creative?.image_url ||
+                            creative?.object_story_spec?.link_data?.picture
+            
+            if (imageUrl && typeof imageUrl === 'string' && (imageUrl.includes('scontent') || imageUrl.includes('fbcdn'))) {
+              // Return a redirect to the CDN URL - browser will handle CORS
+              return NextResponse.redirect(imageUrl)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching ad for fallback:', error)
+        }
+        
         return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
       }
       
-      // Return the image data
+      // Return the stored image data
       return new NextResponse(asset.data, {
         status: 200,
         headers: {
@@ -120,8 +166,9 @@ export async function GET(
 /**
  * GET /api/assets/[entityId]/history
  * Returns the change history for an asset
+ * Note: This is now handled via query parameter ?history=true
  */
-export async function getHistory(
+async function getHistory(
   request: NextRequest,
   { params }: { params: { entityId: string } }
 ) {
