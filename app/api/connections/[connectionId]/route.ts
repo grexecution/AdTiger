@@ -117,11 +117,102 @@ export async function DELETE(
     })
     
     if (connection) {
-      // Delete associated ad accounts
-      if (session.user.accountId) {
+      const accountId = session.user.accountId
+      const provider = connection.provider.toLowerCase()
+      
+      // If this is a Meta connection, delete ALL related data
+      if (provider === 'meta' && accountId) {
+        console.log(`Deleting all Meta data for account ${accountId}...`)
+        
+        // Delete in order of dependencies
+        // 1. Delete all asset storage for Meta ads
+        const ads = await prisma.ad.findMany({
+          where: {
+            accountId,
+            provider: 'meta'
+          },
+          select: { id: true }
+        })
+        
+        if (ads.length > 0) {
+          const adIds = ads.map(ad => ad.id)
+          await prisma.assetStorage.deleteMany({
+            where: {
+              accountId,
+              provider: 'meta',
+              entityId: { in: adIds }
+            }
+          })
+          console.log(`Deleted asset storage for ${ads.length} ads`)
+        }
+        
+        // 2. Delete insights
+        await prisma.insight.deleteMany({
+          where: {
+            accountId,
+            provider: 'meta'
+          }
+        })
+        console.log('Deleted all Meta insights')
+        
+        // 3. Delete ads
+        await prisma.ad.deleteMany({
+          where: {
+            accountId,
+            provider: 'meta'
+          }
+        })
+        console.log('Deleted all Meta ads')
+        
+        // 4. Delete ad groups
+        await prisma.adGroup.deleteMany({
+          where: {
+            accountId,
+            provider: 'meta'
+          }
+        })
+        console.log('Deleted all Meta ad groups')
+        
+        // 5. Delete campaigns
+        await prisma.campaign.deleteMany({
+          where: {
+            accountId,
+            provider: 'meta'
+          }
+        })
+        console.log('Deleted all Meta campaigns')
+        
+        // 6. Delete change history
+        await prisma.changeHistory.deleteMany({
+          where: {
+            accountId,
+            provider: 'meta'
+          }
+        })
+        console.log('Deleted all Meta change history')
+        
+        // 7. Delete sync history
+        await prisma.syncHistory.deleteMany({
+          where: {
+            accountId,
+            provider: 'meta'
+          }
+        })
+        console.log('Deleted all Meta sync history')
+        
+        // 8. Delete ad accounts
         await prisma.adAccount.deleteMany({
           where: {
-            accountId: session.user.accountId,
+            accountId,
+            provider: 'meta'
+          }
+        })
+        console.log('Deleted all Meta ad accounts')
+      } else if (accountId) {
+        // For non-Meta providers, just delete ad accounts
+        await prisma.adAccount.deleteMany({
+          where: {
+            accountId,
             provider: connection.provider,
           },
         })
@@ -136,6 +227,7 @@ export async function DELETE(
       
       return NextResponse.json({
         success: true,
+        message: provider === 'meta' ? 'Meta connection and all associated data have been deleted' : 'Connection deleted successfully'
       })
     }
     
@@ -157,11 +249,95 @@ export async function DELETE(
       )
     }
     
-    // Delete associated ad accounts
-    if (session.user.accountId) {
+    const accountId = session.user.accountId
+    const provider = legacyConnection.provider.toLowerCase()
+    
+    // If this is a Meta connection, delete ALL related data
+    if (provider === 'meta' && accountId) {
+      console.log(`Deleting all Meta data for account ${accountId}...`)
+      
+      // Delete in order of dependencies
+      // 1. Delete all asset storage for Meta ads
+      const ads = await prisma.ad.findMany({
+        where: {
+          accountId,
+          provider: 'meta'
+        },
+        select: { id: true }
+      })
+      
+      if (ads.length > 0) {
+        const adIds = ads.map(ad => ad.id)
+        await prisma.assetStorage.deleteMany({
+          where: {
+            accountId,
+            provider: 'meta',
+            entityId: { in: adIds }
+          }
+        })
+        console.log(`Deleted asset storage for ${ads.length} ads`)
+      }
+      
+      // 2. Delete insights
+      await prisma.insight.deleteMany({
+        where: {
+          accountId,
+          provider: 'meta'
+        }
+      })
+      
+      // 3. Delete ads
+      await prisma.ad.deleteMany({
+        where: {
+          accountId,
+          provider: 'meta'
+        }
+      })
+      
+      // 4. Delete ad groups
+      await prisma.adGroup.deleteMany({
+        where: {
+          accountId,
+          provider: 'meta'
+        }
+      })
+      
+      // 5. Delete campaigns
+      await prisma.campaign.deleteMany({
+        where: {
+          accountId,
+          provider: 'meta'
+        }
+      })
+      
+      // 6. Delete change history
+      await prisma.changeHistory.deleteMany({
+        where: {
+          accountId,
+          provider: 'meta'
+        }
+      })
+      
+      // 7. Delete sync history
+      await prisma.syncHistory.deleteMany({
+        where: {
+          accountId,
+          provider: 'meta'
+        }
+      })
+      
+      // 8. Delete ad accounts
       await prisma.adAccount.deleteMany({
         where: {
-          accountId: session.user.accountId,
+          accountId,
+          provider: 'meta'
+        }
+      })
+    } else if (accountId) {
+      // For non-Meta providers, just delete ad accounts
+      await prisma.adAccount.deleteMany({
+        where: {
+          accountId,
           provider: legacyConnection.provider,
         },
       })
@@ -176,6 +352,7 @@ export async function DELETE(
     
     return NextResponse.json({
       success: true,
+      message: provider === 'meta' ? 'Meta connection and all associated data have been deleted' : 'Connection deleted successfully'
     })
   } catch (error) {
     console.error("Error deleting connection:", error)

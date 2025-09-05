@@ -26,6 +26,7 @@ import { GoogleConnectionDialog } from "@/components/settings/google-connection-
 import { GoogleManagedAccountsInline } from "@/components/settings/google-managed-accounts-inline"
 import { MetaManagedAccountsInline } from "@/components/settings/meta-managed-accounts-inline"
 import { MetaManualConnection } from "@/components/settings/meta-manual-connection"
+import { DisconnectConfirmationDialog } from "@/components/settings/disconnect-confirmation-dialog"
 
 interface Connection {
   id: string
@@ -44,6 +45,12 @@ export default function ConnectionsPage() {
   const [showMetaDialog, setShowMetaDialog] = useState(false)
   const [showGoogleDialog, setShowGoogleDialog] = useState(false)
   const [showManualConnection, setShowManualConnection] = useState(false)
+  const [disconnectDialog, setDisconnectDialog] = useState<{ open: boolean; connectionId: string; provider: string }>({
+    open: false,
+    connectionId: '',
+    provider: ''
+  })
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -132,22 +139,29 @@ export default function ConnectionsPage() {
     }
   }
 
-  const handleDisconnect = async (connectionId: string, provider: string) => {
-    if (!confirm(`Are you sure you want to disconnect ${provider}?`)) {
-      return
-    }
+  const handleDisconnect = (connectionId: string, provider: string) => {
+    setDisconnectDialog({
+      open: true,
+      connectionId,
+      provider
+    })
+  }
 
+  const confirmDisconnect = async () => {
     try {
-      const response = await fetch(`/api/connections/${connectionId}`, {
+      setIsDisconnecting(true)
+      const response = await fetch(`/api/connections/${disconnectDialog.connectionId}`, {
         method: 'DELETE'
       })
       
       if (response.ok) {
+        const data = await response.json()
         toast({
           title: "Disconnected",
-          description: `${provider} has been disconnected`,
+          description: data.message || `${disconnectDialog.provider} has been disconnected`,
         })
         fetchConnections()
+        setDisconnectDialog({ open: false, connectionId: '', provider: '' })
       } else {
         throw new Error('Failed to disconnect')
       }
@@ -157,6 +171,8 @@ export default function ConnectionsPage() {
         description: "Failed to disconnect provider",
         variant: "destructive"
       })
+    } finally {
+      setIsDisconnecting(false)
     }
   }
 
@@ -448,6 +464,14 @@ export default function ConnectionsPage() {
           fetchConnections()
           setShowGoogleDialog(false)
         }}
+      />
+      
+      <DisconnectConfirmationDialog
+        open={disconnectDialog.open}
+        onOpenChange={(open) => setDisconnectDialog(prev => ({ ...prev, open }))}
+        provider={disconnectDialog.provider}
+        onConfirm={confirmDisconnect}
+        isLoading={isDisconnecting}
       />
     </div>
   )
