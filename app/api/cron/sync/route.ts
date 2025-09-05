@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { MetaSyncService } from "@/services/sync/meta-sync-service"
-import { ensureValidMetaToken } from "@/lib/utils/token-refresh"
 
 export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
@@ -34,7 +32,7 @@ export async function GET(request: NextRequest) {
         const credentials = connection.credentials as any
         const metadata = connection.metadata as any
         
-        // Get access token from credentials or metadata (for compatibility)
+        // Get access token from credentials or metadata
         const accessToken = credentials?.accessToken || metadata?.accessToken
         
         // Handle different formats: selectedAccountIds (OAuth), selectedAccounts (manual), accountIds (legacy)
@@ -58,46 +56,28 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        console.log(`Processing connection ${connection.id} with ${selectedAccounts.length} accounts`)
+        // Trigger sync for this connection
+        const syncUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3333'}/api/connections/${connection.id}/sync`
+        const syncResponse = await fetch(syncUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Add internal auth token if needed
+          }
+        })
 
-        // Ensure token is valid and refresh if needed
-        let validToken = accessToken
-        try {
-          validToken = await ensureValidMetaToken(connection.id)
-        } catch (error) {
-          console.error(`Failed to refresh token for connection ${connection.id}:`, error)
-        }
-
-        // Use MetaSyncService directly instead of HTTP request
-        const syncService = new MetaSyncService(prisma)
-        
-        try {
-          const syncResult = await syncService.syncAccount(
-            connection.accountId,
-            connection.id,
-            validToken,
-            'INCREMENTAL'
-          )
-          
+        if (syncResponse.ok) {
+          const syncData = await syncResponse.json()
           results.push({
             connectionId: connection.id,
-            success: syncResult.success,
-            stats: {
-              campaigns: syncResult.campaigns,
-              adSets: syncResult.adSets,
-              ads: syncResult.ads,
-              insights: syncResult.insights,
-              errors: syncResult.errors.length
-            }
+            success: true,
+            stats: syncData.stats
           })
-          
-          console.log(`Sync completed for ${connection.id}:`, syncResult)
-        } catch (syncError) {
-          console.error(`Sync failed for connection ${connection.id}:`, syncError)
+        } else {
           results.push({
             connectionId: connection.id,
             success: false,
-            error: syncError instanceof Error ? syncError.message : 'Unknown sync error'
+            error: `Sync failed with status ${syncResponse.status}`
           })
         }
 

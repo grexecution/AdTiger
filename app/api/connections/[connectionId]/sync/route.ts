@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { convertCurrency } from "@/lib/currency"
 import { ensureValidMetaToken } from "@/lib/utils/token-refresh"
-import { MetaSyncService } from "@/services/sync/meta-sync-service"
 
 export const dynamic = 'force-dynamic'
 interface CampaignInsight {
@@ -40,8 +39,6 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { connectionId: string } }
 ) {
-  const startTime = Date.now()
-  
   try {
     const session = await auth()
     if (!session?.user?.id) {
@@ -61,7 +58,7 @@ export async function POST(
     const connection = await prisma.connection.findFirst({
       where: {
         id: params.connectionId,
-        accountId: user?.accountId || "no-match"
+        accountId: user.accountId || "no-match"
       }
     })
 
@@ -103,47 +100,13 @@ export async function POST(
       return NextResponse.json({ error: "No accounts selected for sync" }, { status: 400 })
     }
 
-    console.log(`Starting sync for ${selectedAccountIds.length} accounts using MetaSyncService`)
+    console.log(`Starting sync for ${selectedAccountIds.length} accounts`)
 
-    // Use the MetaSyncService which properly records sync history
-    const syncService = new MetaSyncService(prisma)
-    
-    try {
-      // Run the sync with proper history tracking
-      const result = await syncService.syncAccount(
-        user?.accountId || "no-match",
-        connection.id,
-        accessToken,
-        'MANUAL' // Mark as manual sync since it's triggered by user
-      )
-      
-      console.log('Sync completed:', result)
-      
-      return NextResponse.json({
-        success: result.success,
-        stats: {
-          campaigns: result.campaigns,
-          adSets: result.adSets,
-          ads: result.ads,
-          insights: result.insights,
-          errors: result.errors.length,
-          errorDetails: result.errors
-        }
-      })
-    } catch (error) {
-      console.error("Sync failed:", error)
-      return NextResponse.json(
-        { error: "Sync failed", details: error instanceof Error ? error.message : "Unknown error" },
-        { status: 500 }
-      )
-    }
-
-    // Old implementation below - keeping temporarily for reference
     let totalCampaigns = 0
     let totalAds = 0
     let errors = []
-    
-    // DEPRECATED: Old sync logic - remove after testing
+
+    // Sync each selected account
     for (const accountId of selectedAccountIds) {
       const adAccountExternalId = accountId
       
@@ -168,7 +131,7 @@ export async function POST(
         // Find or create the AdAccount record for this external ID
         let adAccount = await prisma.adAccount.findFirst({
           where: {
-            accountId: user?.accountId || "no-match",
+            accountId: user.accountId || "no-match",
             provider: "meta",
             externalId: adAccountExternalId
           }
@@ -178,7 +141,7 @@ export async function POST(
           // Create the AdAccount if it doesn't exist
           adAccount = await prisma.adAccount.create({
             data: {
-              accountId: user?.accountId || "no-match",
+              accountId: user.accountId || "no-match",
               provider: "meta",
               externalId: adAccountExternalId,
               name: accountData.name || adAccountExternalId,
@@ -191,8 +154,8 @@ export async function POST(
           console.log(`  Created AdAccount record for ${adAccountExternalId}`)
         } else {
           // Update the AdAccount with latest info
-          adAccount = await prisma.adAccount.update({
-            where: { id: adAccount!.id },
+          await prisma.adAccount.update({
+            where: { id: adAccount.id },
             data: {
               currency: adAccountCurrency,
               timezone: accountData.timezone_name,
@@ -202,13 +165,8 @@ export async function POST(
           })
         }
         
-        // At this point, adAccount is guaranteed to be non-null
-        if (!adAccount) {
-          throw new Error(`Failed to create or retrieve AdAccount for ${adAccountExternalId}`)
-        }
-        
         // Get the user's preferred currency
-        const mainCurrency = user?.account?.currency || 'EUR'
+        const mainCurrency = user.account?.currency || 'EUR'
         console.log(`  Converting from ${adAccountCurrency} to ${mainCurrency}`)
 
         // First, fetch campaigns directly (not through insights)
@@ -235,7 +193,7 @@ export async function POST(
                 data: {
                   status: 'expired',
                   metadata: {
-                    ...(connection?.metadata as any || {}),
+                    ...(connection.metadata as any),
                     lastError: 'Access token expired',
                     errorTime: new Date().toISOString()
                   }
@@ -279,7 +237,7 @@ export async function POST(
             await prisma.campaign.upsert({
               where: {
                 accountId_provider_externalId: {
-                  accountId: user?.accountId || "no-match",
+                  accountId: user.accountId || "no-match",
                   provider: "meta",
                   externalId: campaign.id
                 }
@@ -299,7 +257,7 @@ export async function POST(
                 }
               },
               create: {
-                accountId: user?.accountId || "no-match",
+                accountId: user.accountId || "no-match",
                 provider: "meta",
                 externalId: campaign.id,
                 name: campaign.name,
@@ -308,7 +266,7 @@ export async function POST(
                 channel,
                 budgetAmount: convertedBudget,
                 budgetCurrency: mainCurrency,
-                adAccountId: adAccount!.id,
+                adAccountId: adAccount.id,
                 metadata: {
                   lastSyncedAt: new Date().toISOString(),
                   originalBudget: budgetValue,
@@ -331,7 +289,7 @@ export async function POST(
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         
         // Fetch daily insights for the last 7 days
-        let dailyInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
+        let dailyInsightsUrl: string | null = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
           access_token: accessToken,
           level: 'campaign',
           fields: 'campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas',
@@ -349,7 +307,7 @@ export async function POST(
             for (const insight of dailyData.data) {
               const campaign = await prisma.campaign.findFirst({
                 where: {
-                  accountId: user?.accountId || "no-match",
+                  accountId: user.accountId || "no-match",
                   provider: 'meta',
                   externalId: insight.campaign_id
                 }
@@ -389,10 +347,10 @@ export async function POST(
                 await prisma.insight.upsert({
                   where: {
                     accountId_provider_entityType_entityId_date_window: {
-                      accountId: user?.accountId || "no-match",
+                      accountId: user.accountId || "no-match",
                       provider: 'meta',
                       entityType: 'campaign',
-                      entityId: campaign!.id,
+                      entityId: campaign.id,
                       date: insightDate,
                       window: '1d'
                     }
@@ -418,11 +376,11 @@ export async function POST(
                     updatedAt: new Date()
                   },
                   create: {
-                    accountId: user?.accountId || "no-match",
+                    accountId: user.accountId || "no-match",
                     provider: 'meta',
                     entityType: 'campaign',
-                    entityId: campaign!.id,
-                    campaignId: campaign!.id,
+                    entityId: campaign.id,
+                    campaignId: campaign.id,
                     date: insightDate,
                     window: '1d',
                     metrics: {
@@ -448,12 +406,12 @@ export async function POST(
             }
           }
           
-          dailyInsightsUrl = dailyData.paging?.next || ""
+          dailyInsightsUrl = dailyData.paging?.next || null
         }
         
         // Now fetch aggregated insights for last 30 days to update campaign metadata
         let allCampaignInsights: any[] = []
-        let campaignsInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
+        let campaignsInsightsUrl: string | null = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
           access_token: accessToken,
           level: 'campaign',
           fields: 'campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,actions,inline_link_clicks,inline_post_engagement,conversions,purchase_roas,website_purchase_roas',
@@ -474,7 +432,7 @@ export async function POST(
             allCampaignInsights = [...allCampaignInsights, ...campaignsData.data]
           }
 
-          campaignsInsightsUrl = campaignsData.paging?.next || ""
+          campaignsInsightsUrl = campaignsData.paging?.next || null
         }
 
         // Update campaigns with insights data
@@ -492,14 +450,14 @@ export async function POST(
           // Get existing campaign to preserve metadata
           const existingCampaign = await prisma.campaign.findFirst({
             where: {
-              accountId: user?.accountId || "no-match",
+              accountId: user.accountId || "no-match",
               provider: "meta",
               externalId: insight.campaign_id
             }
           })
           
           if (existingCampaign) {
-            const existingMetadata = existingCampaign!.metadata as any || {}
+            const existingMetadata = existingCampaign.metadata as any || {}
             
             // Extract engagement metrics from actions
             let likes = 0, comments = 0, shares = 0, saves = 0, videoViews = 0
@@ -529,7 +487,7 @@ export async function POST(
             }
             
             await prisma.campaign.update({
-              where: { id: existingCampaign!.id },
+              where: { id: existingCampaign.id },
               data: {
                 metadata: {
                   ...existingMetadata,
@@ -587,7 +545,7 @@ export async function POST(
               // Find the campaign this adset belongs to
               const campaign = await prisma.campaign.findFirst({
                 where: {
-                  accountId: user?.accountId || "no-match",
+                  accountId: user.accountId || "no-match",
                   provider: "meta",
                   externalId: adset.campaign_id
                 }
@@ -620,7 +578,7 @@ export async function POST(
                   // Update campaign channel if more specific
                   if (channel !== 'facebook') {
                     await prisma.campaign.update({
-                      where: { id: campaign!.id },
+                      where: { id: campaign.id },
                       data: { channel }
                     })
                   }
@@ -628,7 +586,7 @@ export async function POST(
                   await prisma.adGroup.upsert({
                     where: {
                       accountId_provider_externalId: {
-                        accountId: user?.accountId || "no-match",
+                        accountId: user.accountId || "no-match",
                         provider: "meta",
                         externalId: adset.id
                       }
@@ -647,8 +605,8 @@ export async function POST(
                       }
                     },
                     create: {
-                      accountId: user?.accountId || "no-match",
-                      campaignId: campaign!.id,
+                      accountId: user.accountId || "no-match",
+                      campaignId: campaign.id,
                       provider: "meta",
                       externalId: adset.id,
                       name: adset.name,
@@ -702,14 +660,14 @@ export async function POST(
               // Find the adset this ad belongs to
               const adGroup = await prisma.adGroup.findFirst({
                 where: {
-                  accountId: user?.accountId || "no-match",
+                  accountId: user.accountId || "no-match",
                   provider: "meta",
                   externalId: ad.adset_id
                 }
               })
               
               if (adGroup) {
-                console.log(`        Found adGroup ${adGroup!.id} for ad ${ad.id}`)
+                console.log(`        Found adGroup ${adGroup.id} for ad ${ad.id}`)
                 try {
                   // Process creative to get all image URLs
                   let processedCreative = { ...ad.creative }
@@ -823,7 +781,7 @@ export async function POST(
                   }
                   
                   // Determine primary channel from publisher platforms
-                  let adChannel = adGroup!.channel // Default to adGroup channel
+                  let adChannel = adGroup.channel // Default to adGroup channel
                   if (publisherPlatforms.length > 0) {
                     // Priority: Instagram > Facebook > Messenger > Threads
                     if (publisherPlatforms.includes('instagram')) {
@@ -840,7 +798,7 @@ export async function POST(
                   await prisma.ad.upsert({
                     where: {
                       accountId_provider_externalId: {
-                        accountId: user?.accountId || "no-match",
+                        accountId: user.accountId || "no-match",
                         provider: "meta",
                         externalId: ad.id
                       }
@@ -861,8 +819,8 @@ export async function POST(
                       }
                     },
                     create: {
-                      accountId: user?.accountId || "no-match",
-                      adGroupId: adGroup!.id,
+                      accountId: user.accountId || "no-match",
+                      adGroupId: adGroup.id,
                       provider: "meta",
                       externalId: ad.id,
                       name: ad.name,
@@ -906,16 +864,20 @@ export async function POST(
               // Basic metrics
               'ad_id', 'ad_name', 'impressions', 'clicks', 'spend', 'cpc', 'cpm', 'ctr',
               // Engagement metrics
-              'actions', 'inline_link_clicks', 'inline_post_engagement',
+              'actions', 'inline_link_clicks', 'inline_post_engagement', 'post_reactions',
+              // Conversion metrics
+              'conversions', 'purchase_roas', 'website_purchase_roas', 'cost_per_conversion',
               // Video metrics
-              'video_play_actions', 'video_30_sec_watched_actions',
+              'video_play_actions', 'video_view_15s', 'video_30_sec_watched_actions',
               'video_avg_time_watched_actions', 'video_p25_watched_actions',
               'video_p50_watched_actions', 'video_p75_watched_actions',
               'video_p95_watched_actions', 'video_p100_watched_actions',
+              'video_thruplay_watched_actions', 'video_continuous_2_sec_watched_actions',
+              'cost_per_thruplay',
               // Quality metrics
               'quality_ranking', 'engagement_rate_ranking', 'conversion_rate_ranking',
               // Click metrics
-              'outbound_clicks', 'unique_clicks'
+              'outbound_clicks', 'unique_clicks', 'landing_page_views'
             ].join(','),
             date_preset: 'last_30d',
             limit: '500'
@@ -955,14 +917,14 @@ export async function POST(
                 // First get the existing ad to preserve metadata
                 const existingAd = await prisma.ad.findFirst({
                   where: {
-                    accountId: user?.accountId || "no-match",
+                    accountId: user.accountId || "no-match",
                     provider: "meta",
                     externalId: insight.ad_id
                   }
                 })
                 
                 if (existingAd) {
-                  const existingMetadata = existingAd!.metadata as any || {}
+                  const existingMetadata = existingAd.metadata as any || {}
                   
                   // Extract engagement metrics from actions
                   let likes = 0, comments = 0, shares = 0, saves = 0, videoViews = 0
@@ -1021,7 +983,7 @@ export async function POST(
                   }
                   
                   await prisma.ad.update({
-                    where: { id: existingAd!.id },
+                    where: { id: existingAd.id },
                     data: {
                       metadata: {
                         ...existingMetadata,
@@ -1044,8 +1006,10 @@ export async function POST(
                           videoViews,
                           inlineLinkClicks: parseInt(insight.inline_link_clicks || '0'),
                           inlinePostEngagement: parseInt(insight.inline_post_engagement || '0'),
+                          postReactions: parseInt(insight.post_reactions || '0'),
                           // Video metrics
                           video_play_actions: parseInt(insight.video_play_actions?.[0]?.value || '0'),
+                          video_view_15s: parseInt(insight.video_view_15s?.[0]?.value || '0'),
                           video_30_sec_watched_actions: parseInt(insight.video_30_sec_watched_actions?.[0]?.value || '0'),
                           video_avg_time_watched_actions: parseFloat(insight.video_avg_time_watched_actions?.[0]?.value || '0'),
                           video_p25_watched_actions: parseInt(insight.video_p25_watched_actions?.[0]?.value || '0'),
@@ -1053,6 +1017,9 @@ export async function POST(
                           video_p75_watched_actions: parseInt(insight.video_p75_watched_actions?.[0]?.value || '0'),
                           video_p95_watched_actions: parseInt(insight.video_p95_watched_actions?.[0]?.value || '0'),
                           video_p100_watched_actions: parseInt(insight.video_p100_watched_actions?.[0]?.value || '0'),
+                          video_thruplay_watched_actions: parseInt(insight.video_thruplay_watched_actions?.[0]?.value || '0'),
+                          video_continuous_2_sec_watched_actions: parseInt(insight.video_continuous_2_sec_watched_actions?.[0]?.value || '0'),
+                          cost_per_thruplay: parseFloat(insight.cost_per_thruplay?.[0]?.value || '0'),
                           // Quality metrics
                           quality_ranking: insight.quality_ranking || null,
                           engagement_rate_ranking: insight.engagement_rate_ranking || null,
@@ -1060,9 +1027,12 @@ export async function POST(
                           // Click metrics
                           outbound_clicks: parseInt(insight.outbound_clicks?.[0]?.value || '0'),
                           unique_clicks: parseInt(insight.unique_clicks || '0'),
-                          // Reach & Frequency
-                          reach: parseInt(insight.reach || '0'),
-                          frequency: parseFloat(insight.frequency || '0'),
+                          landing_page_views: parseInt(insight.landing_page_views?.[0]?.value || '0'),
+                          // Conversion metrics
+                          conversions: parseInt(insight.conversions || '0'),
+                          purchaseRoas,
+                          websitePurchaseRoas,
+                          costPerConversion: parseFloat(insight.cost_per_conversion || '0'),
                           // Raw data for reference
                           rawActions: insight.actions
                         },
@@ -1076,79 +1046,12 @@ export async function POST(
             
             adInsightsUrl = insightsData.paging?.next || null
           }
-          
-          // Skip demographic breakdowns for now - may be causing issues
-          // Commented out temporarily to avoid field errors
-          /*
-          console.log(`  Fetching demographic breakdowns for insights...`)
-          try {
-            // Get age and gender breakdown
-            const demographicInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
-              access_token: accessToken,
-              level: 'ad',
-              fields: 'ad_id,impressions,clicks,spend,video_play_actions',
-              breakdowns: 'age,gender',
-              date_preset: 'last_30d',
-              limit: '500'
-            })
-            
-            const demoResponse = await fetch(demographicInsightsUrl)
-            const demoData = await demoResponse.json()
-            
-            if (demoData.data) {
-              // Store demographic data in metadata
-              const demographicsByAd: Record<string, any> = {}
-              
-              for (const demo of demoData.data) {
-                if (!demographicsByAd[demo.ad_id]) {
-                  demographicsByAd[demo.ad_id] = []
-                }
-                demographicsByAd[demo.ad_id].push({
-                  age: demo.age,
-                  gender: demo.gender,
-                  impressions: parseInt(demo.impressions || '0'),
-                  clicks: parseInt(demo.clicks || '0'),
-                  spend: parseFloat(demo.spend || '0'),
-                  videoPlays: parseInt(demo.video_play_actions?.[0]?.value || '0')
-                })
-              }
-              
-              // Update ads with demographic data
-              for (const [adId, demographics] of Object.entries(demographicsByAd)) {
-                const existingAd = await prisma.ad.findFirst({
-                  where: {
-                    accountId: user?.accountId || "no-match",
-                    provider: "meta",
-                    externalId: adId
-                  }
-                })
-                
-                if (existingAd) {
-                  const metadata = existingAd!.metadata as any || {}
-                  await prisma.ad.update({
-                    where: { id: existingAd!.id },
-                    data: {
-                      metadata: {
-                        ...metadata,
-                        demographicBreakdown: demographics
-                      }
-                    }
-                  })
-                }
-              }
-              
-              console.log(`  Stored demographic data for ${Object.keys(demographicsByAd).length} ads`)
-            }
-          } catch (demoError) {
-            console.error('Error fetching demographic breakdowns:', demoError)
-          }
-          */
         }
       } catch (accountError) {
         console.error(`Error syncing account ${adAccountExternalId}:`, accountError)
         errors.push({ 
           accountId: adAccountExternalId, 
-          error: accountError instanceof Error ? (accountError as Error).message : String(accountError) || 'Unknown error' 
+          error: accountError instanceof Error ? accountError.message : 'Unknown error' 
         })
       }
     }
@@ -1158,7 +1061,7 @@ export async function POST(
       where: { id: params.connectionId },
       data: {
         metadata: {
-          ...(connection?.metadata as any || {}),
+          ...(connection.metadata as any),
           lastSyncAt: new Date().toISOString(),
           lastSyncStats: {
             campaigns: totalCampaigns,
