@@ -31,6 +31,7 @@ model Account {
   recommendations       Recommendation[]
   syncHistory           SyncHistory[]
   users                 User[]
+  assetStorage          AssetStorage[]
 
   @@index([subscriptionTier])
   @@index([subscriptionStatus])
@@ -523,6 +524,42 @@ model SyncHistory {
   @@index([syncType])
   @@index([status])
   @@index([startedAt])
+}
+
+model AssetStorage {
+  id             String    @id @default(cuid())
+  accountId      String
+  provider       String
+  entityType     String    // 'ad', 'campaign', etc
+  entityId       String    // ID of the ad/campaign
+  assetType      String    // 'image', 'video', 'thumbnail'
+  originalUrl    String    // Original Facebook/Google URL
+  hash           String?   // Image hash from provider
+  mimeType       String    // 'image/jpeg', 'image/png', etc
+  size           Int       // Size in bytes
+  width          Int?      // Image width
+  height         Int?      // Image height
+  data           Bytes     // Actual image data
+  metadata       Json?     // Additional metadata
+  
+  // Change tracking
+  previousHash   String?   // Previous hash before change
+  changedAt      DateTime? // When the asset changed
+  changeCount    Int       @default(0) // How many times it changed
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastCheckedAt  DateTime  @default(now()) // Last time we checked for changes
+  
+  account        Account   @relation(fields: [accountId], references: [id])
+  
+  @@unique([accountId, provider, entityId, assetType, hash])
+  @@index([accountId])
+  @@index([provider])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([hash])
+  @@index([originalUrl])
 }
 
 enum FeedbackLabel {

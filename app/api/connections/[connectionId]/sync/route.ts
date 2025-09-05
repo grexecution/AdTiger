@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { convertCurrency } from "@/lib/currency"
 import { ensureValidMetaToken } from "@/lib/utils/token-refresh"
+import { AssetStorageService } from "@/lib/services/asset-storage-service"
 
 export const dynamic = 'force-dynamic'
 interface CampaignInsight {
@@ -838,6 +839,54 @@ export async function POST(
                       }
                     }
                   })
+                  
+                  // Download and store images
+                  try {
+                    const assetService = new AssetStorageService(prisma)
+                    
+                    // Download main image if available
+                    if (mainImageUrl) {
+                      console.log(`      Downloading image for ad ${ad.id}...`)
+                      const result = await assetService.downloadAndStoreAsset({
+                        accountId: user.accountId || "no-match",
+                        provider: "meta",
+                        entityType: "ad",
+                        entityId: ad.id,
+                        assetType: "main_image",
+                        imageUrl: mainImageUrl,
+                        hash: processedCreative?.asset_feed_spec?.images?.[0]?.hash || 
+                              processedCreative?.image_hash,
+                        accessToken
+                      })
+                      
+                      if (result.changed) {
+                        console.log(`      ✅ Image ${result.previousHash ? 'updated' : 'stored'} for ad ${ad.id}`)
+                      }
+                    }
+                    
+                    // Download all other images for carousel ads
+                    if (allImageUrls.length > 1) {
+                      for (let i = 1; i < Math.min(allImageUrls.length, 5); i++) {
+                        const imgUrl = allImageUrls[i].url || allImageUrls[i]
+                        if (imgUrl && typeof imgUrl === 'string') {
+                          await assetService.downloadAndStoreAsset({
+                            accountId: user.accountId || "no-match",
+                            provider: "meta",
+                            entityType: "ad",
+                            entityId: ad.id,
+                            assetType: `carousel_image_${i}`,
+                            imageUrl: imgUrl,
+                            hash: allImageUrls[i].hash,
+                            accessToken
+                          })
+                        }
+                      }
+                    }
+                  } catch (downloadError) {
+                    console.error(`      Failed to download images for ad ${ad.id}:`, downloadError)
+                    // Don't fail the whole sync if image download fails
+                  }
+                  
                   totalAds++
                 } catch (adError) {
                   console.error(`Error upserting ad ${ad.id}:`, adError)
@@ -982,13 +1031,9 @@ export async function POST(
                     }
                   }
                   
-                  await prisma.ad.update({
-                    where: { id: existingAd.id },
-                    data: {
-                      metadata: {
-                        ...existingMetadata,
-                        comments: commentsData, // Store actual comments array
-                        insights: {
+                  // Track changes for historical analytics
+                  const oldInsights = existingMetadata?.insights || {}
+                  const newInsights = {
                           impressions: parseInt(insight.impressions || '0'),
                           clicks: parseInt(insight.clicks || '0'),
                           spend: convertedSpend,
@@ -1035,7 +1080,42 @@ export async function POST(
                           costPerConversion: parseFloat(insight.cost_per_conversion || '0'),
                           // Raw data for reference
                           rawActions: insight.actions
-                        },
+                        }
+                  
+                  // Create change history entries for significant metric changes
+                  const trackFields = ['impressions', 'clicks', 'spend', 'ctr', 'cpc', 'conversions']
+                  for (const field of trackFields) {
+                    const oldValue = oldInsights[field]
+                    const newValue = newInsights[field]
+                    
+                    // Only track if there's an actual change
+                    if (oldValue !== undefined && newValue !== undefined && oldValue !== newValue) {
+                      await prisma.changeHistory.create({
+                        data: {
+                          accountId: user.accountId || "no-match",
+                          entityType: 'ad',
+                          entityId: existingAd.id,
+                          externalId: existingAd.externalId,
+                          provider: 'meta',
+                          changeType: 'metric_update',
+                          fieldName: `insights.${field}`,
+                          oldValue: oldValue,
+                          newValue: newValue,
+                          adId: existingAd.id,
+                          adGroupId: existingAd.adGroupId,
+                          detectedAt: new Date()
+                        }
+                      })
+                    }
+                  }
+                  
+                  await prisma.ad.update({
+                    where: { id: existingAd.id },
+                    data: {
+                      metadata: {
+                        ...existingMetadata,
+                        comments: commentsData, // Store actual comments array
+                        insights: newInsights,
                         lastSyncedAt: new Date().toISOString()
                       }
                     }

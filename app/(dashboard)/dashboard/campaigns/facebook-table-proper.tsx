@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils"
 import { getCreativeImageUrl, getCreativeFormat } from "@/lib/utils/creative-utils"
 import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
+import { FbAdImage } from "@/components/ui/fb-ad-image"
 
 // Platform icons component
 const PlatformIcon = ({ platform }: { platform: string }) => {
@@ -455,17 +456,12 @@ export default function FacebookTableView({
                     >
                       <td className="p-4 align-middle">
                         <div className="relative w-12 h-12 rounded overflow-hidden bg-muted">
-                          {getCreativeImageUrl(ad.creative) ? (
-                            <img 
-                              src={getCreativeImageUrl(ad.creative) || ''} 
-                              alt={ad.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <FormatIcon className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          )}
+                          <FbAdImage 
+                            src={getCreativeImageUrl(ad.creative, ad.id)} 
+                            alt={ad.name}
+                            className="w-full h-full"
+                            fallbackText=""
+                          />
                         </div>
                       </td>
                       <td className="p-4 align-middle font-medium">

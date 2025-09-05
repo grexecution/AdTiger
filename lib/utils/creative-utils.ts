@@ -119,7 +119,8 @@ function convertToPublicUrl(url: string | undefined, hash?: string): string | nu
     return null // Skip auth-required URLs without a hash
   }
   
-  // URLs from scontent CDN are public
+  // URLs from scontent CDN - return as-is
+  // Note: These may get 403 errors when accessed from localhost
   if (url.includes('scontent') || url.includes('fbcdn.net')) {
     return url
   }
@@ -138,10 +139,16 @@ function convertToPublicUrl(url: string | undefined, hash?: string): string | nu
 
 /**
  * Extract the best available image URL from ad creative data
- * Priority: asset_feed_spec.images[0] > object_story_spec > image_hash > image_url > thumbnail_url
+ * Priority: stored asset > asset_feed_spec.images[0] > object_story_spec > image_hash > image_url > thumbnail_url
  */
-export function getCreativeImageUrl(creative: AdCreative | null | undefined): string | null {
+export function getCreativeImageUrl(creative: AdCreative | null | undefined, adId?: string): string | null {
   if (!creative) return null
+  
+  // If we have an adId, try to use stored asset first
+  if (adId && typeof window !== 'undefined') {
+    // Return the asset API URL for client-side rendering
+    return `/api/assets/${adId}?type=main_image`
+  }
 
   // First priority: asset_feed_spec images with hash fallback
   if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 0) {

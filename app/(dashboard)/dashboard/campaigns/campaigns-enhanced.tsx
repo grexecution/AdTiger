@@ -122,6 +122,7 @@ import { SyncStatusPanel } from "@/components/dashboard/sync-status-panel"
 import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl } from "@/lib/utils/creative-utils"
 import { getCurrencySymbol } from "@/lib/currency"
 import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
+import { FbAdImage } from "@/components/ui/fb-ad-image"
 
 // Helper functions for formatting metrics
 const formatMetricNumber = (value: number | undefined | null): string => {
@@ -511,7 +512,7 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   
   // For grid view, prefer 1:1 ratio images for better display
   // The utility functions now handle all URL conversion and authentication issues
-  const mainImageUrl = getBestCreativeImageUrl(creative, 1) || getCreativeImageUrl(creative) || ''
+  const mainImageUrl = getCreativeImageUrl(creative, ad.id) || getBestCreativeImageUrl(creative, 1) || ''
   const allImageUrls = getAllCreativeImageUrls(creative)
   
   // Use real engagement metrics from ad data
@@ -552,10 +553,10 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
         {isVideo ? (
           <div className="relative w-full h-full">
             {mainImageUrl ? (
-              <img 
+              <FbAdImage 
                 src={mainImageUrl} 
                 alt={ad.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full"
               />
             ) : (
               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -575,10 +576,10 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
           <div className="relative w-full h-full">
             {/* For carousel, show first image with indicator */}
             {mainImageUrl ? (
-              <img 
+              <FbAdImage 
                 src={mainImageUrl} 
                 alt={ad.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full"
               />
             ) : (
               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
