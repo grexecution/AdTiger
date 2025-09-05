@@ -55,7 +55,9 @@ export async function GET(
       })
       
       if (asset && asset.data && asset.data.length > 0) {
-        return new NextResponse(Buffer.from(asset.data), {
+        // Convert Prisma Bytes to Uint8Array for NextResponse
+        const imageData = new Uint8Array(asset.data)
+        return new NextResponse(imageData, {
           status: 200,
           headers: {
             'Content-Type': asset.mimeType,
@@ -140,7 +142,9 @@ export async function GET(
       }
       
       // Return the stored image data
-      return new NextResponse(Buffer.from(asset.data), {
+      // Convert Prisma Bytes to Uint8Array for NextResponse
+      const imageData = new Uint8Array(asset.data)
+      return new NextResponse(imageData, {
         status: 200,
         headers: {
           'Content-Type': asset.mimeType,
