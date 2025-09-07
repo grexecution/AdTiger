@@ -102,7 +102,7 @@ export class AssetStorageService {
       const buffer = Buffer.from(arrayBuffer)
       
       // Calculate hash if not provided
-      const imageHash = hash || crypto.createHash('md5').update(buffer).digest('hex')
+      const imageHash = hash || crypto.createHash('md5').update(new Uint8Array(buffer)).digest('hex')
       
       // Get image metadata
       const contentType = response.headers.get('content-type') || 'image/jpeg'
@@ -165,7 +165,7 @@ export class AssetStorageService {
             size,
             width: width || null,
             height: height || null,
-            data: buffer,
+            data: buffer as any, // Prisma expects Buffer but TypeScript has stricter types
             previousHash: existingAsset?.hash || null,
             changedAt: existingAsset ? new Date() : null,
             changeCount: existingAsset ? (existingAsset.changeCount + 1) : 0,
@@ -222,7 +222,7 @@ export class AssetStorageService {
     if (!asset) return null
     
     return {
-      data: asset.data,
+      data: Buffer.from(asset.data),
       mimeType: asset.mimeType
     }
   }
