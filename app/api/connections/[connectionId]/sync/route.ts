@@ -1083,10 +1083,10 @@ export async function POST(
                         }
                   
                   // Create change history entries for significant metric changes
-                  const trackFields = ['impressions', 'clicks', 'spend', 'ctr', 'cpc', 'conversions']
+                  const trackFields = ['impressions', 'clicks', 'spend', 'ctr', 'cpc', 'conversions'] as const
                   for (const field of trackFields) {
-                    const oldValue = oldInsights[field]
-                    const newValue = newInsights[field]
+                    const oldValue = oldInsights[field as keyof typeof oldInsights]
+                    const newValue = newInsights[field as keyof typeof newInsights]
                     
                     // Only track if there's an actual change
                     if (oldValue !== undefined && newValue !== undefined && oldValue !== newValue) {
