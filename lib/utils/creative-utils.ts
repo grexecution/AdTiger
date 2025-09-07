@@ -2,6 +2,8 @@
  * Utility functions for handling ad creative data and extracting image URLs
  */
 
+import { getThumbnailUrl as getThumbnail, getAllImageUrls as getAllImages } from './thumbnail-utils'
+
 export interface AdCreative {
   id?: string
   name?: string
@@ -149,8 +151,16 @@ export function getCreativeImageUrl(creative: AdCreative | null | undefined, adI
     // Return the asset API URL for client-side rendering
     return `/api/assets/${adId}?type=main_image`
   }
+  
+  // Use the improved thumbnail extraction from thumbnail-utils
+  const thumbnailUrl = getThumbnail(creative)
+  if (thumbnailUrl) {
+    // Try to convert to public URL if it's a Facebook auth URL
+    const publicUrl = convertToPublicUrl(thumbnailUrl)
+    return publicUrl || thumbnailUrl
+  }
 
-  // First priority: asset_feed_spec images with hash fallback
+  // Legacy fallback: asset_feed_spec images with hash fallback
   if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 0) {
     const firstImage = creative.asset_feed_spec.images[0]
     const publicUrl = convertToPublicUrl(firstImage.url, firstImage.hash)
@@ -207,7 +217,22 @@ export function getCreativeImageUrl(creative: AdCreative | null | undefined, adI
  */
 export function getAllCreativeImageUrls(creative: AdCreative | null | undefined): string[] {
   if (!creative) return []
+  
+  // Use the improved image extraction from thumbnail-utils
+  const allUrls = getAllImages(creative)
+  
+  // Convert all URLs to public URLs if possible
+  const publicUrls = allUrls.map(url => {
+    const publicUrl = convertToPublicUrl(url)
+    return publicUrl || url
+  })
+  
+  // If we got images from the new utility, return them
+  if (publicUrls.length > 0) {
+    return publicUrls
+  }
 
+  // Legacy fallback
   const urls: string[] = []
   
   // Priority 1: Extract all images from asset_feed_spec (Meta's new format)
@@ -274,16 +299,9 @@ export function getCreativeFormat(creative: AdCreative | null | undefined): 'ima
     return 'carousel'
   }
   
-  // Check if asset_feed_spec has carousel indicators (not just multiple sizes)
-  // Multiple images in asset_feed_spec often means multiple aspect ratios, not carousel
-  // Only consider it carousel if there's explicit carousel configuration
-  if (creative.asset_feed_spec?.call_to_action_types && 
-      creative.asset_feed_spec?.images && 
-      Array.isArray(creative.asset_feed_spec.images) && 
-      creative.asset_feed_spec.images.length > 1 &&
-      creative.asset_feed_spec?.link_urls && 
-      Array.isArray(creative.asset_feed_spec.link_urls) && 
-      creative.asset_feed_spec.link_urls.length > 1) {
+  // Check if asset_feed_spec has multiple images (carousel)
+  // asset_feed_spec with multiple images is typically a carousel
+  if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 1) {
     return 'carousel'
   }
 

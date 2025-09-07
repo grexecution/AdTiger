@@ -481,13 +481,21 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   adSet: any
   onExpand: () => void 
 }) => {
-  // Get publisher platforms from metadata or creative
-  const publisherPlatforms = ad.metadata?.publisherPlatforms || 
+  // Get publisher platforms from adSet placement data (stored during sync)
+  const placementData = adSet?.metadata?.placementData || {}
+  const publisherPlatforms = placementData.publisher_platforms || 
+                            ad.metadata?.publisherPlatforms || 
                             ad.creative?.object_story_spec?.link_data?.publisher_platforms || 
                             ad.creative?.asset_feed_spec?.publisher_platforms ||
                             ad.metadata?.rawData?.creative?.object_story_spec?.link_data?.publisher_platforms ||
                             ad.metadata?.rawData?.creative?.asset_feed_spec?.publisher_platforms ||
                             []
+  
+  // Get specific platform positions for detailed placement info
+  const facebookPositions = placementData.facebook_positions || []
+  const instagramPositions = placementData.instagram_positions || []
+  const messengerPositions = placementData.messenger_positions || []
+  const audienceNetworkPositions = placementData.audience_network_positions || []
   
   // Get provider (Meta or Google)
   const provider = campaign.provider || 'meta'
@@ -617,18 +625,41 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
         {publisherPlatforms && publisherPlatforms.length > 0 && (
           <div className="absolute bottom-2 left-2">
             <div className="flex items-center">
-              {publisherPlatforms.map((p: string, idx: number) => (
-                <div 
-                  key={`${p}-${idx}`} 
-                  className="bg-black/70 backdrop-blur rounded-full p-0.5 hover:z-10 transition-all"
-                  style={{ 
-                    marginLeft: idx > 0 ? '-4px' : '0',
-                    zIndex: publisherPlatforms.length - idx
-                  }}
-                >
-                  <PlatformIcon platform={p} size="h-3 w-3" />
-                </div>
-              ))}
+              {publisherPlatforms.map((p: string, idx: number) => {
+                // Get positions for this platform
+                let positions: string[] = []
+                if (p === 'facebook' && facebookPositions.length > 0) {
+                  positions = facebookPositions
+                } else if (p === 'instagram' && instagramPositions.length > 0) {
+                  positions = instagramPositions
+                } else if (p === 'messenger' && messengerPositions.length > 0) {
+                  positions = messengerPositions
+                } else if (p === 'audience_network' && audienceNetworkPositions.length > 0) {
+                  positions = audienceNetworkPositions
+                }
+                
+                return (
+                  <div 
+                    key={`${p}-${idx}`} 
+                    className="bg-black/70 backdrop-blur rounded-full p-0.5 hover:z-10 transition-all group relative"
+                    style={{ 
+                      marginLeft: idx > 0 ? '-4px' : '0',
+                      zIndex: publisherPlatforms.length - idx
+                    }}
+                    title={positions.length > 0 ? `${p}: ${positions.join(', ')}` : p}
+                  >
+                    <PlatformIcon platform={p} size="h-3 w-3" />
+                    {/* Show placement details on hover */}
+                    {positions.length > 0 && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50">
+                        <div className="bg-black/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                          {positions.map(pos => pos.replace(/_/g, ' ')).join(', ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

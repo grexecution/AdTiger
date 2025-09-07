@@ -527,7 +527,7 @@ export async function POST(
         console.log(`  Fetching adsets with targeting...`)
         let adsetsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/adsets?` + new URLSearchParams({
           access_token: accessToken,
-          fields: 'id,name,status,campaign_id,daily_budget,lifetime_budget,targeting',
+          fields: 'id,name,status,campaign_id,daily_budget,lifetime_budget,targeting,promoted_object',
           limit: '500'
         })
         
@@ -563,8 +563,20 @@ export async function POST(
                   
                   // Detect channel from targeting
                   let channel = 'facebook' // Default
-                  if (adset.targeting?.publisher_platforms) {
-                    const platforms = adset.targeting.publisher_platforms
+                  const targeting = adset.targeting || {}
+                  
+                  // Get all placement data
+                  const placementData = {
+                    publisher_platforms: targeting.publisher_platforms || [],
+                    facebook_positions: targeting.facebook_positions || [],
+                    instagram_positions: targeting.instagram_positions || [],
+                    messenger_positions: targeting.messenger_positions || [],
+                    audience_network_positions: targeting.audience_network_positions || [],
+                    device_platforms: targeting.device_platforms || []
+                  }
+                  
+                  if (targeting.publisher_platforms) {
+                    const platforms = targeting.publisher_platforms
                     if (platforms.length === 1 && platforms[0] === 'instagram') {
                       channel = 'instagram'
                     } else if (platforms.includes('instagram') && platforms.includes('facebook')) {
@@ -602,6 +614,7 @@ export async function POST(
                         lastSyncedAt: new Date().toISOString(),
                         originalBudget: budgetValue,
                         originalCurrency: adAccountCurrency,
+                        targeting: placementData,
                         rawData: adset
                       }
                     },
@@ -619,6 +632,7 @@ export async function POST(
                         lastSyncedAt: new Date().toISOString(),
                         originalBudget: budgetValue,
                         originalCurrency: adAccountCurrency,
+                        targeting: placementData,
                         rawData: adset
                       }
                     }
