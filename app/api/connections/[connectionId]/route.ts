@@ -195,7 +195,7 @@ export async function DELETE(
         await prisma.syncHistory.deleteMany({
           where: {
             accountId,
-            provider: 'meta'
+            provider: 'META'
           }
         })
         console.log('Deleted all Meta sync history')
@@ -322,7 +322,7 @@ export async function DELETE(
       await prisma.syncHistory.deleteMany({
         where: {
           accountId,
-          provider: 'meta'
+          provider: 'META'
         }
       })
       
