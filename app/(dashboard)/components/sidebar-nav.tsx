@@ -109,37 +109,6 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Analytics",
-    items: [
-      {
-        title: "Performance",
-        href: "/dashboard/analytics",
-        icon: TrendingUp,
-      },
-      {
-        title: "Reports",
-        href: "/dashboard/reports",
-        icon: FileText,
-        subItems: [
-          { title: "Overview", href: "/dashboard/reports" },
-          { title: "Campaign Reports", href: "/dashboard/reports/campaigns" },
-          { title: "Creative Reports", href: "/dashboard/reports/creative" },
-          { title: "Custom Reports", href: "/dashboard/reports/custom" },
-        ],
-      },
-      {
-        title: "Attribution",
-        href: "/dashboard/attribution",
-        icon: Activity,
-      },
-      {
-        title: "Budget Analysis",
-        href: "/dashboard/budget",
-        icon: DollarSign,
-      },
-    ],
-  },
-  {
     title: "Management",
     items: [
       {

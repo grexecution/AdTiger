@@ -57,7 +57,7 @@ export function UserAccountNav({ user }: UserAccountNavProps) {
         <DropdownMenuSeparator />
         
         <DropdownMenuItem asChild>
-          <Link href="/dashboard/analytics" className="cursor-pointer">
+          <Link href="/dashboard" className="cursor-pointer">
             <BarChart3 className="mr-2 h-4 w-4" />
             Dashboard
           </Link>

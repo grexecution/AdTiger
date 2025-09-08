@@ -23,7 +23,6 @@ import {
   Megaphone,
   TrendingUp,
   BrainCircuit,
-  ChartBar,
 } from "lucide-react"
 
 import {
@@ -64,12 +63,6 @@ const customerItems = [
     title: "Campaigns",
     url: "/dashboard/campaigns",
     icon: Megaphone,
-    badge: undefined as string | undefined,
-  },
-  {
-    title: "Analytics",
-    url: "/dashboard/analytics",
-    icon: ChartBar,
     badge: undefined as string | undefined,
   },
   {

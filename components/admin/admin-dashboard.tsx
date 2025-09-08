@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Users, Database, Settings, Shield, TrendingUp, AlertTriangle } from "lucide-react"
+import { Users, Database, Settings, Shield, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 
 export function AdminDashboard() {
@@ -46,24 +46,6 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            System Analytics
-          </CardTitle>
-          <CardDescription>
-            View system performance metrics
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline" className="w-full">
-            <Link href="/dashboard/admin/analytics">
-              View Analytics
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

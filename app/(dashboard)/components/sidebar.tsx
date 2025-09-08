@@ -43,11 +43,6 @@ const sidebarNavItems = [
     icon: Lightbulb,
   },
   {
-    title: "Analytics",
-    href: "/dashboard/analytics",
-    icon: BarChart3,
-  },
-  {
     title: "Ad Library",
     href: "/dashboard/ads",
     icon: Package,

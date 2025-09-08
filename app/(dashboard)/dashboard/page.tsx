@@ -203,12 +203,6 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Performance Snapshot</h3>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard/analytics">
-              View Full Analytics
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Link>
-          </Button>
         </div>
         <div className="grid gap-4 md:grid-cols-5">
           <Card>
@@ -574,10 +568,6 @@ export default function DashboardPage() {
         <Button variant="outline" className="h-auto flex-col gap-2 p-4">
           <Target className="h-5 w-5" />
           <span className="text-xs">Create Campaign</span>
-        </Button>
-        <Button variant="outline" className="h-auto flex-col gap-2 p-4">
-          <BarChart3 className="h-5 w-5" />
-          <span className="text-xs">View Analytics</span>
         </Button>
         <Button variant="outline" className="h-auto flex-col gap-2 p-4">
           <BrainCircuit className="h-5 w-5" />

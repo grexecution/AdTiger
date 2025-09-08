@@ -43,11 +43,6 @@ const navItems = [
     icon: FileText,
   },
   {
-    title: "Analytics",
-    href: "/dashboard/analytics",
-    icon: TrendingUp,
-  },
-  {
     title: "Connections",
     href: "/dashboard/connections",
     icon: Cable,
