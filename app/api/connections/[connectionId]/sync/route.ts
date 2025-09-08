@@ -1031,23 +1031,29 @@ export async function POST(
                   if (comments > 0 && insight.ad_id) {
                     try {
                       // Try to get the effective_object_story_id to fetch comments
-                      const adDetailsUrl = `https://graph.facebook.com/v18.0/${insight.ad_id}?fields=effective_object_story_id,creative&access_token=${accessToken}`
+                      const adDetailsUrl = `https://graph.facebook.com/v21.0/${insight.ad_id}?fields=effective_object_story_id,creative&access_token=${accessToken}`
                       const adDetailsResponse = await fetch(adDetailsUrl)
                       const adDetails = await adDetailsResponse.json()
                       
-                      if (adDetails.effective_object_story_id) {
+                      if (adDetails.error) {
+                        console.log(`    ⚠️ Could not fetch ad details for comments: ${adDetails.error.message}`)
+                      } else if (adDetails.effective_object_story_id) {
                         // Fetch comments for the post
-                        const commentsUrl = `https://graph.facebook.com/v18.0/${adDetails.effective_object_story_id}/comments?fields=id,message,from,created_time,like_count,comment_count,comments{id,message,from,created_time,like_count}&limit=25&access_token=${accessToken}`
+                        const commentsUrl = `https://graph.facebook.com/v21.0/${adDetails.effective_object_story_id}/comments?fields=id,message,from,created_time,like_count,comment_count,comments{id,message,from,created_time,like_count}&limit=25&access_token=${accessToken}`
                         const commentsResponse = await fetch(commentsUrl)
                         const commentsResult = await commentsResponse.json()
                         
-                        if (commentsResult.data) {
+                        if (commentsResult.error) {
+                          console.log(`    ⚠️ Could not fetch comments: ${commentsResult.error.message}`)
+                        } else if (commentsResult.data) {
                           commentsData = commentsResult.data
-                          console.log(`💬 Fetched ${commentsData.length} comments for ad "${insight.ad_name}"`)
+                          console.log(`    💬 Fetched ${commentsData.length} comments for ad "${insight.ad_name}"`)
                         }
+                      } else {
+                        console.log(`    ℹ️ No effective_object_story_id for ad ${insight.ad_id} - cannot fetch comments`)
                       }
                     } catch (error) {
-                      // Silently fail - comments are optional
+                      console.log(`    ⚠️ Error fetching comments:`, error)
                     }
                   }
                   
