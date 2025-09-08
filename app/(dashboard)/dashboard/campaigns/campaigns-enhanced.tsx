@@ -527,22 +527,6 @@ const AdPreview = ({ ad, campaign, adSet, onExpand }: {
   const adMetrics = ad.metadata?.insights || {}
   const conversions = extractConversions(adMetrics)
   
-  // Debug logging for CPC issues
-  if (typeof window !== 'undefined') {
-    if (ad.name && ad.name.includes('Zahnarzt')) {
-      console.log('=== ZAHNARZT AD DEBUG ===')
-      console.log('Ad Name:', ad.name)
-      console.log('Full metadata:', ad.metadata)
-      console.log('Insights:', adMetrics)
-      console.log('Specific values:', {
-        cpc: adMetrics.cpc,
-        spend: adMetrics.spend,
-        clicks: adMetrics.clicks,
-        impressions: adMetrics.impressions
-      })
-      console.log('=========================')
-    }
-  }
   
   const engagementMetrics = {
     likes: adMetrics.likes || 0,
@@ -810,6 +794,14 @@ export default function EnhancedCampaignsView() {
       const response = await fetch('/api/campaigns')
       if (response.ok) {
         const data = await response.json()
+        console.log('=== CAMPAIGNS API RESPONSE ===')
+        console.log('Total campaigns:', data.campaigns?.length)
+        if (data.campaigns?.[0]?.adGroups?.[0]?.ads?.[0]) {
+          const firstAd = data.campaigns[0].adGroups[0].ads[0]
+          console.log('First ad:', firstAd.name)
+          console.log('First ad metadata:', firstAd.metadata)
+          console.log('First ad insights:', firstAd.metadata?.insights)
+        }
         setCampaigns(data.campaigns || [])
       }
     } catch (error) {

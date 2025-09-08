@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     
     // Check Google connection
     if (targetAccountId && (!provider || provider === "all" || provider === "google")) {
-      const googleConnection = await prisma.providerConnection.findFirst({
+      const googleConnection = await prisma.connection.findFirst({
         where: {
           accountId: targetAccountId,
           provider: { in: ['google', 'GOOGLE'] }
@@ -131,15 +131,16 @@ export async function GET(request: NextRequest) {
             }
           }
         },
-        insights: {
-          where: {
-            window: "day"
-          },
-          orderBy: {
-            date: "desc"
-          },
-          take: 1
-        }
+        // Remove insights include since metrics are in ad metadata
+        // insights: {
+        //   where: {
+        //     window: "day"
+        //   },
+        //   orderBy: {
+        //     date: "desc"
+        //   },
+        //   take: 1
+        // }
       },
       orderBy: {
         updatedAt: "desc"
@@ -150,11 +151,10 @@ export async function GET(request: NextRequest) {
     const campaignsWithMetrics = await Promise.all(
       campaigns.map(async (campaign) => {
         // Get aggregated metrics for the campaign
-        const latestInsight = campaign.insights[0]
         const campaignMetadata = campaign.metadata as any
         
-        // Use real metrics from metadata.insights or latestInsight, or defaults
-        const metrics = campaignMetadata?.insights || latestInsight?.metrics || {
+        // Use real metrics from metadata.insights or defaults
+        const metrics = campaignMetadata?.insights || {
           spend: 0,
           impressions: 0,
           clicks: 0,
