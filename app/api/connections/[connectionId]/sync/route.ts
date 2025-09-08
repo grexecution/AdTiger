@@ -638,8 +638,9 @@ export async function POST(
                     }
                   })
                   totalAdSets++
+                  console.log(`        ✅ Created/updated adset ${adset.id} for campaign ${adset.campaign_id}`)
                 } catch (adsetError) {
-                  console.error(`Error upserting adset ${adset.id}:`, adsetError)
+                  console.error(`        ❌ Error upserting adset ${adset.id}:`, adsetError)
                   console.error('Adset data:', JSON.stringify(adset, null, 2))
                 }
               }
@@ -907,7 +908,8 @@ export async function POST(
                   console.error('Ad data:', JSON.stringify(ad, null, 2))
                 }
               } else {
-                console.log(`        No adGroup found for ad ${ad.id} with adset_id ${ad.adset_id}`)
+                console.log(`        ❌ No adGroup found for ad ${ad.id} with adset_id ${ad.adset_id}`)
+                console.log(`        ⚠️ This ad will be skipped - no insights will be stored!`)
               }
             }
           }
