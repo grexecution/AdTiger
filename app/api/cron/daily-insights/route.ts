@@ -27,10 +27,10 @@ export async function GET(request: NextRequest) {
     console.log('[CRON] Starting daily insights sync at', new Date().toISOString())
     
     // Get all active Meta connections
-    const connections = await prisma.providerConnection.findMany({
+    const connections = await prisma.connection.findMany({
       where: {
         provider: 'meta',
-        isActive: true
+        status: 'active'
       },
       include: {
         account: true
@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
     let totalErrors = 0
     
     for (const connection of connections) {
-      if (!connection.accessToken) continue
+      const credentials = connection.credentials as any
+      const accessToken = credentials?.accessToken
+      if (!accessToken) continue
       
       // Create sync history entry for this account
       const accountSyncHistory = await prisma.syncHistory.create({
@@ -69,7 +71,7 @@ export async function GET(request: NextRequest) {
         // Fetch last 7 days of data (for daily sync, we just need recent data)
         const syncResults = await fetchHistoricalDataForAllAds(
           connection.accountId,
-          connection.accessToken,
+          accessToken,
           7 // Just sync last 7 days in daily job
         )
         

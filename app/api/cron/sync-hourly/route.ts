@@ -20,15 +20,10 @@ export async function GET(request: NextRequest) {
     console.log('🕐 Starting hourly sync cron job...')
 
     // Get all active provider connections that need syncing
-    const connections = await prisma.providerConnection.findMany({
+    const connections = await prisma.connection.findMany({
       where: {
-        isActive: true,
-        status: 'CONNECTED',
-        // Only sync if last sync was more than 50 minutes ago (with 10min buffer)
-        OR: [
-          { lastSyncAt: null },
-          { lastSyncAt: { lt: new Date(Date.now() - 50 * 60 * 1000) } },
-        ],
+        status: 'active',
+        // Check last sync from metadata or sync history
       },
       include: {
         account: {
@@ -70,15 +65,18 @@ export async function GET(request: NextRequest) {
           metadata: {
             cronTriggered: true,
             connectionId: connection.id,
-            lastSyncAt: connection.lastSyncAt?.toISOString(),
           },
         })
 
-        // Update connection's next sync time
-        await prisma.providerConnection.update({
+        // Update connection's metadata with last sync time
+        await prisma.connection.update({
           where: { id: connection.id },
           data: { 
-            nextSyncAt: new Date(Date.now() + 60 * 60 * 1000), // Next hour
+            metadata: {
+              ...((connection.metadata as any) || {}),
+              lastSyncAt: new Date().toISOString(),
+              nextSyncAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            },
           },
         })
 
