@@ -72,6 +72,7 @@ import {
   Zap,
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   BarChart3,
   Info,
   MessageSquare,
@@ -82,6 +83,7 @@ import {
   Camera,
   Music,
   Send,
+  PauseCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getCurrencySymbol } from "@/lib/currency"
@@ -205,6 +207,12 @@ const getAllCreativeImageUrls = (creative: any): string[] => {
   
   const images = creative.asset_feed_spec?.images || []
   return images.map((img: any) => img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`)
+}
+
+// Helper to get image URL from carousel array or string
+const getImageUrl = (imageItem: any): string => {
+  if (typeof imageItem === 'string') return imageItem
+  return imageItem?.url || `https://graph.facebook.com/v18.0/${imageItem?.hash}/picture` || ''
 }
 
 const getBestCreativeImageUrl = (creative: any, targetRatio: number): string => {
@@ -661,6 +669,7 @@ export function AdDetailDialogEnhanced({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [showComments, setShowComments] = useState(false)
   const [showSafeZones, setShowSafeZones] = useState(true) // Show safe zones by default
+  const [carouselIndex, setCarouselIndex] = useState(0) // For carousel navigation
   
   if (!ad) return null
   
@@ -1171,14 +1180,68 @@ export function AdDetailDialogEnhanced({
                   {(currentPlacement === 'stories' || currentPlacement === 'reels' || currentPlacement.includes('stories') || currentPlacement.includes('reels')) && (
                     <div className="relative w-[280px] h-[497px] bg-black rounded-[40px] p-3 shadow-2xl">
                       <div className="relative w-full h-full bg-black rounded-[35px] overflow-hidden">
-                        {/* Background Image/Video or Placeholder */}
-                        {displayImageUrl ? (
+                        {/* Background Image/Video/Carousel or Placeholder */}
+                        {/* Pause Indicator for Paused Ads */}
+                        {ad.status === 'paused' && (
+                          <div className="absolute top-16 right-4 z-40">
+                            <PauseCircle className="h-10 w-10 text-red-500 drop-shadow-lg" fill="white" />
+                          </div>
+                        )}
+                        
+                        {displayImageUrl || (isCarousel && allImageUrls.length > 0) ? (
                           <>
-                            <img
-                              src={displayImageUrl}
-                              alt="Ad preview"
-                              className="w-full h-full object-cover"
-                            />
+                            {isCarousel && allImageUrls.length > 1 ? (
+                              // Stories Carousel Display
+                              <div className="relative w-full h-full">
+                                <img
+                                  src={allImageUrls[carouselIndex]?.url || allImageUrls[carouselIndex]}
+                                  alt={`Carousel ${carouselIndex + 1} of ${allImageUrls.length}`}
+                                  className="w-full h-full object-cover"
+                                />
+                                
+                                {/* Stories-style progress indicators at top */}
+                                <div className="absolute top-3 left-3 right-3 flex gap-1 z-30">
+                                  {allImageUrls.map((_, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden"
+                                    >
+                                      <div 
+                                        className={cn(
+                                          "h-full bg-white transition-all",
+                                          idx < carouselIndex ? "w-full" : idx === carouselIndex ? "w-full" : "w-0"
+                                        )}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                                
+                                {/* Tap areas for navigation (left/right halves) */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setCarouselIndex((prev) => Math.max(0, prev - 1))
+                                  }}
+                                  className="absolute left-0 top-0 w-1/3 h-full z-20"
+                                  disabled={carouselIndex === 0}
+                                />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setCarouselIndex((prev) => Math.min(allImageUrls.length - 1, prev + 1))
+                                  }}
+                                  className="absolute right-0 top-0 w-1/3 h-full z-20"
+                                  disabled={carouselIndex === allImageUrls.length - 1}
+                                />
+                              </div>
+                            ) : (
+                              // Single Image/Video Display
+                              <img
+                                src={displayImageUrl}
+                                alt="Ad preview"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                             {isVideo && (
                               <button
                                 onClick={(e) => {
@@ -1500,15 +1563,83 @@ export function AdDetailDialogEnhanced({
                         </div>
                       )}
                       
-                      {/* Image/Video */}
+                      {/* Image/Video/Carousel */}
                       <div className="relative">
-                        {displayImageUrl ? (
+                        {/* Pause Indicator for Paused Ads */}
+                        {ad.status === 'paused' && (
+                          <div className="absolute top-3 right-3 z-30">
+                            <PauseCircle className="h-8 w-8 text-red-500 drop-shadow-lg" fill="white" />
+                          </div>
+                        )}
+                        
+                        {displayImageUrl || (isCarousel && allImageUrls.length > 0) ? (
                           <>
-                            <img
-                              src={displayImageUrl}
-                              alt="Ad preview"
-                              className="w-full h-auto object-cover"
-                            />
+                            {isCarousel && allImageUrls.length > 1 ? (
+                              // Carousel Display
+                              <div className="relative">
+                                <img
+                                  src={allImageUrls[carouselIndex]?.url || allImageUrls[carouselIndex]}
+                                  alt={`Carousel ${carouselIndex + 1} of ${allImageUrls.length}`}
+                                  className="w-full h-auto object-cover"
+                                />
+                                
+                                {/* Carousel Navigation */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setCarouselIndex((prev) => (prev - 1 + allImageUrls.length) % allImageUrls.length)
+                                  }}
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all z-20"
+                                  disabled={allImageUrls.length <= 1}
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setCarouselIndex((prev) => (prev + 1) % allImageUrls.length)
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all z-20"
+                                  disabled={allImageUrls.length <= 1}
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </button>
+                                
+                                {/* Carousel Indicators */}
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                                  {allImageUrls.map((_, idx) => (
+                                    <button
+                                      key={idx}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setCarouselIndex(idx)
+                                      }}
+                                      className={cn(
+                                        "w-2 h-2 rounded-full transition-all",
+                                        idx === carouselIndex 
+                                          ? "bg-white w-6" 
+                                          : "bg-white/60 hover:bg-white/80"
+                                      )}
+                                    />
+                                  ))}
+                                </div>
+                                
+                                {/* Carousel Counter */}
+                                <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full z-20">
+                                  {carouselIndex + 1} / {allImageUrls.length}
+                                </div>
+                              </div>
+                            ) : (
+                              // Single Image/Video Display
+                              <img
+                                src={displayImageUrl}
+                                alt="Ad preview"
+                                className="w-full h-auto object-cover"
+                              />
+                            )}
+                            
+                            {/* Video Play Button Overlay */}
                             {isVideo && (
                               <button
                                 onClick={(e) => {
@@ -1521,7 +1652,7 @@ export function AdDetailDialogEnhanced({
                                     alert('Video preview not available. Video ID not found.')
                                   }
                                 }}
-                                className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors cursor-pointer group"
+                                className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors cursor-pointer group z-10"
                                 title="View video on Facebook"
                               >
                                 <div className="bg-white/90 group-hover:bg-white rounded-full p-4 shadow-lg transition-all group-hover:scale-110">
