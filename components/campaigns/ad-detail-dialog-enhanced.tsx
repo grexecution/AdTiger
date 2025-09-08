@@ -177,10 +177,32 @@ const getCreativeImageUrl = (creative: any): string => {
 const getCreativeFormat = (creative: any): string => {
   if (!creative) return 'single_image'
   
+  // Check for video first
   if (creative.asset_feed_spec?.videos?.length > 0) return 'video'
-  if (creative.asset_feed_spec?.images?.length > 1) return 'carousel'
   if (creative.object_story_spec?.video_data) return 'video'
+  if (creative.video_id) return 'video'
   
+  // Check for carousel - carousel ads have specific indicators
+  // 1. Check if it's explicitly marked as carousel
+  if (creative.format === 'carousel') return 'carousel'
+  if (creative.object_story_spec?.link_data?.child_attachments?.length > 0) return 'carousel'
+  
+  // 2. Check asset_feed_spec for carousel structure
+  // Carousel has multiple link_urls with corresponding images
+  if (creative.asset_feed_spec?.link_urls?.length > 1 && 
+      creative.asset_feed_spec?.images?.length > 1 &&
+      creative.asset_feed_spec?.link_urls?.length === creative.asset_feed_spec?.images?.length) {
+    return 'carousel'
+  }
+  
+  // 3. Check for carousel bodies/titles (multiple card content)
+  if (creative.asset_feed_spec?.bodies?.length > 1 && 
+      creative.asset_feed_spec?.titles?.length > 1 &&
+      creative.asset_feed_spec?.images?.length > 1) {
+    return 'carousel'
+  }
+  
+  // Multiple images alone doesn't mean carousel - could be placement variations
   return 'single_image'
 }
 
@@ -202,10 +224,43 @@ const getVideoIdForExternalView = (creative: any): string | null => {
   return videoId
 }
 
-const getAllCreativeImageUrls = (creative: any): string[] => {
+// Get carousel images (multiple cards to swipe through)
+const getCarouselImages = (creative: any): any[] => {
+  if (!creative) return []
+  
+  // Check for carousel child attachments
+  if (creative.object_story_spec?.link_data?.child_attachments?.length > 0) {
+    return creative.object_story_spec.link_data.child_attachments.map((attachment: any) => ({
+      url: attachment.picture || attachment.image_url,
+      title: attachment.name,
+      description: attachment.description,
+      link: attachment.link
+    }))
+  }
+  
+  // Check for asset_feed_spec carousel structure
+  if (creative.asset_feed_spec?.images?.length > 1 &&
+      creative.asset_feed_spec?.bodies?.length > 1 &&
+      creative.asset_feed_spec?.titles?.length > 1) {
+    return creative.asset_feed_spec.images.map((img: any, index: number) => ({
+      url: img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`,
+      title: creative.asset_feed_spec.titles?.[index],
+      description: creative.asset_feed_spec.bodies?.[index],
+      link: creative.asset_feed_spec.link_urls?.[index]
+    }))
+  }
+  
+  return []
+}
+
+// Get all placement variation images (different images for feed, stories, etc)
+const getPlacementImages = (creative: any): string[] => {
   if (!creative) return []
   
   const images = creative.asset_feed_spec?.images || []
+  // If it's a carousel, don't return placement images
+  if (isCarouselCreative(creative)) return []
+  
   return images.map((img: any) => img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`)
 }
 
@@ -213,6 +268,28 @@ const getAllCreativeImageUrls = (creative: any): string[] => {
 const getImageUrl = (imageItem: any): string => {
   if (typeof imageItem === 'string') return imageItem
   return imageItem?.url || `https://graph.facebook.com/v18.0/${imageItem?.hash}/picture` || ''
+}
+
+// Get the main thumbnail for the ad (for preview)
+const getAdThumbnail = (creative: any): string => {
+  // For video, get thumbnail
+  if (isVideoCreative(creative)) {
+    if (creative.thumbnail_url) return creative.thumbnail_url
+    if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url) {
+      return creative.asset_feed_spec.videos[0].thumbnail_url
+    }
+  }
+  
+  // For carousel, get first card image
+  if (isCarouselCreative(creative)) {
+    const carouselImages = getCarouselImages(creative)
+    if (carouselImages.length > 0) {
+      return getImageUrl(carouselImages[0].url)
+    }
+  }
+  
+  // For single image or placement variations, get the main image
+  return getCreativeImageUrl(creative)
 }
 
 const getBestCreativeImageUrl = (creative: any, targetRatio: number): string => {
@@ -690,7 +767,8 @@ export function AdDetailDialogEnhanced({
   const creativeFormat = getCreativeFormat(creative)
   const isVideo = isVideoCreative(creative)
   const isCarousel = isCarouselCreative(creative)
-  const allImageUrls = getAllCreativeImageUrls(creative)
+  const carouselItems = getCarouselImages(creative) // For actual carousel ads
+  const placementImages = getPlacementImages(creative) // For placement variations
   const imagesWithDimensions = getCreativeImagesWithDimensions(creative)
   
   // Get publisher platforms - safely handle arrays that might contain objects
@@ -1188,20 +1266,20 @@ export function AdDetailDialogEnhanced({
                           </div>
                         )}
                         
-                        {displayImageUrl || (isCarousel && allImageUrls.length > 0) ? (
+                        {displayImageUrl || (isCarousel && carouselItems.length > 0) ? (
                           <>
-                            {isCarousel && allImageUrls.length > 1 ? (
+                            {isCarousel && carouselItems.length > 1 ? (
                               // Stories Carousel Display
                               <div className="relative w-full h-full">
                                 <img
-                                  src={allImageUrls[carouselIndex]?.url || allImageUrls[carouselIndex]}
-                                  alt={`Carousel ${carouselIndex + 1} of ${allImageUrls.length}`}
+                                  src={getImageUrl(carouselItems[carouselIndex]?.url)}
+                                  alt={`Carousel ${carouselIndex + 1} of ${carouselItems.length}`}
                                   className="w-full h-full object-cover"
                                 />
                                 
                                 {/* Stories-style progress indicators at top */}
                                 <div className="absolute top-3 left-3 right-3 flex gap-1 z-30">
-                                  {allImageUrls.map((_, idx) => (
+                                  {carouselItems.map((_, idx) => (
                                     <div
                                       key={idx}
                                       className="flex-1 h-0.5 bg-white/30 rounded-full overflow-hidden"
@@ -1228,10 +1306,10 @@ export function AdDetailDialogEnhanced({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    setCarouselIndex((prev) => Math.min(allImageUrls.length - 1, prev + 1))
+                                    setCarouselIndex((prev) => Math.min(carouselItems.length - 1, prev + 1))
                                   }}
                                   className="absolute right-0 top-0 w-1/3 h-full z-20"
-                                  disabled={carouselIndex === allImageUrls.length - 1}
+                                  disabled={carouselIndex === carouselItems.length - 1}
                                 />
                               </div>
                             ) : (
@@ -1572,25 +1650,35 @@ export function AdDetailDialogEnhanced({
                           </div>
                         )}
                         
-                        {displayImageUrl || (isCarousel && allImageUrls.length > 0) ? (
+                        {displayImageUrl || (isCarousel && carouselItems.length > 0) ? (
                           <>
-                            {isCarousel && allImageUrls.length > 1 ? (
+                            {isCarousel && carouselItems.length > 1 ? (
                               // Carousel Display
                               <div className="relative">
                                 <img
-                                  src={allImageUrls[carouselIndex]?.url || allImageUrls[carouselIndex]}
-                                  alt={`Carousel ${carouselIndex + 1} of ${allImageUrls.length}`}
+                                  src={getImageUrl(carouselItems[carouselIndex]?.url)}
+                                  alt={carouselItems[carouselIndex]?.title || `Carousel ${carouselIndex + 1}`}
                                   className="w-full h-auto object-cover"
                                 />
+                                
+                                {/* Carousel Card Text Overlay */}
+                                {carouselItems[carouselIndex]?.title && (
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                                    <h4 className="text-white font-semibold text-sm">{carouselItems[carouselIndex].title}</h4>
+                                    {carouselItems[carouselIndex]?.description && (
+                                      <p className="text-white/80 text-xs mt-1">{carouselItems[carouselIndex].description}</p>
+                                    )}
+                                  </div>
+                                )}
                                 
                                 {/* Carousel Navigation */}
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    setCarouselIndex((prev) => (prev - 1 + allImageUrls.length) % allImageUrls.length)
+                                    setCarouselIndex((prev) => (prev - 1 + carouselItems.length) % carouselItems.length)
                                   }}
                                   className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all z-20"
-                                  disabled={allImageUrls.length <= 1}
+                                  disabled={carouselItems.length <= 1}
                                 >
                                   <ChevronLeft className="h-4 w-4" />
                                 </button>
@@ -1598,17 +1686,17 @@ export function AdDetailDialogEnhanced({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    setCarouselIndex((prev) => (prev + 1) % allImageUrls.length)
+                                    setCarouselIndex((prev) => (prev + 1) % carouselItems.length)
                                   }}
                                   className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all z-20"
-                                  disabled={allImageUrls.length <= 1}
+                                  disabled={carouselItems.length <= 1}
                                 >
                                   <ChevronRight className="h-4 w-4" />
                                 </button>
                                 
                                 {/* Carousel Indicators */}
                                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-                                  {allImageUrls.map((_, idx) => (
+                                  {carouselItems.map((_, idx) => (
                                     <button
                                       key={idx}
                                       onClick={(e) => {
@@ -1627,7 +1715,7 @@ export function AdDetailDialogEnhanced({
                                 
                                 {/* Carousel Counter */}
                                 <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full z-20">
-                                  {carouselIndex + 1} / {allImageUrls.length}
+                                  {carouselIndex + 1} / {carouselItems.length}
                                 </div>
                               </div>
                             ) : (
