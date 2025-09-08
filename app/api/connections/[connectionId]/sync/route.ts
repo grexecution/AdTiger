@@ -682,7 +682,7 @@ export async function POST(
               })
               
               if (adGroup) {
-                console.log(`        Found adGroup ${adGroup.id} for ad ${ad.id}`)
+                console.log(`        ✅ Found adGroup ${adGroup.id} for ad ${ad.id}`)
                 try {
                   // Process creative to get all image URLs
                   let processedCreative = { ...ad.creative }
@@ -916,10 +916,12 @@ export async function POST(
         }
         
         console.log(`  Found ${totalAds} ads`)
+        console.log(`  ⚠️ CRITICAL CHECK: totalAds = ${totalAds}, will fetch insights: ${totalAds > 0}`)
         
         // Fetch ad insights to get performance metrics including engagement
         if (totalAds > 0) {
           console.log(`  Fetching ad insights with engagement metrics...`)
+          console.log(`  ⚠️ CRITICAL: Starting ad insights fetch for ${totalAds} ads`)
           let adInsightsUrl = `https://graph.facebook.com/v21.0/${adAccountExternalId}/insights?` + new URLSearchParams({
             access_token: accessToken,
             level: 'ad',
@@ -956,6 +958,7 @@ export async function POST(
             }
             
             if (insightsData.data) {
+              console.log(`  📊 Got ${insightsData.data.length} ad insights from Meta API`)
               // Update ads with insights data
               for (const insight of insightsData.data) {
                 // Parse monetary values (Meta returns them in currency units, not cents)
@@ -991,6 +994,7 @@ export async function POST(
                   
                   // Extract engagement metrics from actions
                   let likes = 0, comments = 0, shares = 0, saves = 0, videoViews = 0
+                  console.log(`    🔍 Ad ${insight.ad_name}: Raw actions array:`, JSON.stringify(insight.actions || []))
                   if (insight.actions && Array.isArray(insight.actions)) {
                     for (const action of insight.actions) {
                       switch (action.action_type) {
@@ -1122,6 +1126,14 @@ export async function POST(
                       })
                     }
                   }
+                  
+                  console.log(`    ✅ Updating ad ${existingAd.name} with metrics:`, {
+                    impressions: newInsights.impressions,
+                    clicks: newInsights.clicks,
+                    likes: newInsights.likes,
+                    comments: newInsights.comments,
+                    shares: newInsights.shares
+                  })
                   
                   await prisma.ad.update({
                     where: { id: existingAd.id },
