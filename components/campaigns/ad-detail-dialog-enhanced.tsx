@@ -187,22 +187,34 @@ const getCreativeFormat = (creative: any): string => {
   if (creative.format === 'carousel') return 'carousel'
   if (creative.object_story_spec?.link_data?.child_attachments?.length > 0) return 'carousel'
   
-  // 2. Check asset_feed_spec for carousel structure
-  // Carousel has multiple link_urls with corresponding images
-  if (creative.asset_feed_spec?.link_urls?.length > 1 && 
-      creative.asset_feed_spec?.images?.length > 1 &&
-      creative.asset_feed_spec?.link_urls?.length === creative.asset_feed_spec?.images?.length) {
-    return 'carousel'
+  // 2. IMPORTANT: For asset_feed_spec, carousel MUST have multiple titles/bodies
+  // If there's only 1 title and 1 body but multiple images, it's placement variations NOT carousel
+  const hasMultipleImages = (creative.asset_feed_spec?.images?.length || 0) > 1
+  const hasMultipleTitles = (creative.asset_feed_spec?.titles?.length || 0) > 1
+  const hasMultipleBodies = (creative.asset_feed_spec?.bodies?.length || 0) > 1
+  const hasMultipleLinks = (creative.asset_feed_spec?.link_urls?.length || 0) > 1
+  
+  // True carousel has multiple content cards
+  if (hasMultipleImages && (hasMultipleTitles || hasMultipleBodies || hasMultipleLinks)) {
+    // Double check it's not just duplicate content
+    if (hasMultipleTitles) {
+      const titles = creative.asset_feed_spec.titles
+      const allSame = titles.every((t: any) => t === titles[0])
+      if (!allSame) return 'carousel'
+    }
+    if (hasMultipleBodies) {
+      const bodies = creative.asset_feed_spec.bodies
+      const allSame = bodies.every((b: any) => b === bodies[0])
+      if (!allSame) return 'carousel'
+    }
+    if (hasMultipleLinks) {
+      const links = creative.asset_feed_spec.link_urls
+      const allSame = links.every((l: any) => l === links[0])
+      if (!allSame) return 'carousel'
+    }
   }
   
-  // 3. Check for carousel bodies/titles (multiple card content)
-  if (creative.asset_feed_spec?.bodies?.length > 1 && 
-      creative.asset_feed_spec?.titles?.length > 1 &&
-      creative.asset_feed_spec?.images?.length > 1) {
-    return 'carousel'
-  }
-  
-  // Multiple images alone doesn't mean carousel - could be placement variations
+  // Multiple images with single title/body = placement variations, not carousel
   return 'single_image'
 }
 
@@ -239,14 +251,24 @@ const getCarouselImages = (creative: any): any[] => {
   }
   
   // Check for asset_feed_spec carousel structure
-  if (creative.asset_feed_spec?.images?.length > 1 &&
-      creative.asset_feed_spec?.bodies?.length > 1 &&
-      creative.asset_feed_spec?.titles?.length > 1) {
-    return creative.asset_feed_spec.images.map((img: any, index: number) => ({
+  // Must have multiple unique titles/bodies/links, not just multiple images
+  const images = creative.asset_feed_spec?.images || []
+  const titles = creative.asset_feed_spec?.titles || []
+  const bodies = creative.asset_feed_spec?.bodies || []
+  const links = creative.asset_feed_spec?.link_urls || []
+  
+  // Check if we have actual carousel content (not just placement variations)
+  const hasUniqueContent = 
+    (titles.length > 1 && !titles.every((t: any) => t === titles[0])) ||
+    (bodies.length > 1 && !bodies.every((b: any) => b === bodies[0])) ||
+    (links.length > 1 && !links.every((l: any) => l === links[0]))
+  
+  if (images.length > 1 && hasUniqueContent) {
+    return images.map((img: any, index: number) => ({
       url: img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`,
-      title: creative.asset_feed_spec.titles?.[index],
-      description: creative.asset_feed_spec.bodies?.[index],
-      link: creative.asset_feed_spec.link_urls?.[index]
+      title: titles[index] || titles[0],
+      description: bodies[index] || bodies[0],
+      link: links[index] || links[0]
     }))
   }
   
@@ -410,6 +432,9 @@ const StatusBadge = ({ status }: { status: string }) => {
 // Get comments from ad data or show empty state
 const getAdComments = (ad: any) => {
   // Check various possible locations for comments
+  console.log('Getting comments for ad:', ad?.id)
+  console.log('ad.metadata:', ad?.metadata)
+  
   const comments = 
     ad?.metadata?.comments || 
     ad?.metadata?.rawData?.comments || 
@@ -417,16 +442,31 @@ const getAdComments = (ad: any) => {
     ad?.comments ||
     []
   
+  console.log('Found comments:', comments)
+  
   // If we have comment data, format it properly
   if (Array.isArray(comments) && comments.length > 0) {
-    return comments.map((comment: any, idx: number) => ({
-      id: comment.id || idx,
-      user: comment.from?.name || comment.user_name || comment.author || 'Anonymous',
-      text: comment.message || comment.text || comment.content || '',
-      likes: comment.like_count || comment.likes || 0,
-      time: comment.created_time || comment.timestamp || '',
-      replies: comment.comments?.data || comment.replies || []
-    }))
+    return comments.map((comment: any, idx: number) => {
+      // Format replies properly
+      const rawReplies = comment.comments?.data || comment.replies || []
+      const formattedReplies = Array.isArray(rawReplies) ? rawReplies.map((reply: any, replyIdx: number) => ({
+        id: reply.id || `reply-${idx}-${replyIdx}`,
+        from: reply.from || {},
+        user_name: reply.from?.name || reply.user_name || 'Reply',
+        message: reply.message || reply.text || '',
+        like_count: reply.like_count || 0,
+        created_time: reply.created_time || null
+      })) : []
+      
+      return {
+        id: comment.id || idx,
+        user: comment.from?.name || comment.user_name || comment.author || 'Anonymous',
+        text: comment.message || comment.text || comment.content || '',
+        likes: comment.like_count || comment.likes || 0,
+        time: comment.created_time || comment.timestamp || '',
+        replies: formattedReplies
+      }
+    })
   }
   
   return []
@@ -752,6 +792,7 @@ export function AdDetailDialogEnhanced({
   
   // Get real comments from ad data
   const comments = getAdComments(ad)
+  console.log('Ad comments:', comments)
   
   // Get campaign and adset from props or ad object
   const adCampaign = campaign || ad.campaign
