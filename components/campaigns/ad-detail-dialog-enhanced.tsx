@@ -1857,16 +1857,17 @@ export function AdDetailDialogEnhanced({
                       </div>
                       
                       {/* Comments */}
-                      {comments.length > 0 && (
-                        <div className="border-t bg-gray-50">
-                          <div className="p-3 space-y-2 max-h-[200px] overflow-y-auto">
-                            {comments.slice(0, 3).map((comment: any) => (
-                              <div key={comment.id} className="space-y-2">
+                      {comments.length > 0 ? (
+                        <div className="border-t-2 border-blue-200 bg-blue-50">
+                          <div className="p-3 space-y-3">
+                            <div className="text-sm font-semibold text-blue-900">Comments ({comments.length})</div>
+                            {comments.map((comment: any, index: number) => (
+                              <div key={comment.id || index} className="space-y-2">
                                 <div className="flex gap-2">
-                                  <div className="w-8 h-8 bg-gray-300 rounded-full flex-shrink-0" />
-                                  <div className="flex-1 bg-white rounded-2xl px-3 py-2">
-                                    <div className="text-xs font-semibold">{comment.user}</div>
-                                    <div className="text-xs text-gray-700">{comment.text}</div>
+                                  <div className="w-8 h-8 bg-blue-400 rounded-full flex-shrink-0" />
+                                  <div className="flex-1 bg-white rounded-xl px-3 py-2 border border-blue-200">
+                                    <div className="text-sm font-semibold text-gray-900">{comment.user}</div>
+                                    <div className="text-sm text-gray-700 mt-1">{comment.text}</div>
                                     {/* Like count and replies count */}
                                     {(comment.likes > 0 || comment.replies?.length > 0) && (
                                       <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-500">
@@ -1886,11 +1887,11 @@ export function AdDetailDialogEnhanced({
                                 
                                 {/* Show first reply if exists */}
                                 {comment.replies?.length > 0 && (
-                                  <div className="ml-6 flex gap-2">
-                                    <div className="w-6 h-6 bg-gray-200 rounded-full flex-shrink-0" />
-                                    <div className="flex-1 bg-gray-50 rounded-2xl px-3 py-2">
-                                      <div className="text-[10px] font-semibold">{comment.replies[0].from?.name || comment.replies[0].user_name || 'Reply'}</div>
-                                      <div className="text-[10px] text-gray-600">{comment.replies[0].message || comment.replies[0].text}</div>
+                                  <div className="ml-10 flex gap-2 mt-2">
+                                    <div className="w-6 h-6 bg-gray-300 rounded-full flex-shrink-0" />
+                                    <div className="flex-1 bg-gray-100 rounded-xl px-3 py-2 border border-gray-200">
+                                      <div className="text-xs font-semibold text-gray-800">{comment.replies[0].from?.name || comment.replies[0].user_name || 'Reply'}</div>
+                                      <div className="text-xs text-gray-600 mt-0.5">{comment.replies[0].message || comment.replies[0].text}</div>
                                       {comment.replies[0].like_count > 0 && (
                                         <div className="flex items-center gap-1 mt-1 text-[9px] text-gray-400">
                                           <ThumbsUp className="h-2 w-2" />
@@ -1903,6 +1904,10 @@ export function AdDetailDialogEnhanced({
                               </div>
                             ))}
                           </div>
+                        </div>
+                      ) : (
+                        <div className="border-t-2 border-gray-200 bg-gray-50 p-4 text-center text-gray-500 text-sm">
+                          No comments available
                         </div>
                       )}
                     </div>
