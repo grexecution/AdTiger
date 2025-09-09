@@ -432,17 +432,12 @@ const StatusBadge = ({ status }: { status: string }) => {
 // Get comments from ad data or show empty state
 const getAdComments = (ad: any) => {
   // Check various possible locations for comments
-  console.log('Getting comments for ad:', ad?.id)
-  console.log('ad.metadata:', ad?.metadata)
-  
   const comments = 
     ad?.metadata?.comments || 
     ad?.metadata?.rawData?.comments || 
     ad?.metadata?.insights?.comments_data ||
     ad?.comments ||
     []
-  
-  console.log('Found comments:', comments)
   
   // If we have comment data, format it properly
   if (Array.isArray(comments) && comments.length > 0) {
@@ -792,7 +787,6 @@ export function AdDetailDialogEnhanced({
   
   // Get real comments from ad data
   const comments = getAdComments(ad)
-  console.log('Ad comments:', comments)
   
   // Get campaign and adset from props or ad object
   const adCampaign = campaign || ad.campaign
@@ -1865,7 +1859,7 @@ export function AdDetailDialogEnhanced({
                       {/* Comments */}
                       {comments.length > 0 && (
                         <div className="border-t bg-gray-50">
-                          <div className="p-3 pb-16 space-y-2">
+                          <div className="p-3 space-y-2 max-h-[200px] overflow-y-auto">
                             {comments.slice(0, 3).map((comment: any) => (
                               <div key={comment.id} className="space-y-2">
                                 <div className="flex gap-2">
