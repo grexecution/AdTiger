@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
           include: {
             ads: {
               take: 10 // Limit ads per ad group
+              // creative is a JSON field, not a relation - it's already included
             }
           }
         },

@@ -5,6 +5,133 @@ import { META_API_VERSION } from '@/lib/meta-auth'
 import { getMetaChannel } from '@/lib/utils/channel-utils'
 import { processMetaInsights } from '@/lib/utils/insights-utils'
 
+// Helper function to download and store image assets
+async function downloadAndStoreImage(
+  accountId: string,
+  entityId: string,
+  imageUrl: string,
+  assetType: string = 'creative'
+): Promise<void> {
+  try {
+    // Skip if URL is empty or invalid
+    if (!imageUrl || !imageUrl.startsWith('http')) {
+      return
+    }
+
+    // Check if we already have this asset stored
+    const existingAsset = await prisma.assetStorage.findFirst({
+      where: {
+        accountId,
+        entityId,
+        assetType,
+      }
+    })
+
+    // If asset exists and was updated recently (within 7 days), skip
+    if (existingAsset && existingAsset.createdAt) {
+      const daysSinceCreation = (Date.now() - existingAsset.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+      if (daysSinceCreation < 7) {
+        return
+      }
+    }
+
+    // Download the image
+    const response = await fetch(imageUrl)
+    if (!response.ok) {
+      console.warn(`Failed to download image from ${imageUrl}: ${response.status}`)
+      return
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg'
+    const buffer = await response.arrayBuffer()
+    const data = Buffer.from(buffer)
+    
+    // Calculate hash for the image
+    const crypto = await import('crypto')
+    const hash = crypto.createHash('md5').update(data as any).digest('hex')
+
+    // Store or update the asset
+    await prisma.assetStorage.upsert({
+      where: {
+        accountId_provider_entityId_assetType_hash: {
+          accountId,
+          provider: 'meta',
+          entityId,
+          assetType,
+          hash
+        }
+      },
+      update: {
+        data: data as any,
+        mimeType: contentType,
+        size: data.length,
+        originalUrl: imageUrl,
+        changedAt: new Date(),
+        changeCount: { increment: 1 }
+      },
+      create: {
+        accountId,
+        provider: 'meta',
+        entityType: 'ad',
+        entityId,
+        assetType,
+        hash,
+        data: data as any,
+        mimeType: contentType,
+        size: data.length,
+        originalUrl: imageUrl,
+        changeCount: 1
+      }
+    })
+
+    console.log(`Stored image for ${entityId} (${data.length} bytes)`)
+  } catch (error) {
+    console.error(`Failed to download/store image for ${entityId}:`, error)
+    // Don't throw - we don't want image download failures to break sync
+  }
+}
+
+// Helper to extract best image URL from creative
+function getBestImageUrl(creative: any): string | null {
+  if (!creative) return null
+  
+  // Priority 1: permalink URLs (stable)
+  if (creative.asset_feed_spec?.images?.[0]?.permalink_url) {
+    return creative.asset_feed_spec.images[0].permalink_url
+  }
+  
+  // Priority 2: video thumbnails for video ads
+  if (creative.object_story_spec?.video_data?.image_url) {
+    return creative.object_story_spec.video_data.image_url
+  }
+  
+  // Priority 3: regular image_url
+  if (creative.image_url) {
+    return creative.image_url
+  }
+  
+  // Priority 4: object_story_spec link_data picture
+  if (creative.object_story_spec?.link_data?.picture) {
+    return creative.object_story_spec.link_data.picture
+  }
+  
+  // Priority 5: asset_feed_spec URL (might expire)
+  if (creative.asset_feed_spec?.images?.[0]?.url) {
+    return creative.asset_feed_spec.images[0].url
+  }
+  
+  // Priority 6: video thumbnail URLs
+  if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url) {
+    return creative.asset_feed_spec.videos[0].thumbnail_url
+  }
+  
+  if (creative.thumbnail_url) {
+    return creative.thumbnail_url
+  }
+  
+  return null
+}
+
 export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
   const { accountId, providerConnectionId, syncType, entityTypes } = job.data
   
@@ -233,7 +360,7 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
           // Process insights data
           const insights = processMetaInsights(ad.insights)
           
-          await prisma.ad.upsert({
+          const upsertedAd = await prisma.ad.upsert({
             where: {
               accountId_provider_externalId: {
                 accountId,
@@ -268,6 +395,45 @@ export async function syncMetaEntities(job: Job<MetaSyncJobData>) {
               },
             },
           })
+          
+          // Download and store the ad's image
+          if (ad.creative) {
+            const imageUrl = getBestImageUrl(ad.creative)
+            if (imageUrl) {
+              // Don't await - do it in background to not slow down sync
+              downloadAndStoreImage(accountId, upsertedAd.id, imageUrl, 'creative').catch(err => {
+                console.error(`Failed to store image for ad ${ad.id}:`, err)
+              })
+            }
+            
+            // Store carousel images if it's a carousel ad
+            if (ad.creative.object_story_spec?.link_data?.child_attachments?.length > 0) {
+              ad.creative.object_story_spec.link_data.child_attachments.forEach((attachment: any, index: number) => {
+                const carouselImageUrl = attachment.picture || attachment.image_url
+                if (carouselImageUrl) {
+                  downloadAndStoreImage(accountId, upsertedAd.id, carouselImageUrl, `carousel_${index}`).catch(err => {
+                    console.error(`Failed to store carousel image ${index} for ad ${ad.id}:`, err)
+                  })
+                } else if (attachment.image_hash) {
+                  // If we only have hash, we might need to try to resolve it
+                  console.log(`Carousel card ${index} has only hash: ${attachment.image_hash}`)
+                }
+              })
+            }
+            
+            // Also store video thumbnail if it's a video ad
+            if (ad.creative.video_id || ad.creative.object_story_spec?.video_data) {
+              const videoThumbUrl = ad.creative.object_story_spec?.video_data?.image_url ||
+                                   ad.creative.thumbnail_url ||
+                                   ad.creative.asset_feed_spec?.videos?.[0]?.thumbnail_url
+              if (videoThumbUrl && videoThumbUrl !== imageUrl) {
+                downloadAndStoreImage(accountId, upsertedAd.id, videoThumbUrl, 'video_thumbnail').catch(err => {
+                  console.error(`Failed to store video thumbnail for ad ${ad.id}:`, err)
+                })
+              }
+            }
+          }
+          
           totalAds++
         }
       }

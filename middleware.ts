@@ -10,6 +10,7 @@ const publicRoutes = [
   "/api/auth",
   "/api/cron", // Allow cron jobs with their own auth
   "/api/image-proxy", // Allow image proxy for Facebook CDN access
+  "/api/assets", // Allow asset serving (has its own auth check)
 ]
 
 export default async function middleware(request: NextRequest) {

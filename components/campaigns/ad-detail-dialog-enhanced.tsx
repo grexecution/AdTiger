@@ -93,8 +93,10 @@ const isAuthRequiredUrl = (url: string): boolean => {
   if (!url) return false
   // Facebook Ads API URLs require authentication
   if (url.includes('facebook.com/ads/image')) return true
-  // Graph API URLs without /picture endpoint need auth
-  if (url.includes('graph.facebook.com') && !url.includes('/picture')) return true
+  // Graph API URLs without /picture endpoint need auth (but not scontent CDN URLs)
+  if (url.includes('graph.facebook.com') && !url.includes('/picture') && !url.includes('scontent')) return true
+  // Facebook CDN URLs (scontent.*.fbcdn.net) are public and don't need auth
+  if (url.includes('scontent') && url.includes('fbcdn.net')) return false
   return false
 }
 
@@ -118,57 +120,62 @@ const improveImageQuality = (url: string): string => {
 }
 
 // Creative helper functions
-const getCreativeImageUrl = (creative: any): string => {
+const getCreativeImageUrl = (creative: any, adId?: string): string => {
   if (!creative) return ''
   
-  // For video creatives, prioritize video thumbnails
+  // Priority 0: Use locally stored asset if available
+  if (adId) {
+    // This will serve the stored image from our database
+    const assetUrl = `/api/assets/${adId}?type=creative`
+    // We'll still return other URLs as fallback if asset doesn't exist
+    // The API will handle the fallback internally
+    return assetUrl
+  }
+  
+  // Priority 1: Use permalink URLs - they're stable and always work
+  if (creative.asset_feed_spec?.images?.[0]?.permalink_url) {
+    return creative.asset_feed_spec.images[0].permalink_url
+  }
+  
+  // For video creatives, check for video thumbnails
   if (creative.video_id || creative.asset_feed_spec?.videos?.length > 0 || creative.object_story_spec?.video_data) {
-    // Check for video thumbnail in various locations (skip auth-required URLs)
-    if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
-      return improveImageQuality(creative.thumbnail_url)
+    // Check for video thumbnail permalink URLs first
+    if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url) {
+      return creative.asset_feed_spec.videos[0].thumbnail_url
     }
-    if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url && !isAuthRequiredUrl(creative.asset_feed_spec.videos[0].thumbnail_url)) {
-      return improveImageQuality(creative.asset_feed_spec.videos[0].thumbnail_url)
+    // Check for video_data image_url (common in event/video ads)
+    if (creative.object_story_spec?.video_data?.image_url) {
+      return creative.object_story_spec.video_data.image_url
     }
-    if (creative.object_story_spec?.video_data?.thumbnail_url && !isAuthRequiredUrl(creative.object_story_spec.video_data.thumbnail_url)) {
-      return improveImageQuality(creative.object_story_spec.video_data.thumbnail_url)
+    if (creative.object_story_spec?.video_data?.thumbnail_url) {
+      return creative.object_story_spec.video_data.thumbnail_url
     }
-    
-    // Check if video_data has an image_hash we can use (request large size for better quality)
-    if (creative.object_story_spec?.video_data?.image_hash) {
-      return `https://graph.facebook.com/v18.0/${creative.object_story_spec.video_data.image_hash}/picture?width=1200&height=1200`
-    }
-    
-    // Skip video_data.image_url as it's often an Ads API URL
-    // Instead, look for fallback images
-    if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
-      return improveImageQuality(creative.image_url)
-    }
-    if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
-      return improveImageQuality(creative.asset_feed_spec.images[0].url)
-    }
-    
-    // Try to use hash with Graph API /picture endpoint (request large size for better quality)
-    if (creative.asset_feed_spec?.images?.[0]?.hash) {
-      return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture?width=1200&height=1200`
+    if (creative.thumbnail_url) {
+      return creative.thumbnail_url
     }
   }
   
-  // Check regular image locations (skip auth-required URLs)
-  if (creative.image_url && !isAuthRequiredUrl(creative.image_url)) {
-    return improveImageQuality(creative.image_url)
+  // Fallback: Try direct URLs (might have expired tokens but browser can handle them)
+  if (creative.asset_feed_spec?.images?.[0]?.url) {
+    return creative.asset_feed_spec.images[0].url
   }
-  if (creative.thumbnail_url && !isAuthRequiredUrl(creative.thumbnail_url)) {
-    return improveImageQuality(creative.thumbnail_url)
+  
+  // Check other locations
+  if (creative.image_url) {
+    return creative.image_url
   }
-  if (creative.asset_feed_spec?.images?.[0]?.url && !isAuthRequiredUrl(creative.asset_feed_spec.images[0].url)) {
-    return improveImageQuality(creative.asset_feed_spec.images[0].url)
+  if (creative.thumbnail_url) {
+    return creative.thumbnail_url
   }
-  if (creative.asset_feed_spec?.images?.[0]?.hash) {
-    return `https://graph.facebook.com/v18.0/${creative.asset_feed_spec.images[0].hash}/picture?width=1200&height=1200`
+  if (creative.object_story_spec?.link_data?.picture) {
+    return creative.object_story_spec.link_data.picture
   }
-  if (creative.object_story_spec?.link_data?.picture && !isAuthRequiredUrl(creative.object_story_spec.link_data.picture)) {
-    return improveImageQuality(creative.object_story_spec.link_data.picture)
+  
+  // Last resort: if we have a hash, try the asset API endpoint
+  // This will handle cases where we only have expired CDN URLs
+  if (creative.image_hash) {
+    // The asset API will try to serve the image or provide a fallback
+    return `/api/assets/${creative.id || 'unknown'}?type=creative`
   }
   
   return ''
@@ -237,17 +244,34 @@ const getVideoIdForExternalView = (creative: any): string | null => {
 }
 
 // Get carousel images (multiple cards to swipe through)
-const getCarouselImages = (creative: any): any[] => {
+const getCarouselImages = (creative: any, adId?: string): any[] => {
   if (!creative) return []
   
   // Check for carousel child attachments
   if (creative.object_story_spec?.link_data?.child_attachments?.length > 0) {
-    return creative.object_story_spec.link_data.child_attachments.map((attachment: any) => ({
-      url: attachment.picture || attachment.image_url,
-      title: attachment.name,
-      description: attachment.description,
-      link: attachment.link
-    }))
+    return creative.object_story_spec.link_data.child_attachments.map((attachment: any, index: number) => {
+      // Try to use stored carousel image if available
+      let imageUrl = ''
+      if (adId && (attachment.image_hash || attachment.picture || attachment.image_url)) {
+        // Use stored carousel asset with index
+        imageUrl = `/api/assets/${adId}?type=carousel_image_${index}`
+      } else if (attachment.picture) {
+        imageUrl = attachment.picture
+      } else if (attachment.image_url) {
+        imageUrl = attachment.image_url
+      } else if (attachment.image_hash) {
+        // Last resort - try Graph API with hash
+        imageUrl = `https://graph.facebook.com/v18.0/${attachment.image_hash}/picture`
+      }
+      
+      return {
+        url: imageUrl,
+        title: attachment.name,
+        description: attachment.description,
+        link: attachment.link,
+        hash: attachment.image_hash
+      }
+    })
   }
   
   // Check for asset_feed_spec carousel structure
@@ -265,7 +289,7 @@ const getCarouselImages = (creative: any): any[] => {
   
   if (images.length > 1 && hasUniqueContent) {
     return images.map((img: any, index: number) => ({
-      url: img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`,
+      url: img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`,
       title: titles[index] || titles[0],
       description: bodies[index] || bodies[0],
       link: links[index] || links[0]
@@ -283,7 +307,7 @@ const getPlacementImages = (creative: any): string[] => {
   // If it's a carousel, don't return placement images
   if (isCarouselCreative(creative)) return []
   
-  return images.map((img: any) => img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`)
+  return images.map((img: any) => img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`)
 }
 
 // Helper to get image URL from carousel array or string
@@ -293,9 +317,13 @@ const getImageUrl = (imageItem: any): string => {
 }
 
 // Get the main thumbnail for the ad (for preview)
-const getAdThumbnail = (creative: any): string => {
+const getAdThumbnail = (creative: any, adId?: string): string => {
   // For video, get thumbnail
   if (isVideoCreative(creative)) {
+    // Use stored video thumbnail if available
+    if (adId) {
+      return `/api/assets/${adId}?type=video_thumbnail`
+    }
     if (creative.thumbnail_url) return creative.thumbnail_url
     if (creative.asset_feed_spec?.videos?.[0]?.thumbnail_url) {
       return creative.asset_feed_spec.videos[0].thumbnail_url
@@ -304,14 +332,14 @@ const getAdThumbnail = (creative: any): string => {
   
   // For carousel, get first card image
   if (isCarouselCreative(creative)) {
-    const carouselImages = getCarouselImages(creative)
+    const carouselImages = getCarouselImages(creative, adId)
     if (carouselImages.length > 0) {
       return getImageUrl(carouselImages[0].url)
     }
   }
   
   // For single image or placement variations, get the main image
-  return getCreativeImageUrl(creative)
+  return getCreativeImageUrl(creative, adId)
 }
 
 const getBestCreativeImageUrl = (creative: any, targetRatio: number): string => {
@@ -320,14 +348,14 @@ const getBestCreativeImageUrl = (creative: any, targetRatio: number): string => 
   
   // If only one image, return it
   if (images.length === 1) {
-    return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+    return images[0].permalink_url || images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
   }
   
   // For 3 images, assume they are [square, vertical, horizontal] in order
   if (images.length === 3) {
-    if (targetRatio === 1) return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture` // Square
-    if (targetRatio === 0.5625) return images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture` // Vertical 9:16
-    if (targetRatio === 1.78) return images[2].url || `https://graph.facebook.com/v18.0/${images[2].hash}/picture` // Horizontal 16:9
+    if (targetRatio === 1) return images[0].permalink_url || images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture` // Square
+    if (targetRatio === 0.5625) return images[1].permalink_url || images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture` // Vertical 9:16
+    if (targetRatio === 1.78) return images[2].permalink_url || images[2].url || `https://graph.facebook.com/v18.0/${images[2].hash}/picture` // Horizontal 16:9
   }
   
   // Find image with closest aspect ratio if we have dimensions
@@ -350,25 +378,25 @@ const getBestCreativeImageUrl = (creative: any, targetRatio: number): string => 
   
   // If we found a match with dimensions, return it
   if (foundMatch) {
-    return bestImage.url || `https://graph.facebook.com/v18.0/${bestImage.hash}/picture`
+    return bestImage.permalink_url || bestImage.url || `https://graph.facebook.com/v18.0/${bestImage.hash}/picture`
   }
   
   // Try different images based on index to ensure variety
   if (images.length >= 2) {
     // Map target ratio to likely index position
-    if (targetRatio < 0.7) return images[1] ? (images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture`) : images[0].url // Vertical
-    if (targetRatio > 1.5) return images[images.length - 1].url || `https://graph.facebook.com/v18.0/${images[images.length - 1].hash}/picture` // Horizontal
-    return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture` // Square
+    if (targetRatio < 0.7) return images[1] ? (images[1].permalink_url || images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture`) : (images[0].permalink_url || images[0].url) // Vertical
+    if (targetRatio > 1.5) return images[images.length - 1].permalink_url || images[images.length - 1].url || `https://graph.facebook.com/v18.0/${images[images.length - 1].hash}/picture` // Horizontal
+    return images[0].permalink_url || images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture` // Square
   }
   
   // Default to first image
-  return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+  return images[0].permalink_url || images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
 }
 
 const getCreativeImagesWithDimensions = (creative: any): any[] => {
   const images = creative.asset_feed_spec?.images || []
   return images.map((img: any) => ({
-    url: img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`,
+    url: img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`,
     width: img.width || 0,
     height: img.height || 0
   }))
@@ -432,6 +460,10 @@ const StatusBadge = ({ status }: { status: string }) => {
 // Get comments from ad data or show empty state
 const getAdComments = (ad: any) => {
   // Check various possible locations for comments
+  console.log('Getting comments for ad:', ad?.name)
+  console.log('ad.metadata exists:', !!ad?.metadata)
+  console.log('ad.metadata.comments:', ad?.metadata?.comments)
+  
   const comments = 
     ad?.metadata?.comments || 
     ad?.metadata?.rawData?.comments || 
@@ -802,7 +834,7 @@ export function AdDetailDialogEnhanced({
   const creativeFormat = getCreativeFormat(creative)
   const isVideo = isVideoCreative(creative)
   const isCarousel = isCarouselCreative(creative)
-  const carouselItems = getCarouselImages(creative) // For actual carousel ads
+  const carouselItems = getCarouselImages(creative, ad?.id) // For actual carousel ads
   const placementImages = getPlacementImages(creative) // For placement variations
   const imagesWithDimensions = getCreativeImagesWithDimensions(creative)
   
@@ -864,6 +896,11 @@ export function AdDetailDialogEnhanced({
   
   // Get the best image/video based on selected placement
   const getMediaForPlacement = () => {
+    // Priority: Use stored asset if available
+    if (ad?.id) {
+      return `/api/assets/${ad.id}?type=creative`
+    }
+    
     // Check if we have specific assets for different placements
     const assetFeedSpec = creative?.asset_feed_spec
     const images = assetFeedSpec?.images || []
@@ -885,7 +922,7 @@ export function AdDetailDialogEnhanced({
           const ratio = img.width / img.height
           // 9:16 = 0.5625, allow some tolerance
           if (ratio >= 0.5 && ratio <= 0.65) {
-            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+            return img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
           }
         }
       }
@@ -893,13 +930,13 @@ export function AdDetailDialogEnhanced({
       // If we have 3 images, assume [square, vertical, horizontal] pattern
       if (images.length === 3) {
         // Return the vertical one (index 1)
-        return images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture`
+        return images[1].permalink_url || images[1].url || `https://graph.facebook.com/v18.0/${images[1].hash}/picture`
       }
       
       // Last resort - try to find any portrait image
       for (const img of images) {
         if (img.width && img.height && img.width < img.height) {
-          return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+          return img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
         }
       }
     }
@@ -912,7 +949,7 @@ export function AdDetailDialogEnhanced({
           const ratio = img.width / img.height
           // 1:1 square, allow tolerance
           if (ratio >= 0.9 && ratio <= 1.1) {
-            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+            return img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
           }
         }
       }
@@ -923,7 +960,7 @@ export function AdDetailDialogEnhanced({
           const ratio = img.width / img.height
           // 4:5 = 0.8
           if (ratio >= 0.75 && ratio <= 0.85) {
-            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+            return img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
           }
         }
       }
@@ -931,7 +968,7 @@ export function AdDetailDialogEnhanced({
       // If we have 3 images, assume [square, vertical, horizontal] pattern
       if (images.length === 3) {
         // Return the square one (index 0)
-        return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+        return images[0].permalink_url || images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
       }
     }
     
@@ -942,20 +979,20 @@ export function AdDetailDialogEnhanced({
         if (img.width && img.height) {
           const ratio = img.width / img.height
           if (ratio >= 0.9 && ratio <= 1.1) {
-            return img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
+            return img.permalink_url || img.url || `https://graph.facebook.com/v18.0/${img.hash}/picture`
           }
         }
       }
       
       // Default to first image for explore
       if (images.length > 0) {
-        return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+        return images[0].permalink_url || images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
       }
     }
     
     // Fallback - return first available image
     if (images.length > 0) {
-      return images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
+      return images[0].permalink_url || images[0].url || `https://graph.facebook.com/v18.0/${images[0].hash}/picture`
     }
     
     // Last resort - try the old method
@@ -1301,16 +1338,33 @@ export function AdDetailDialogEnhanced({
                           </div>
                         )}
                         
-                        {displayImageUrl || (isCarousel && carouselItems.length > 0) ? (
+                        {isCarousel && carouselItems.length > 0 ? (
                           <>
-                            {isCarousel && carouselItems.length > 1 ? (
+                            {carouselItems.length > 1 ? (
                               // Stories Carousel Display
                               <div className="relative w-full h-full">
-                                <img
-                                  src={getImageUrl(carouselItems[carouselIndex]?.url)}
-                                  alt={`Carousel ${carouselIndex + 1} of ${carouselItems.length}`}
-                                  className="w-full h-full object-cover"
-                                />
+                                {carouselItems[carouselIndex]?.url ? (
+                                  <img
+                                    src={getImageUrl(carouselItems[carouselIndex]?.url)}
+                                    alt={`Carousel ${carouselIndex + 1} of ${carouselItems.length}`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement
+                                      target.onerror = null
+                                      target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"%2F%3E%3Ctext x="50%25" y="50%25" font-family="system-ui" font-size="16" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EImage unavailable%3C%2Ftext%3E%3C%2Fsvg%3E'
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                    <div className="text-center">
+                                      <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                                      <p className="text-sm text-gray-500">Card {carouselIndex + 1}</p>
+                                      {carouselItems[carouselIndex]?.hash && (
+                                        <p className="text-xs text-gray-400 mt-1">Hash: {carouselItems[carouselIndex].hash.substring(0, 8)}...</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                                 
                                 {/* Stories-style progress indicators at top */}
                                 <div className="absolute top-3 left-3 right-3 flex gap-1 z-30">
@@ -1353,6 +1407,11 @@ export function AdDetailDialogEnhanced({
                                 src={displayImageUrl}
                                 alt="Ad preview"
                                 className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.onerror = null // Prevent infinite loop
+                                  target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"%2F%3E%3Ctext x="50%25" y="50%25" font-family="system-ui" font-size="16" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EImage unavailable%3C%2Ftext%3E%3C%2Fsvg%3E'
+                                }}
                               />
                             )}
                             {isVideo && (
@@ -1685,16 +1744,33 @@ export function AdDetailDialogEnhanced({
                           </div>
                         )}
                         
-                        {displayImageUrl || (isCarousel && carouselItems.length > 0) ? (
+                        {isCarousel && carouselItems.length > 0 ? (
                           <>
-                            {isCarousel && carouselItems.length > 1 ? (
+                            {carouselItems.length > 1 ? (
                               // Carousel Display
                               <div className="relative">
-                                <img
-                                  src={getImageUrl(carouselItems[carouselIndex]?.url)}
-                                  alt={carouselItems[carouselIndex]?.title || `Carousel ${carouselIndex + 1}`}
-                                  className="w-full h-auto object-cover"
-                                />
+                                {carouselItems[carouselIndex]?.url ? (
+                                  <img
+                                    src={getImageUrl(carouselItems[carouselIndex]?.url)}
+                                    alt={carouselItems[carouselIndex]?.title || `Carousel ${carouselIndex + 1}`}
+                                    className="w-full h-auto object-cover"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement
+                                      target.onerror = null
+                                      target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"%2F%3E%3Ctext x="50%25" y="50%25" font-family="system-ui" font-size="16" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EImage unavailable%3C%2Ftext%3E%3C%2Fsvg%3E'
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-64 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                    <div className="text-center">
+                                      <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                                      <p className="text-sm text-gray-500">Card {carouselIndex + 1}</p>
+                                      {carouselItems[carouselIndex]?.hash && (
+                                        <p className="text-xs text-gray-400 mt-1">Hash: {carouselItems[carouselIndex].hash.substring(0, 8)}...</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                                 
                                 {/* Carousel Card Text Overlay */}
                                 {carouselItems[carouselIndex]?.title && (
@@ -1759,6 +1835,11 @@ export function AdDetailDialogEnhanced({
                                 src={displayImageUrl}
                                 alt="Ad preview"
                                 className="w-full h-auto object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.onerror = null // Prevent infinite loop
+                                  target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"%2F%3E%3Ctext x="50%25" y="50%25" font-family="system-ui" font-size="16" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EImage unavailable%3C%2Ftext%3E%3C%2Fsvg%3E'
+                                }}
                               />
                             )}
                             
@@ -1768,6 +1849,44 @@ export function AdDetailDialogEnhanced({
                                 onClick={(e) => {
                                   e.stopPropagation() // Prevent dialog from closing
                                   // Facebook videos can only be viewed on Facebook
+                                  const videoId = getVideoIdForExternalView(creative)
+                                  if (videoId) {
+                                    window.open(`https://www.facebook.com/video.php?v=${videoId}`, '_blank')
+                                  } else {
+                                    alert('Video preview not available. Video ID not found.')
+                                  }
+                                }}
+                                className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors cursor-pointer group z-10"
+                                title="View video on Facebook"
+                              >
+                                <div className="bg-white/90 group-hover:bg-white rounded-full p-4 shadow-lg transition-all group-hover:scale-110">
+                                  <Play className="h-8 w-8 text-gray-800 fill-current" />
+                                </div>
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                  View on Facebook <ExternalLink className="inline h-3 w-3 ml-1" />
+                                </div>
+                              </button>
+                            )}
+                          </>
+                        ) : displayImageUrl ? (
+                          <>
+                            {/* Single Image/Video Display */}
+                            <img
+                              src={displayImageUrl}
+                              alt="Ad preview"
+                              className="w-full h-auto object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.onerror = null
+                                target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"%2F%3E%3Ctext x="50%25" y="50%25" font-family="system-ui" font-size="16" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EImage unavailable%3C%2Ftext%3E%3C%2Fsvg%3E'
+                              }}
+                            />
+                            
+                            {/* Video Play Button Overlay */}
+                            {isVideo && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
                                   const videoId = getVideoIdForExternalView(creative)
                                   if (videoId) {
                                     window.open(`https://www.facebook.com/video.php?v=${videoId}`, '_blank')
@@ -1922,6 +2041,11 @@ export function AdDetailDialogEnhanced({
                             src={displayImageUrl}
                             alt="Ad preview"
                             className="w-full h-full object-cover rounded"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.onerror = null // Prevent infinite loop
+                              target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"%2F%3E%3Ctext x="50%25" y="50%25" font-family="system-ui" font-size="16" fill="%239ca3af" text-anchor="middle" dy=".3em"%3EImage unavailable%3C%2Ftext%3E%3C%2Fsvg%3E'
+                            }}
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-100 rounded flex items-center justify-center min-h-[250px]">

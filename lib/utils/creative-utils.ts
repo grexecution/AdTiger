@@ -110,21 +110,22 @@ export function getBestCreativeImageUrl(creative: AdCreative | null | undefined,
 function convertToPublicUrl(url: string | undefined, hash?: string): string | null {
   if (!url) return null
   
+  // URLs from scontent CDN are public - return as-is
+  // These work fine and don't need authentication
+  if (url.includes('scontent') && url.includes('fbcdn.net')) {
+    return url
+  }
+  
   // Skip URLs that require authentication (business.facebook.com, internal APIs)
+  // BUT NOT scontent CDN URLs which are public
   if (url.includes('business.facebook.com') || 
       url.includes('/ads/image/') || 
-      url.includes('graph.facebook.com') && !url.includes('/picture')) {
+      (url.includes('graph.facebook.com') && !url.includes('/picture') && !url.includes('scontent'))) {
     // If we have a hash, use the Graph API picture endpoint
     if (hash) {
       return `https://graph.facebook.com/v21.0/${hash}/picture?width=1200&height=1200`
     }
     return null // Skip auth-required URLs without a hash
-  }
-  
-  // URLs from scontent CDN - return as-is
-  // Note: These may get 403 errors when accessed from localhost
-  if (url.includes('scontent') || url.includes('fbcdn.net')) {
-    return url
   }
   
   // If it's a Graph API picture URL, ensure it has size parameters
@@ -141,71 +142,40 @@ function convertToPublicUrl(url: string | undefined, hash?: string): string | nu
 
 /**
  * Extract the best available image URL from ad creative data
- * Priority: stored asset > asset_feed_spec.images[0] > object_story_spec > image_hash > image_url > thumbnail_url
+ * Priority: asset_feed_spec.images[0] > object_story_spec > image_url > thumbnail_url
+ * Note: Returns CDN URLs directly for browser rendering (bypasses CORS issues)
  */
 export function getCreativeImageUrl(creative: AdCreative | null | undefined, adId?: string): string | null {
   if (!creative) return null
   
-  // If we have an adId, try to use stored asset first
-  if (adId && typeof window !== 'undefined') {
-    // Return the asset API URL for client-side rendering
-    return `/api/assets/${adId}?type=main_image`
-  }
-  
-  // Use the improved thumbnail extraction from thumbnail-utils
-  const thumbnailUrl = getThumbnail(creative)
-  if (thumbnailUrl) {
-    // Try to convert to public URL if it's a Facebook auth URL
-    const publicUrl = convertToPublicUrl(thumbnailUrl)
-    return publicUrl || thumbnailUrl
-  }
-
-  // Legacy fallback: asset_feed_spec images with hash fallback
+  // Priority 1: asset_feed_spec images (prefer stable permalink_url over CDN URLs)
   if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 0) {
     const firstImage = creative.asset_feed_spec.images[0]
-    const publicUrl = convertToPublicUrl(firstImage.url, firstImage.hash)
-    if (publicUrl) return publicUrl
-    // Try hash directly if URL conversion failed
-    if (firstImage.hash) {
-      return `https://graph.facebook.com/v21.0/${firstImage.hash}/picture?width=1200&height=1200`
-    }
-  }
-
-  // Second priority: object_story_spec link_data
-  if (creative.object_story_spec?.link_data?.picture) {
-    const publicUrl = convertToPublicUrl(creative.object_story_spec.link_data.picture)
-    if (publicUrl) return publicUrl
+    // Prefer permalink_url as it's more stable than CDN URLs
+    if (firstImage.permalink_url) return firstImage.permalink_url
+    // Fallback to direct URL (might have expired tokens)
+    if (firstImage.url) return firstImage.url
   }
   
-  // Third priority: image_hash (use Graph API picture endpoint)
-  if (creative.image_hash) {
-    return `https://graph.facebook.com/v21.0/${creative.image_hash}/picture?width=1200&height=1200`
+  // Priority 2: object_story_spec link_data  
+  if (creative.object_story_spec?.link_data?.picture) {
+    return creative.object_story_spec.link_data.picture
   }
 
-  // Fourth priority: direct image_url (check if it's public)
+  // Priority 3: direct image_url
   if (creative.image_url) {
-    const publicUrl = convertToPublicUrl(creative.image_url, creative.image_hash)
-    if (publicUrl) return publicUrl
+    return creative.image_url
   }
 
-  // Fifth priority: extract from thumbnail_url
+  // Priority 4: thumbnail_url
   if (creative.thumbnail_url) {
-    // First try to convert the thumbnail URL directly
-    const publicThumb = convertToPublicUrl(creative.thumbnail_url)
-    if (publicThumb) return publicThumb
-    
-    // Try to extract original URL from thumbnail wrapper
-    try {
-      const url = new URL(creative.thumbnail_url)
-      const originalUrl = url.searchParams.get('url')
-      if (originalUrl) {
-        const decodedUrl = decodeURIComponent(originalUrl)
-        const publicUrl = convertToPublicUrl(decodedUrl)
-        if (publicUrl) return publicUrl
-      }
-    } catch (error) {
-      // URL parsing failed, skip
-    }
+    return creative.thumbnail_url
+  }
+  
+  // Priority 5: Use thumbnail utils as fallback
+  const thumbnailUrl = getThumbnail(creative)
+  if (thumbnailUrl) {
+    return thumbnailUrl
   }
 
   return null
@@ -299,10 +269,37 @@ export function getCreativeFormat(creative: AdCreative | null | undefined): 'ima
     return 'carousel'
   }
   
-  // Check if asset_feed_spec has multiple images (carousel)
-  // asset_feed_spec with multiple images is typically a carousel
+  // Check if asset_feed_spec has multiple unique content items (true carousel)
+  // Multiple images alone doesn't mean carousel - they could be placement variations
+  // A carousel needs multiple unique titles/bodies/links, not just multiple images
   if (creative.asset_feed_spec?.images && Array.isArray(creative.asset_feed_spec.images) && creative.asset_feed_spec.images.length > 1) {
-    return 'carousel'
+    const hasMultipleTitles = (creative.asset_feed_spec?.titles?.length || 0) > 1
+    const hasMultipleBodies = (creative.asset_feed_spec?.bodies?.length || 0) > 1
+    const hasMultipleLinks = (creative.asset_feed_spec?.link_urls?.length || 0) > 1
+    
+    // Only consider it a carousel if we have multiple content variations
+    // Not just multiple images with the same text (which are placement variations)
+    if (hasMultipleTitles || hasMultipleBodies || hasMultipleLinks) {
+      // Additional check: ensure they're actually different
+      if (hasMultipleTitles) {
+        const titles = creative.asset_feed_spec?.titles || []
+        const uniqueTitles = new Set(titles.map((t: any) => t.text || t))
+        if (uniqueTitles.size > 1) return 'carousel'
+      }
+      if (hasMultipleBodies) {
+        const bodies = creative.asset_feed_spec?.bodies || []
+        const uniqueBodies = new Set(bodies.map((b: any) => b.text || b))
+        if (uniqueBodies.size > 1) return 'carousel'
+      }
+      if (hasMultipleLinks) {
+        const links = creative.asset_feed_spec?.link_urls || []
+        const uniqueLinks = new Set(links)
+        if (uniqueLinks.size > 1) return 'carousel'
+      }
+    }
+    
+    // Multiple images with single title/body = image ad with placement variations
+    return 'image'
   }
 
   // Check for single image in asset_feed_spec
