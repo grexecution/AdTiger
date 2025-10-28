@@ -38,18 +38,19 @@ model Account {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String
-  name      String?
-  accountId String?
-  role      UserRole  @default(CUSTOMER)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  image     String?
-  metadata  Json?
-  sessions  Session[]
-  account   Account?  @relation(fields: [accountId], references: [id])
+  id            String          @id @default(cuid())
+  email         String          @unique
+  password      String
+  name          String?
+  accountId     String?
+  role          UserRole        @default(CUSTOMER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  image         String?
+  metadata      Json?
+  sessions      Session[]
+  account       Account?        @relation(fields: [accountId], references: [id])
+  changeHistory ChangeHistory[]
 
   @@index([accountId])
   @@index([email])
@@ -330,25 +331,28 @@ model Recommendation {
 }
 
 model ChangeHistory {
-  id         String    @id @default(cuid())
-  accountId  String
-  entityType String
-  entityId   String
-  externalId String
-  provider   String
-  changeType String
-  fieldName  String
-  oldValue   Json?
-  newValue   Json?
-  syncJobId  String?
-  detectedAt DateTime  @default(now())
-  campaignId String?
-  adGroupId  String?
-  adId       String?
-  account    Account   @relation(fields: [accountId], references: [id])
-  adGroup    AdGroup?  @relation(fields: [adGroupId], references: [id])
-  ad         Ad?       @relation(fields: [adId], references: [id])
-  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  id           String       @id @default(cuid())
+  accountId    String
+  entityType   String
+  entityId     String
+  externalId   String
+  provider     String
+  changeType   String
+  fieldName    String
+  oldValue     Json?
+  newValue     Json?
+  syncJobId    String?
+  detectedAt   DateTime     @default(now())
+  campaignId   String?
+  adGroupId    String?
+  adId         String?
+  userId       String?      // Admin who made the change (if admin-initiated)
+  changeSource ChangeSource @default(PLATFORM_SYNC)
+  account      Account      @relation(fields: [accountId], references: [id])
+  adGroup      AdGroup?     @relation(fields: [adGroupId], references: [id])
+  ad           Ad?          @relation(fields: [adId], references: [id])
+  campaign     Campaign?    @relation(fields: [campaignId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
 
   @@index([accountId])
   @@index([entityType])
@@ -359,6 +363,8 @@ model ChangeHistory {
   @@index([campaignId])
   @@index([adGroupId])
   @@index([adId])
+  @@index([userId])
+  @@index([changeSource])
 }
 
 model Feedback {
@@ -497,33 +503,38 @@ model SyncJob {
 }
 
 model SyncHistory {
-  id            String       @id @default(cuid())
-  accountId     String
-  provider      SyncProvider
-  syncType      SyncType
-  status        SyncStatus
-  startedAt     DateTime
-  completedAt   DateTime?
-  duration      Int?
-  campaignsSync Int          @default(0)
-  adGroupsSync  Int          @default(0)
-  adsSync       Int          @default(0)
-  insightsSync  Int          @default(0)
-  errorMessage  String?
-  errorCategory String?
-  retryCount    Int          @default(0)
-  queueJobId    String?
-  priority      Int?
-  metadata      Json?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  account       Account      @relation(fields: [accountId], references: [id])
+  id                  String       @id @default(cuid())
+  accountId           String
+  provider            SyncProvider
+  syncType            SyncType
+  status              SyncStatus
+  startedAt           DateTime
+  completedAt         DateTime?
+  duration            Int?
+  campaignsSync       Int          @default(0)
+  adGroupsSync        Int          @default(0)
+  adsSync             Int          @default(0)
+  insightsSync        Int          @default(0)
+  errorMessage        String?
+  errorCategory       String?
+  retryCount          Int          @default(0)
+  queueJobId          String?
+  priority            Int?
+  metadata            Json?
+  detectedChanges     Json?        // Summary of changes detected during sync
+  healthStatus        SyncHealth   @default(HEALTHY)
+  accessIssues        Json?        // List of access problems encountered
+  dataDiscrepancies   Json?        // Orphaned/missing entities found
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  account             Account      @relation(fields: [accountId], references: [id])
 
   @@index([accountId])
   @@index([provider])
   @@index([syncType])
   @@index([status])
   @@index([startedAt])
+  @@index([healthStatus])
 }
 
 model AssetStorage {
@@ -583,6 +594,18 @@ enum SyncStatus {
   SUCCESS
   FAILED
   CANCELLED
+}
+
+enum SyncHealth {
+  HEALTHY
+  PARTIAL
+  UNHEALTHY
+}
+
+enum ChangeSource {
+  ADMIN_EDIT
+  PLATFORM_SYNC
+  AUTO_OPTIMIZATION
 }
 
 enum UserRole {

@@ -39,32 +39,49 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { provider, campaignIds } = manualSyncSchema.parse(body)
 
-    // Check manual sync rate limiting (max 3 per day)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    // Check manual sync rate limiting (max 5 per hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
 
-    const manualSyncsToday = await prisma.syncHistory.count({
+    const manualSyncsLastHour = await prisma.syncHistory.count({
       where: {
         accountId: user.accountId || "no-match",
         syncType: 'MANUAL',
         startedAt: {
-          gte: today,
-          lt: tomorrow
+          gte: oneHourAgo
         }
       }
     })
 
-    const maxManualSyncsPerDay = 3
-    if (manualSyncsToday >= maxManualSyncsPerDay) {
+    const maxManualSyncsPerHour = 5
+    if (manualSyncsLastHour >= maxManualSyncsPerHour) {
+      const oldestSync = await prisma.syncHistory.findFirst({
+        where: {
+          accountId: user.accountId || "no-match",
+          syncType: 'MANUAL',
+          startedAt: {
+            gte: oneHourAgo
+          }
+        },
+        orderBy: {
+          startedAt: 'asc'
+        },
+        select: {
+          startedAt: true
+        }
+      })
+
+      const nextAvailableTime = oldestSync 
+        ? new Date(oldestSync.startedAt.getTime() + 60 * 60 * 1000)
+        : new Date(Date.now() + 60 * 60 * 1000)
+
       return NextResponse.json(
         { 
           error: 'Rate limit exceeded',
-          message: `You have reached the daily limit of ${maxManualSyncsPerDay} manual syncs. Please wait until tomorrow or wait for the next automatic sync.`,
-          manualSyncsToday,
-          maxManualSyncsPerDay,
-          nextReset: tomorrow.toISOString()
+          message: `You have reached the hourly limit of ${maxManualSyncsPerHour} manual syncs. Please wait before triggering another sync.`,
+          manualSyncsLastHour,
+          maxManualSyncsPerHour,
+          nextAvailableAt: nextAvailableTime.toISOString(),
+          minutesUntilReset: Math.ceil((nextAvailableTime.getTime() - Date.now()) / 60000)
         },
         { status: 429 }
       )
@@ -134,11 +151,39 @@ export async function POST(request: NextRequest) {
           'MANUAL'
         )
         
+        // Get the most recent sync history entry for this account
+        const syncHistory = await prisma.syncHistory.findFirst({
+          where: {
+            accountId: user.accountId || "no-match",
+            provider: 'META',
+            syncType: 'MANUAL',
+          },
+          orderBy: {
+            startedAt: 'desc',
+          },
+          select: {
+            id: true,
+            status: true,
+            healthStatus: true,
+            campaignsSync: true,
+            adGroupsSync: true,
+            adsSync: true,
+            insightsSync: true,
+            detectedChanges: true,
+            accessIssues: true,
+          },
+        })
+        
         return NextResponse.json({
           success: result.success,
+          syncHistoryId: syncHistory?.id,
+          jobId: syncHistory?.id, // For polling compatibility
           message: result.success 
             ? `Successfully synced ${result.campaigns} campaigns, ${result.ads} ads, and ${result.insights} insights`
             : 'Sync completed with errors',
+          healthStatus: syncHistory?.healthStatus,
+          detectedChanges: syncHistory?.detectedChanges,
+          accessIssues: syncHistory?.accessIssues,
           stats: {
             campaigns: result.campaigns,
             adSets: result.adSets,

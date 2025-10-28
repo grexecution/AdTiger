@@ -119,6 +119,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { GoogleAdPreview } from "@/components/ads/google-ad-preview"
 import { SyncStatusPanel } from "@/components/dashboard/sync-status-panel"
+import { ManualSyncButton } from "@/components/dashboard/manual-sync-button"
 import { getCreativeImageUrl, getCreativeFormat, isVideoCreative, isCarouselCreative, getAllCreativeImageUrls, getBestCreativeImageUrl } from "@/lib/utils/creative-utils"
 import { getCurrencySymbol } from "@/lib/currency"
 import { AdDetailDialogEnhanced } from "@/components/campaigns/ad-detail-dialog-enhanced"
@@ -1151,8 +1152,8 @@ export default function EnhancedCampaignsView() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          {/* Sync panel */}
-          <SyncStatusPanel onSync={handleSync} isSyncing={isSyncing} />
+          {/* Manual sync button with real-time progress */}
+          <ManualSyncButton provider="meta" showLastSync={true} />
         </div>
       </div>
       

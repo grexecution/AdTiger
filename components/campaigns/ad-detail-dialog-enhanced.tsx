@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AdTimelineView } from "./ad-timeline-view"
 import {
   Select,
   SelectContent,
@@ -2077,9 +2078,10 @@ export function AdDetailDialogEnhanced({
           {/* Right Side - Performance & Targeting Information */}
           <div className="flex-1 p-4 overflow-y-auto">
             <Tabs defaultValue="performance" className="h-full">
-              <TabsList className="grid w-full grid-cols-5 h-8 mb-3">
+              <TabsList className="grid w-full grid-cols-6 h-8 mb-3">
                 <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
-                <TabsTrigger value="trends" className="text-xs">Performance</TabsTrigger>
+                <TabsTrigger value="trends" className="text-xs">Trends</TabsTrigger>
+                <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
                 <TabsTrigger value="targeting" className="text-xs">Targeting</TabsTrigger>
                 <TabsTrigger value="placement" className="text-xs">Placement</TabsTrigger>
                 <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
@@ -2772,6 +2774,11 @@ export function AdDetailDialogEnhanced({
                   <ExternalLink className="h-3 w-3 mr-1" />
                   View in {adCampaign?.provider === 'google' ? 'Google' : 'Meta'} Ads Library
                 </Button>
+              </TabsContent>
+
+              {/* Timeline Tab */}
+              <TabsContent value="timeline" className="space-y-3 mt-3">
+                <AdTimelineView adId={ad.id} accountId={ad.accountId} />
               </TabsContent>
             </Tabs>
           </div>
